@@ -1,0 +1,8 @@
+{
+  "name": "FABRO",
+  "description": "Plataforma educativa inteligente con tutor de inteligencia artificial, gestión académica, apuntes avanzados, biblioteca inteligente, exámenes y modo sin conexión.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

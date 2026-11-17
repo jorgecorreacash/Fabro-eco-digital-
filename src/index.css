@@ -1,0 +1,599 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-display: 'Outfit', system-ui, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --fabro-bg: #FAF7F0;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #F3EFE6;
+    --fabro-border: rgba(30, 58, 138, 0.14);
+    --fabro-accent: #4F46E5;
+    --fabro-accent-soft: rgba(79, 70, 229, 0.11);
+    --fabro-accent-text: #3730A3;
+    --fabro-gold: #B45309;
+    --fabro-gold-soft: rgba(212, 175, 55, 0.15);
+    --fabro-gold-text: #92400E;
+    --fabro-warm: #1E1B4B;
+    --fabro-bubble-out: #EEF2FF;
+    --fabro-bubble-out-text: #1E1B4B;
+    --fabro-bubble-in: #FFFFFF;
+    --fabro-bubble-in-text: #0F172A;
+    --fabro-chat-bg: #EFECE4;
+  }
+
+  .dark {
+    --fabro-bg: #070B17;
+    --fabro-surface: #0D1426;
+    --fabro-surface-2: #0A1020;
+    --fabro-border: rgba(139, 92, 246, 0.24);
+    --fabro-accent: #8B5CF6;
+    --fabro-accent-soft: rgba(139, 92, 246, 0.15);
+    --fabro-accent-text: #DDD6FE;
+    --fabro-gold: #E5B842;
+    --fabro-gold-soft: rgba(229, 184, 66, 0.14);
+    --fabro-gold-text: #F7D97E;
+    --fabro-warm: #FAF6EE;
+    --fabro-bubble-out: #2E1F5E;
+    --fabro-bubble-out-text: #FAF6EE;
+    --fabro-bubble-in: #131D36;
+    --fabro-bubble-in-text: #F4EFE6;
+    --fabro-chat-bg: #080D1C;
+  }
+
+  /* Template: Ecológico */
+  html[data-template="ecologico"] {
+    --fabro-bg: #F3F7F2;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #EBF2EA;
+    --fabro-border: rgba(16, 185, 129, 0.25);
+    --fabro-accent: #059669;
+    --fabro-accent-soft: rgba(5, 150, 105, 0.12);
+    --fabro-accent-text: #047857;
+    --fabro-bubble-out: #DCFCE7;
+    --fabro-bubble-out-text: #064E3B;
+    --fabro-chat-bg: #E6EFE6;
+  }
+  html.dark[data-template="ecologico"] {
+    --fabro-bg: #07130D;
+    --fabro-surface: #0D2016;
+    --fabro-surface-2: #0A1911;
+    --fabro-border: rgba(52, 211, 153, 0.22);
+    --fabro-accent: #34D399;
+    --fabro-accent-soft: rgba(52, 211, 153, 0.15);
+    --fabro-accent-text: #6EE7B7;
+    --fabro-bubble-out: #064E3B;
+    --fabro-bubble-out-text: #ECFDF5;
+    --fabro-bubble-in: #12291D;
+    --fabro-chat-bg: #081710;
+  }
+
+  /* Template: Gótico */
+  html[data-template="gotico"] {
+    --fabro-bg: #F5F1EE;
+    --fabro-surface: #FFFDFB;
+    --fabro-surface-2: #EDE6E2;
+    --fabro-border: rgba(159, 18, 57, 0.22);
+    --fabro-accent: #9F1239;
+    --fabro-accent-soft: rgba(159, 18, 57, 0.11);
+    --fabro-accent-text: #881337;
+    --fabro-bubble-out: #FFE4E6;
+    --fabro-bubble-out-text: #4C0519;
+    --fabro-chat-bg: #EDE4E3;
+  }
+  html.dark[data-template="gotico"] {
+    --fabro-bg: #0B070C;
+    --fabro-surface: #150E17;
+    --fabro-surface-2: #100A12;
+    --fabro-border: rgba(251, 113, 133, 0.22);
+    --fabro-accent: #FB7185;
+    --fabro-accent-soft: rgba(251, 113, 133, 0.15);
+    --fabro-accent-text: #FDA4AF;
+    --fabro-bubble-out: #4C0519;
+    --fabro-bubble-out-text: #FFF1F2;
+    --fabro-bubble-in: #1F1522;
+    --fabro-chat-bg: #0E0810;
+  }
+
+  /* Template: Aura */
+  html[data-template="aura"] {
+    --fabro-bg: #F4F7FF;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #EAF0FF;
+    --fabro-border: rgba(79, 70, 229, 0.22);
+    --fabro-accent: #4F46E5;
+    --fabro-accent-soft: rgba(79, 70, 229, 0.12);
+    --fabro-accent-text: #4338CA;
+    --fabro-bubble-out: #E0E7FF;
+    --fabro-bubble-out-text: #1E1B4B;
+    --fabro-chat-bg: #E8EEFC;
+  }
+  html.dark[data-template="aura"] {
+    --fabro-bg: #090D1A;
+    --fabro-surface: #11182E;
+    --fabro-surface-2: #0D1324;
+    --fabro-border: rgba(129, 140, 248, 0.25);
+    --fabro-accent: #818CF8;
+    --fabro-accent-soft: rgba(129, 140, 248, 0.15);
+    --fabro-accent-text: #A5B4FC;
+    --fabro-bubble-out: #312E81;
+    --fabro-bubble-out-text: #EEF2FF;
+    --fabro-bubble-in: #18223D;
+    --fabro-chat-bg: #0B1020;
+  }
+
+  /* Template: Floral */
+  html[data-template="floral"] {
+    --fabro-bg: #FDF7F8;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #FAEBEE;
+    --fabro-border: rgba(190, 24, 93, 0.2);
+    --fabro-accent: #BE185D;
+    --fabro-accent-soft: rgba(190, 24, 93, 0.11);
+    --fabro-accent-text: #9D174D;
+    --fabro-bubble-out: #FCE7F3;
+    --fabro-bubble-out-text: #500724;
+    --fabro-chat-bg: #F8E8EE;
+  }
+  html.dark[data-template="floral"] {
+    --fabro-bg: #150B11;
+    --fabro-surface: #22121B;
+    --fabro-surface-2: #1B0E16;
+    --fabro-border: rgba(244, 114, 182, 0.24);
+    --fabro-accent: #F472B6;
+    --fabro-accent-soft: rgba(244, 114, 182, 0.15);
+    --fabro-accent-text: #F9A8D4;
+    --fabro-bubble-out: #701A43;
+    --fabro-bubble-out-text: #FDF2F8;
+    --fabro-bubble-in: #2B1723;
+    --fabro-chat-bg: #170C13;
+  }
+
+  /* Template: Metal */
+  html[data-template="metal"] {
+    --fabro-bg: #F1F5F9;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #E2E8F0;
+    --fabro-border: rgba(100, 116, 139, 0.3);
+    --fabro-accent: #334155;
+    --fabro-accent-soft: rgba(71, 85, 105, 0.12);
+    --fabro-accent-text: #1E293B;
+    --fabro-bubble-out: #E2E8F0;
+    --fabro-bubble-out-text: #0F172A;
+    --fabro-chat-bg: #E5EAF0;
+  }
+  html.dark[data-template="metal"] {
+    --fabro-bg: #0A0E14;
+    --fabro-surface: #141B24;
+    --fabro-surface-2: #0F141C;
+    --fabro-border: rgba(148, 163, 184, 0.24);
+    --fabro-accent: #CBD5E1;
+    --fabro-accent-soft: rgba(148, 163, 184, 0.16);
+    --fabro-accent-text: #E2E8F0;
+    --fabro-bubble-out: #334155;
+    --fabro-bubble-out-text: #F8FAFC;
+    --fabro-bubble-in: #1B2430;
+    --fabro-chat-bg: #0C1118;
+  }
+
+  /* Template: Oro */
+  html[data-template="oro"] {
+    --fabro-bg: #FCF8F0;
+    --fabro-surface: #FFFDF8;
+    --fabro-surface-2: #F5ECD9;
+    --fabro-border: rgba(180, 83, 9, 0.25);
+    --fabro-accent: #B45309;
+    --fabro-accent-soft: rgba(217, 119, 6, 0.12);
+    --fabro-accent-text: #92400E;
+    --fabro-bubble-out: #FEF3C7;
+    --fabro-bubble-out-text: #451A03;
+    --fabro-chat-bg: #F3EAD6;
+  }
+  html.dark[data-template="oro"] {
+    --fabro-bg: #120D05;
+    --fabro-surface: #1D1509;
+    --fabro-surface-2: #171007;
+    --fabro-border: rgba(245, 158, 11, 0.26);
+    --fabro-accent: #F59E0B;
+    --fabro-accent-soft: rgba(245, 158, 11, 0.15);
+    --fabro-accent-text: #FCD34D;
+    --fabro-bubble-out: #78350F;
+    --fabro-bubble-out-text: #FFFBEB;
+    --fabro-bubble-in: #281D0D;
+    --fabro-chat-bg: #140E06;
+  }
+
+  html, body {
+    overflow-x: hidden;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--fabro-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-mono, code, pre {
+    font-family: var(--font-mono);
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.fabro-shell-bg {
+  background-color: var(--fabro-bg);
+}
+
+.fabro-shell-surface {
+  background-color: var(--fabro-surface);
+  border-color: var(--fabro-border);
+}
+
+.fabro-shell-surface-2 {
+  background-color: var(--fabro-surface-2);
+  border-color: var(--fabro-border);
+}
+
+.fabro-glass {
+  background-color: color-mix(in srgb, var(--fabro-surface) 84%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-color: var(--fabro-border);
+}
+
+.fabro-accent-pill {
+  background-color: var(--fabro-accent-soft);
+  color: var(--fabro-accent-text);
+}
+
+.fabro-gold-accent {
+  color: var(--fabro-gold-text);
+}
+
+.fabro-gold-border {
+  border-color: color-mix(in srgb, var(--fabro-gold) 38%, transparent);
+}
+
+.fabro-hero-ambient {
+  background-image:
+    radial-gradient(60% 90% at 10% 0%, rgba(139, 92, 246, 0.13), transparent 65%),
+    radial-gradient(50% 80% at 95% 15%, rgba(229, 184, 66, 0.11), transparent 65%);
+}
+
+.fabro-chat-canvas {
+  background-color: var(--fabro-chat-bg);
+  background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.fabro-bubble-out {
+  background-color: var(--fabro-bubble-out);
+  color: var(--fabro-bubble-out-text);
+  border-radius: 1rem 0.25rem 1rem 1rem;
+}
+
+.fabro-bubble-in {
+  background-color: var(--fabro-bubble-in);
+  color: var(--fabro-bubble-in-text);
+  border-radius: 0.25rem 1rem 1rem 1rem;
+}
+
+/* Rich text editor prose styles */
+.fabro-editor {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fabro-editor:empty:before {
+  content: attr(data-placeholder);
+  color: rgb(148 163 184 / 0.7);
+  pointer-events: none;
+}
+
+.fabro-editor h1 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.fabro-editor h2 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.fabro-editor h3 {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.fabro-editor ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.fabro-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.fabro-editor a {
+  color: #0284c7;
+  text-decoration: underline;
+}
+
+.dark .fabro-editor a {
+  color: #38bdf8;
+}
+
+.fabro-editor table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+.fabro-editor th,
+.fabro-editor td {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  padding: 0.45rem 0.65rem;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.fabro-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.fabro-editor blockquote {
+  margin: 1rem 0;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  background-color: rgba(148, 163, 184, 0.08);
+  font-style: italic;
+  color: inherit;
+}
+
+.fabro-editor hr {
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+  margin: 1.75rem auto;
+  width: 40%;
+}
+
+/* Wikipedia-style encyclopedic image figures inside Notes & Reading Mode */
+.fabro-wiki-figure {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.75rem;
+  background-color: rgba(248, 250, 252, 0.9);
+  padding: 0.65rem;
+  margin: 0.85rem 0;
+  max-width: 340px;
+}
+
+.dark .fabro-wiki-figure {
+  background-color: rgba(15, 23, 42, 0.7);
+  border-color: rgba(51, 65, 85, 0.75);
+}
+
+.fabro-wiki-figure img {
+  width: 100%;
+  height: auto;
+  border-radius: 0.45rem;
+  margin: 0 !important;
+  cursor: zoom-in;
+}
+
+.fabro-wiki-figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgb(71 85 105);
+}
+
+.dark .fabro-wiki-figure figcaption {
+  color: rgb(203 213 225);
+}
+
+@media (min-width: 640px) {
+  .fabro-wiki-figure.fabro-wiki-right {
+    float: right;
+    margin: 0.25rem 0 1rem 1.25rem;
+    width: 280px;
+  }
+}
+
+/* Interactive Checklists inside Notes editor & prints */
+.fabro-editor .fabro-checklist {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background-color: rgba(148, 163, 184, 0.06);
+}
+
+.fabro-editor .fabro-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.3rem 0;
+  cursor: pointer;
+}
+
+.fabro-editor .fabro-checklist-item input[type="checkbox"] {
+  margin-top: 0.25rem;
+  width: 1rem;
+  height: 1rem;
+  accent-color: #0284c7;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.fabro-editor .fabro-checklist-item[data-checked="true"] > span {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+/* Markdown output formatting in FABRO AI */
+.fabro-markdown {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.fabro-markdown h1,
+.fabro-markdown h2,
+.fabro-markdown h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.fabro-markdown h1 { font-size: 1.25rem; }
+.fabro-markdown h2 { font-size: 1.1rem; }
+.fabro-markdown h3 { font-size: 0.98rem; }
+
+.fabro-markdown p {
+  margin-bottom: 0.65rem;
+  line-height: 1.65;
+}
+
+.fabro-markdown ul,
+.fabro-markdown ol {
+  padding-left: 1.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.fabro-markdown ul { list-style-type: disc; }
+.fabro-markdown ol { list-style-type: decimal; }
+
+.fabro-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+}
+
+.fabro-markdown th,
+.fabro-markdown td {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+}
+
+.fabro-markdown th {
+  background-color: rgba(148, 163, 184, 0.1);
+  font-weight: 600;
+}
+
+.fabro-markdown pre {
+  background-color: rgba(15, 23, 42, 0.08);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0.65rem 0;
+  font-size: 0.825rem;
+}
+
+.dark .fabro-markdown pre {
+  background-color: rgba(2, 6, 23, 0.65);
+}
+
+.fabro-markdown code {
+  font-size: 0.85em;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  background-color: rgba(148, 163, 184, 0.14);
+}
+
+.fabro-markdown pre code {
+  padding: 0;
+  background: transparent;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+  }
+
+  aside,
+  header,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .fabro-print-sheet {
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+  }
+
+  .fabro-print-sheet * {
+    color: #0f172a !important;
+  }
+
+  .fabro-print-sheet table {
+    display: table !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  .fabro-print-sheet img {
+    max-width: 100% !important;
+    height: auto !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .fabro-print-sheet h1,
+  .fabro-print-sheet h2,
+  .fabro-print-sheet h3,
+  .fabro-print-sheet tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

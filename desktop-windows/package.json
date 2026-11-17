@@ -1,0 +1,20 @@
+{
+  "name": "fabro-browser-windows",
+  "version": "1.0.0",
+  "description": "FABRO Browser Nativo para Windows basado en Electron y Chromium WebContentsView",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "npm run build && electron .",
+    "package:win": "npm run build && electron-builder --config electron-builder.yml --win nsis portable",
+    "test": "tsx tests/security.test.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "electron": "^35.1.5",
+    "electron-builder": "^25.1.8",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.2"
+  }
+}

@@ -1,0 +1,27 @@
+appId: com.fabro.browser.windows
+productName: FABRO Browser
+copyright: Copyright © 2026 FABRO Plataforma Educativa
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  verifyUpdateCodeSignature: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: FABRO Browser
+portable:
+  artifactName: FABRO-Browser-Portable-${version}-${arch}.exe

@@ -1,0 +1,1552 @@
+{
+  "entities": {
+    "StudentProfile": {
+      "title": "StudentProfile",
+      "description": "Private student profile, academic preferences, and free storage usage.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "username": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "format": "email", "minLength": 3, "maxLength": 200 },
+        "photoURL": { "type": "string", "maxLength": 1000 },
+        "birthDate": { "type": "string", "maxLength": 20 },
+        "isMinor": { "type": "boolean" },
+        "parentalConsentApproved": { "type": "boolean" },
+        "country": { "type": "string", "maxLength": 80 },
+        "province": { "type": "string", "maxLength": 80 },
+        "city": { "type": "string", "maxLength": 80 },
+        "bio": { "type": "string", "maxLength": 1500 },
+        "interests": { "type": "array" },
+        "institutions": { "type": "array" },
+        "isStudent": { "type": "boolean" },
+        "isInstructor": { "type": "boolean" },
+        "instructorCategory": {
+          "type": "string",
+          "enum": ["docente_institucional", "profesor_universitario", "instructor_fp", "instructor_oficio", "instructor_independiente", "especialista"]
+        },
+        "verificationStatus": {
+          "type": "string",
+          "enum": ["no_solicitado", "pendiente", "aprobado", "rechazado", "requiere_documentacion", "revocado"]
+        },
+        "specialty": { "type": "string", "maxLength": 160 },
+        "experienceSummary": { "type": "string", "maxLength": 2000 },
+        "reputationPoints": { "type": "number" },
+        "presenceMode": { "type": "string", "enum": ["online", "away", "dnd", "invisible"] },
+        "accountStatus": { "type": "string", "enum": ["activo", "advertido", "suspendido"] },
+        "followedInstructorIds": { "type": "array" },
+        "blockedUserIds": { "type": "array" },
+        "educationLevel": {
+          "type": "string",
+          "enum": ["primaria", "secundaria", "terciario", "universitario", "posgrado", "autodidacta"]
+        },
+        "institution": { "type": "string", "maxLength": 150 },
+        "career": { "type": "string", "maxLength": 150 },
+        "weeklyGoalHours": { "type": "number" },
+        "themePreference": { "type": "string", "enum": ["dark", "light", "system"] },
+        "storageUsedBytes": { "type": "number" },
+        "planTier": { "type": "string", "enum": ["free", "premium"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email", "educationLevel", "weeklyGoalHours", "themePreference", "storageUsedBytes", "planTier", "createdAt", "updatedAt"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "Academic subject workspace belonging to a single student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "institution": { "type": "string", "maxLength": 150 },
+        "level": {
+          "type": "string",
+          "enum": ["primaria", "secundaria", "terciario", "universitario", "posgrado", "autodidacta"]
+        },
+        "career": { "type": "string", "maxLength": 150 },
+        "professor": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "maxLength": 7 },
+        "syllabus": { "type": "string", "maxLength": 10000 },
+        "syllabusFileName": { "type": "string", "maxLength": 255 },
+        "syllabusFileMime": { "type": "string", "maxLength": 120 },
+        "syllabusFileUrl": { "type": "string", "maxLength": 2000 },
+        "syllabusExtractedText": { "type": "string", "maxLength": 120000 },
+        "bibliography": { "type": "string", "maxLength": 5000 },
+        "units": { "type": "array" },
+        "progressPercent": { "type": "number" },
+        "aiAnalysisMarkdown": { "type": "string", "maxLength": 60000 },
+        "aiAnalysisSources": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "name", "level", "color", "units", "progressPercent", "createdAt", "updatedAt"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "Rich academic note with folder, tags, attachments, and offline sync flag.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "unit": { "type": "string", "maxLength": 200 },
+        "folder": { "type": "string", "maxLength": 100 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "contentHtml": { "type": "string", "maxLength": 300000 },
+        "contentText": { "type": "string", "maxLength": 300000 },
+        "tags": { "type": "array" },
+        "attachments": { "type": "array" },
+        "offlineAvailable": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "subjectId", "folder", "title", "contentHtml", "contentText", "tags", "attachments", "offlineAvailable", "createdAt", "updatedAt"]
+    },
+    "LibraryDoc": {
+      "title": "LibraryDoc",
+      "description": "Academic file metadata and extracted text stored in the personal library.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "category": {
+          "type": "string",
+          "enum": ["libro", "pdf", "programa", "bibliografia", "foto_apunte", "investigacion", "otro"]
+        },
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "mimeType": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "sizeBytes": { "type": "number" },
+        "storageUrl": { "type": "string", "maxLength": 2000 },
+        "storagePath": { "type": "string", "maxLength": 500 },
+        "extractedText": { "type": "string", "maxLength": 300000 },
+        "aiAuthorized": { "type": "boolean" },
+        "tags": { "type": "array" },
+        "coverage": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "subjectId", "title", "category", "fileName", "mimeType", "sizeBytes", "storageUrl", "storagePath", "extractedText", "aiAuthorized", "tags", "createdAt", "updatedAt"]
+    },
+    "Exam": {
+      "title": "Exam",
+      "description": "Personalized or AI-generated written/oral exam attempt and evaluation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "mode": { "type": "string", "enum": ["escrito", "oral"] },
+        "difficulty": { "type": "string", "enum": ["basico", "intermedio", "universitario", "avanzado"] },
+        "units": { "type": "array" },
+        "status": { "type": "string", "enum": ["en_progreso", "completado"] },
+        "scorePercent": { "type": "number" },
+        "questionsCount": { "type": "number" },
+        "questions": { "type": "array" },
+        "weakTopics": { "type": "array" },
+        "aiFeedback": { "type": "string", "maxLength": 15000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "subjectId", "title", "mode", "difficulty", "units", "status", "scorePercent", "questionsCount", "questions", "weakTopics", "aiFeedback", "createdAt", "updatedAt"]
+    },
+    "CalendarEvent": {
+      "title": "CalendarEvent",
+      "description": "Academic calendar event such as exam, deadline, class, or weekly goal.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "type": { "type": "string", "enum": ["examen", "parcial", "final", "entrega", "tp", "clase", "recordatorio", "objetivo"] },
+        "date": { "type": "string", "minLength": 10, "maxLength": 30 },
+        "time": { "type": "string", "maxLength": 10 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "subjectId", "title", "type", "date", "time", "notes", "completed", "createdAt", "updatedAt"]
+    },
+    "FlashcardDeck": {
+      "title": "FlashcardDeck",
+      "description": "Spaced-repetition study deck owned by a student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 500 },
+        "cardCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "subjectId", "title", "description", "cardCount", "createdAt", "updatedAt"]
+    },
+    "FlashcardItem": {
+      "title": "FlashcardItem",
+      "description": "Individual flashcard, true/false, or multiple-choice card inside a deck.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "deckId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "question": { "type": "string", "minLength": 1, "maxLength": 1500 },
+        "answer": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "cardType": { "type": "string", "enum": ["flashcard", "vf", "opcion_multiple"] },
+        "options": { "type": "array" },
+        "correctOptionIndex": { "type": "number" },
+        "easeFactor": { "type": "number" },
+        "intervalDays": { "type": "number" },
+        "repetitions": { "type": "number" },
+        "nextReviewDate": { "type": "string", "minLength": 10, "maxLength": 30 },
+        "lastResult": { "type": "string", "enum": ["pendiente", "dificil", "bien", "facil"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "deckId", "question", "answer", "cardType", "options", "correctOptionIndex", "easeFactor", "intervalDays", "repetitions", "nextReviewDate", "lastResult", "createdAt", "updatedAt"]
+    },
+    "StudySession": {
+      "title": "StudySession",
+      "description": "Logged student study session for progress analytics.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "activityType": { "type": "string", "enum": ["apuntes", "tutor_ai", "examen", "memorizacion", "lectura"] },
+        "durationMinutes": { "type": "number" },
+        "topic": { "type": "string", "maxLength": 200 },
+        "date": { "type": "string", "minLength": 10, "maxLength": 30 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "subjectId", "activityType", "durationMinutes", "topic", "date", "createdAt"]
+    },
+    "AIChatThread": {
+      "title": "AIChatThread",
+      "description": "Saved FABRO AI tutor conversation thread scoped to the owning student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "mode": { "type": "string", "enum": ["sencillo", "academico"] },
+        "selectedDocIds": { "type": "array" },
+        "messages": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "subjectId", "title", "mode", "selectedDocIds", "messages", "createdAt", "updatedAt"]
+    },
+    "Book": {
+      "title": "Book",
+      "description": "Original book project authored by a student or writer inside FABRO.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "subtitle": { "type": "string", "maxLength": 300 },
+        "authorName": { "type": "string", "maxLength": 120 },
+        "genre": {
+          "type": "string",
+          "enum": ["academico", "ensayo", "manual", "novela", "cuentos", "investigacion", "biografia", "otro"]
+        },
+        "language": { "type": "string", "maxLength": 40 },
+        "synopsis": { "type": "string", "maxLength": 4000 },
+        "targetWords": { "type": "number" },
+        "coverColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "maxLength": 7 },
+        "dedication": { "type": "string", "maxLength": 1500 },
+        "bibliography": { "type": "string", "maxLength": 10000 },
+        "status": { "type": "string", "enum": ["borrador", "en_revision", "finalizado"] },
+        "chaptersCount": { "type": "number" },
+        "totalWords": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "userId",
+        "subjectId",
+        "title",
+        "subtitle",
+        "authorName",
+        "genre",
+        "language",
+        "synopsis",
+        "targetWords",
+        "coverColor",
+        "dedication",
+        "bibliography",
+        "status",
+        "chaptersCount",
+        "totalWords",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "BookChapter": {
+      "title": "BookChapter",
+      "description": "Individual chapter manuscript belonging to a book.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "bookId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderIndex": { "type": "number" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "summary": { "type": "string", "maxLength": 1000 },
+        "notes": { "type": "string", "maxLength": 5000 },
+        "contentHtml": { "type": "string", "maxLength": 300000 },
+        "contentText": { "type": "string", "maxLength": 300000 },
+        "wordCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["idea", "borrador", "revisado", "completo"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "userId",
+        "bookId",
+        "orderIndex",
+        "title",
+        "summary",
+        "notes",
+        "contentHtml",
+        "contentText",
+        "wordCount",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DictionaryEntry": {
+      "title": "DictionaryEntry",
+      "description": "Personal academic dictionary entry with persistent student memory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "term": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "normalizedTerm": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "category": { "type": "string", "maxLength": 80 },
+        "phonetic": { "type": "string", "maxLength": 120 },
+        "definition": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "academicDefinition": { "type": "string", "maxLength": 6000 },
+        "examples": { "type": "array" },
+        "synonyms": { "type": "array" },
+        "etymology": { "type": "string", "maxLength": 1500 },
+        "personalNotes": { "type": "string", "maxLength": 4000 },
+        "favorite": { "type": "boolean" },
+        "lookupCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "userId",
+        "subjectId",
+        "term",
+        "normalizedTerm",
+        "category",
+        "definition",
+        "examples",
+        "synonyms",
+        "favorite",
+        "lookupCount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "HubUserState": {
+      "title": "HubUserState",
+      "description": "Private FABRO HUB favorites, tool usage history, disabled catalog IDs, and custom admin tools for a student.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "favorites": { "type": "array" },
+        "history": { "type": "array" },
+        "customTools": { "type": "array" },
+        "disabledToolIds": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "favorites", "history", "customTools", "disabledToolIds", "updatedAt"]
+    },
+    "SubjectAcademicMemory": {
+      "title": "SubjectAcademicMemory",
+      "description": "Persistent academic study memory per subject and user for FABRO IA 2.0.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "developedTopics": { "type": "array" },
+        "priorSummaries": { "type": "array" },
+        "examQuestionsHistory": { "type": "array" },
+        "verifiedBibliography": { "type": "array" },
+        "authorsAndTheories": { "type": "array" },
+        "studentProgressNotes": { "type": "string", "maxLength": 10000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "userId",
+        "subjectId",
+        "developedTopics",
+        "priorSummaries",
+        "examQuestionsHistory",
+        "verifiedBibliography",
+        "authorsAndTheories",
+        "studentProgressNotes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PublicUserProfile": {
+      "title": "PublicUserProfile",
+      "description": "PII-free public directory profile with minor safety controls.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "username": { "type": "string", "maxLength": 50 },
+        "photoURL": { "type": "string", "maxLength": 1000 },
+        "country": { "type": "string", "maxLength": 80 },
+        "province": { "type": "string", "maxLength": 80 },
+        "city": { "type": "string", "maxLength": 80 },
+        "bio": { "type": "string", "maxLength": 1500 },
+        "interests": { "type": "array" },
+        "institutions": { "type": "array" },
+        "isStudent": { "type": "boolean" },
+        "isInstructor": { "type": "boolean" },
+        "instructorCategory": { "type": "string", "maxLength": 60 },
+        "verificationStatus": { "type": "string", "maxLength": 40 },
+        "specialty": { "type": "string", "maxLength": 160 },
+        "experienceSummary": { "type": "string", "maxLength": 2000 },
+        "isMinor": { "type": "boolean" },
+        "searchableInDirectory": { "type": "boolean" },
+        "presenceStatus": { "type": "string", "enum": ["online", "away", "dnd", "offline"] },
+        "reputationPoints": { "type": "number" },
+        "followersCount": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "username", "isStudent", "isInstructor", "verificationStatus", "isMinor", "searchableInDirectory", "presenceStatus", "reputationPoints", "followersCount", "updatedAt"]
+    },
+    "InstructorVerificationRequest": {
+      "title": "InstructorVerificationRequest",
+      "description": "Private instructor accreditation application and documentation accessible only to applicant and admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "applicantName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "contactInfo": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "country": { "type": "string", "maxLength": 80 },
+        "province": { "type": "string", "maxLength": 80 },
+        "city": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "specialty": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "category": { "type": "string", "maxLength": 60 },
+        "experienceDetails": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "institution": { "type": "string", "maxLength": 160 },
+        "evidenceSummary": { "type": "string", "maxLength": 2000 },
+        "evidenceFileUrl": { "type": "string", "maxLength": 2000 },
+        "evidenceFileName": { "type": "string", "maxLength": 255 },
+        "status": { "type": "string", "enum": ["pendiente", "aprobado", "rechazado", "requiere_documentacion", "revocado"] },
+        "adminNote": { "type": "string", "maxLength": 1500 },
+        "reviewedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "applicantName", "contactInfo", "city", "specialty", "category", "experienceDetails", "status", "createdAt", "updatedAt"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Free course published in FABRO ACADEMY.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "instructorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "instructorName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "instructorVerified": { "type": "boolean" },
+        "instructorCategory": { "type": "string", "maxLength": 60 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 5000 },
+        "area": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "level": { "type": "string", "enum": ["inicial", "intermedio", "avanzado", "universitario"] },
+        "objectives": { "type": "string", "maxLength": 4000 },
+        "syllabus": { "type": "string", "maxLength": 20000 },
+        "estimatedHours": { "type": "number" },
+        "lessonsCount": { "type": "number" },
+        "visibility": { "type": "string", "enum": ["publico", "privado", "institucional"] },
+        "institution": { "type": "string", "maxLength": 160 },
+        "isFree": { "type": "boolean" },
+        "certificateEnabled": { "type": "boolean" },
+        "linkedGroupId": { "type": "string", "maxLength": 128 },
+        "bibliography": { "type": "string", "maxLength": 5000 },
+        "enrolledCount": { "type": "number" },
+        "ratingSum": { "type": "number" },
+        "ratingCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["activo", "archivado"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "instructorId", "instructorName", "instructorVerified", "title", "description", "area", "category", "level", "visibility", "isFree", "certificateEnabled", "lessonsCount", "enrolledCount", "ratingSum", "ratingCount", "status", "createdAt", "updatedAt"]
+    },
+    "CourseLesson": {
+      "title": "CourseLesson",
+      "description": "Individual lesson inside an academy course.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "courseId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "instructorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderIndex": { "type": "number" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 6000 },
+        "videoUrl": { "type": "string", "maxLength": 500 },
+        "youtubeVideoId": { "type": "string", "maxLength": 32 },
+        "materialPdfUrl": { "type": "string", "maxLength": 2000 },
+        "materialPdfName": { "type": "string", "maxLength": 255 },
+        "activityPrompt": { "type": "string", "maxLength": 4000 },
+        "quizQuestions": { "type": "array" },
+        "durationMinutes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "courseId", "instructorId", "orderIndex", "title", "durationMinutes", "quizQuestions", "createdAt", "updatedAt"]
+    },
+    "CourseEnrollment": {
+      "title": "CourseEnrollment",
+      "description": "Student enrollment and progress record for a free academy course.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "courseId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "instructorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["activo", "completado", "abandonado"] },
+        "completedLessonIds": { "type": "array" },
+        "quizScores": { "type": "object" },
+        "progressPercent": { "type": "number" },
+        "favorite": { "type": "boolean" },
+        "studentRating": { "type": "number" },
+        "certificateIssued": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "courseId", "instructorId", "status", "completedLessonIds", "progressPercent", "favorite", "studentRating", "certificateIssued", "createdAt", "updatedAt"]
+    },
+    "CommunityGroup": {
+      "title": "CommunityGroup",
+      "description": "Open or institutional learning community organized by geography, institution, or specialty.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "creatorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "creatorName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "description": { "type": "string", "maxLength": 3000 },
+        "groupType": { "type": "string", "maxLength": 40 },
+        "visibility": { "type": "string", "enum": ["publico", "privado", "institucional", "aprobado_docente"] },
+        "country": { "type": "string", "maxLength": 80 },
+        "province": { "type": "string", "maxLength": 80 },
+        "city": { "type": "string", "maxLength": 80 },
+        "institutionName": { "type": "string", "maxLength": 150 },
+        "career": { "type": "string", "maxLength": 120 },
+        "courseName": { "type": "string", "maxLength": 120 },
+        "subjectName": { "type": "string", "maxLength": 120 },
+        "specialty": { "type": "string", "maxLength": 120 },
+        "linkedCourseId": { "type": "string", "maxLength": 128 },
+        "allowMinors": { "type": "boolean" },
+        "memberCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "creatorId", "creatorName", "name", "groupType", "visibility", "allowMinors", "memberCount", "createdAt", "updatedAt"]
+    },
+    "GroupMember": {
+      "title": "GroupMember",
+      "description": "Membership inside a community group.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "groupId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "role": { "type": "string", "enum": ["admin", "docente", "moderador", "miembro"] },
+        "status": { "type": "string", "enum": ["activo", "pendiente", "rechazado"] },
+        "isMinor": { "type": "boolean" },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "groupId", "displayName", "role", "status", "isMinor", "joinedAt"]
+    },
+    "GroupPost": {
+      "title": "GroupPost",
+      "description": "Post, poll, announcement, question, or material shared on a group wall.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "groupId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "authorVerified": { "type": "boolean" },
+        "postType": { "type": "string", "maxLength": 30 },
+        "title": { "type": "string", "maxLength": 200 },
+        "content": { "type": "string", "minLength": 1, "maxLength": 15000 },
+        "attachmentUrl": { "type": "string", "maxLength": 2000 },
+        "attachmentName": { "type": "string", "maxLength": 255 },
+        "youtubeVideoId": { "type": "string", "maxLength": 32 },
+        "pollOptions": { "type": "array" },
+        "comments": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "groupId", "authorId", "authorName", "postType", "content", "pollOptions", "comments", "createdAt", "updatedAt"]
+    },
+    "GroupChatMessage": {
+      "title": "GroupChatMessage",
+      "description": "Real-time group chat message.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "groupId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "senderId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "attachmentUrl": { "type": "string", "maxLength": 2000 },
+        "attachmentName": { "type": "string", "maxLength": 255 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "groupId", "senderId", "senderName", "text", "createdAt"]
+    },
+    "VirtualClassroom": {
+      "title": "VirtualClassroom",
+      "description": "Live synchronized virtual classroom controlled by instructor.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "instructorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "instructorName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "courseId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 3000 },
+        "scheduledAt": { "type": "string", "maxLength": 40 },
+        "visibility": { "type": "string", "enum": ["publico", "privado", "institucional"] },
+        "allowedStudentIds": { "type": "array" },
+        "youtubeVideoId": { "type": "string", "maxLength": 32 },
+        "videoTitle": { "type": "string", "maxLength": 200 },
+        "playbackState": { "type": "string", "enum": ["playing", "paused"] },
+        "playbackSeconds": { "type": "number" },
+        "playbackUpdatedAt": { "type": "string", "maxLength": 60 },
+        "presentationNotes": { "type": "string", "maxLength": 15000 },
+        "sharedLinks": { "type": "array" },
+        "sharedDocTitles": { "type": "array" },
+        "activeQuiz": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "instructorId", "instructorName", "title", "visibility", "allowedStudentIds", "playbackState", "playbackSeconds", "playbackUpdatedAt", "sharedLinks", "sharedDocTitles", "createdAt", "updatedAt"]
+    },
+    "DirectThread": {
+      "title": "DirectThread",
+      "description": "Adult-only 1:1 private chat thread (blocked for minors).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "participantIds": { "type": "array" },
+        "participantNames": { "type": "array" },
+        "hasMinorParticipant": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["activo", "bloqueado"] },
+        "blockedBy": { "type": "string", "maxLength": 128 },
+        "lastMessagePreview": { "type": "string", "maxLength": 300 },
+        "unreadBy": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "participantIds", "participantNames", "hasMinorParticipant", "status", "blockedBy", "lastMessagePreview", "unreadBy", "createdAt", "updatedAt"]
+    },
+    "DirectMessage": {
+      "title": "DirectMessage",
+      "description": "Message inside a direct thread.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "threadId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "senderId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "attachmentUrl": { "type": "string", "maxLength": 2000 },
+        "attachmentName": { "type": "string", "maxLength": 255 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "threadId", "senderId", "senderName", "text", "createdAt"]
+    },
+    "SavedVideoResource": {
+      "title": "SavedVideoResource",
+      "description": "YouTube educational video resource with authorized captions and AI summary.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "addedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "addedByName": { "type": "string", "maxLength": 100 },
+        "youtubeVideoId": { "type": "string", "minLength": 4, "maxLength": 32 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "channelTitle": { "type": "string", "maxLength": 120 },
+        "thumbnailUrl": { "type": "string", "maxLength": 500 },
+        "youtubeUrl": { "type": "string", "maxLength": 500 },
+        "area": { "type": "string", "maxLength": 100 },
+        "subjectTag": { "type": "string", "maxLength": 100 },
+        "keywords": { "type": "array" },
+        "transcriptAvailable": { "type": "boolean" },
+        "transcriptText": { "type": "string", "maxLength": 80000 },
+        "aiSummaryMarkdown": { "type": "string", "maxLength": 40000 },
+        "isPublic": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "addedBy", "youtubeVideoId", "title", "youtubeUrl", "transcriptAvailable", "isPublic", "createdAt", "updatedAt"]
+    },
+    "SharedLibraryItem": {
+      "title": "SharedLibraryItem",
+      "description": "Collaborative educational library resource with copyright attestation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "uploaderId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "uploaderName": { "type": "string", "maxLength": 100 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "itemType": { "type": "string", "maxLength": 40 },
+        "area": { "type": "string", "maxLength": 100 },
+        "career": { "type": "string", "maxLength": 120 },
+        "subjectName": { "type": "string", "maxLength": 120 },
+        "courseName": { "type": "string", "maxLength": 120 },
+        "fileUrl": { "type": "string", "maxLength": 2000 },
+        "fileName": { "type": "string", "maxLength": 255 },
+        "authorConfirmedRights": { "type": "boolean" },
+        "visibility": { "type": "string", "enum": ["publico", "privado"] },
+        "downloadsCount": { "type": "number" },
+        "favoriteUserIds": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uploaderId", "uploaderName", "title", "itemType", "area", "authorConfirmedRights", "visibility", "downloadsCount", "favoriteUserIds", "createdAt", "updatedAt"]
+    },
+    "PlatformCategoryRecord": {
+      "title": "PlatformCategoryRecord",
+      "description": "Dynamic Academy category managed by admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "area": { "type": "string" },
+        "subcategories": { "type": "array" },
+        "active": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "area", "subcategories", "active", "createdBy", "updatedAt"]
+    },
+    "InstitutionRecord": {
+      "title": "InstitutionRecord",
+      "description": "Educational institution registered in FABRO.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "institutionType": { "type": "string" },
+        "country": { "type": "string" },
+        "province": { "type": "string" },
+        "city": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "institutionType", "verified", "status", "createdAt", "updatedAt"]
+    },
+    "ModerationReport": {
+      "title": "ModerationReport",
+      "description": "User safety or content moderation report.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "reporterName": { "type": "string" },
+        "targetType": { "type": "string" },
+        "targetId": { "type": "string" },
+        "targetSummary": { "type": "string" },
+        "reason": { "type": "string" },
+        "details": { "type": "string" },
+        "status": { "type": "string" },
+        "resolutionNote": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "reporterId", "reporterName", "targetType", "targetId", "reason", "status", "createdAt", "updatedAt"]
+    },
+    "UserSanction": {
+      "title": "UserSanction",
+      "description": "Moderation sanction with appeal support.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "sanctionType": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string" },
+        "appealText": { "type": "string" },
+        "issuedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "userName", "sanctionType", "reason", "status", "issuedBy", "createdAt", "updatedAt"]
+    },
+    "AdminAuditLog": {
+      "title": "AdminAuditLog",
+      "description": "Immutable log of administrative and moderation actions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "adminId": { "type": "string" },
+        "adminEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "targetType": { "type": "string" },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "adminId", "adminEmail", "action", "targetType", "targetId", "details", "createdAt"]
+    },
+    "AdminRoleRecord": {
+      "title": "AdminRoleRecord",
+      "description": "Assigned admin or moderator privilege document.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "grantedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "grantedBy", "createdAt", "updatedAt"]
+    },
+    "PlatformNotification": {
+      "title": "PlatformNotification",
+      "description": "In-app notifications for new courses, approvals, messages, and safety updates.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "linkSection": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "body", "linkSection", "read", "createdAt"]
+    },
+    "AIProviderRecord": {
+      "title": "AIProviderRecord",
+      "description": "Public metadata and active toggle for an AI Gateway provider adapter (no API keys stored).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "enum": ["gemini", "openai", "anthropic", "deepseek", "mistral", "groq", "openrouter", "ollama"] },
+        "name": { "type": "string", "maxLength": 100 },
+        "accessTier": { "type": "string", "enum": ["free_quota", "open_selfhosted", "commercial"] },
+        "enabled": { "type": "boolean" },
+        "configuredInBackend": { "type": "boolean" },
+        "envVarName": { "type": "string", "maxLength": 80 },
+        "defaultModelId": { "type": "string", "maxLength": 120 },
+        "supportsStreaming": { "type": "boolean" },
+        "supportsVision": { "type": "boolean" },
+        "supportsDocuments": { "type": "boolean" },
+        "allowFallback": { "type": "boolean" },
+        "officialUrl": { "type": "string", "maxLength": 400 },
+        "pricingNote": { "type": "string", "maxLength": 500 },
+        "updatedBy": { "type": "string", "maxLength": 200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "accessTier", "enabled", "configuredInBackend", "envVarName", "defaultModelId", "supportsStreaming", "supportsVision", "supportsDocuments", "allowFallback", "officialUrl", "pricingNote", "updatedAt"]
+    },
+    "AIModelRecord": {
+      "title": "AIModelRecord",
+      "description": "Model registry entry with cost rates, context window, and capabilities.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "providerId": { "type": "string", "maxLength": 60 },
+        "label": { "type": "string", "maxLength": 120 },
+        "accessTier": { "type": "string", "enum": ["free_quota", "open_selfhosted", "commercial"] },
+        "enabled": { "type": "boolean" },
+        "maxContextTokens": { "type": "number" },
+        "supportsVision": { "type": "boolean" },
+        "supportsDocuments": { "type": "boolean" },
+        "supportsReasoning": { "type": "boolean" },
+        "inputCostPer1MUsd": { "type": "number" },
+        "outputCostPer1MUsd": { "type": "number" },
+        "recommendedFor": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "providerId", "label", "accessTier", "enabled", "maxContextTokens", "supportsVision", "supportsDocuments", "supportsReasoning", "inputCostPer1MUsd", "outputCostPer1MUsd", "recommendedFor", "updatedAt"]
+    },
+    "AIProviderStatusRecord": {
+      "title": "AIProviderStatusRecord",
+      "description": "Live connection status and latency checks for each AI provider.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 60 },
+        "configured": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["activo", "pendiente_configuracion", "error", "desactivado"] },
+        "lastTestedAt": { "type": "string", "maxLength": 60 },
+        "lastLatencyMs": { "type": "number" },
+        "lastError": { "type": "string", "maxLength": 1000 },
+        "modelTested": { "type": "string", "maxLength": 120 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "configured", "status", "lastTestedAt", "lastLatencyMs", "lastError", "modelTested", "updatedAt"]
+    },
+    "AIBudgetConfig": {
+      "title": "AIBudgetConfig",
+      "description": "Global and per-user AI cost and quota budgets.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 60 },
+        "dailyGlobalLimitUsd": { "type": "number" },
+        "monthlyGlobalLimitUsd": { "type": "number" },
+        "perUserDailyRequestLimit": { "type": "number" },
+        "perUserDailyTokenLimit": { "type": "number" },
+        "alertThresholdPercent": { "type": "number" },
+        "onBudgetExceeded": { "type": "string", "enum": ["fallback_free", "block"] },
+        "activePlanDefault": { "type": "string", "enum": ["plan_gratuito", "plan_educativo", "plan_administrador"] },
+        "updatedBy": { "type": "string", "maxLength": 200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "dailyGlobalLimitUsd", "monthlyGlobalLimitUsd", "perUserDailyRequestLimit", "perUserDailyTokenLimit", "alertThresholdPercent", "onBudgetExceeded", "activePlanDefault", "updatedAt"]
+    },
+    "AIAdminSettingsRecord": {
+      "title": "AIAdminSettingsRecord",
+      "description": "Centralized AI Gateway policy and routing settings.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 60 },
+        "defaultRoutingMode": { "type": "string", "enum": ["automatica", "manual", "comparacion"] },
+        "allowAutomaticFallback": { "type": "boolean" },
+        "blockPaidModelsForFreePlan": { "type": "boolean" },
+        "minorStrictSafeRouting": { "type": "boolean" },
+        "enableStreaming": { "type": "boolean" },
+        "retentionDays": { "type": "number" },
+        "updatedBy": { "type": "string", "maxLength": 200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "defaultRoutingMode", "allowAutomaticFallback", "blockPaidModelsForFreePlan", "minorStrictSafeRouting", "enableStreaming", "retentionDays", "updatedAt"]
+    },
+    "AIRequestRecord": {
+      "title": "AIRequestRecord",
+      "description": "Logged AI Gateway request with tokens, cost estimate, status, and latency.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 200 },
+        "conversationId": { "type": "string", "maxLength": 128 },
+        "routingMode": { "type": "string", "enum": ["automatica", "manual", "comparacion"] },
+        "providerId": { "type": "string", "maxLength": 60 },
+        "modelId": { "type": "string", "maxLength": 120 },
+        "accessTier": { "type": "string", "enum": ["free_quota", "open_selfhosted", "commercial"] },
+        "status": { "type": "string", "enum": ["pendiente", "procesando", "completada", "error", "cancelada", "limite_alcanzado"] },
+        "inputTokens": { "type": "number" },
+        "outputTokens": { "type": "number" },
+        "totalTokens": { "type": "number" },
+        "estimatedCostUsd": { "type": "number" },
+        "latencyMs": { "type": "number" },
+        "fallbackUsed": { "type": "boolean" },
+        "fallbackFrom": { "type": "string", "maxLength": 120 },
+        "errorMessage": { "type": "string", "maxLength": 1000 },
+        "routingReason": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "conversationId", "routingMode", "providerId", "modelId", "accessTier", "status", "inputTokens", "outputTokens", "totalTokens", "estimatedCostUsd", "latencyMs", "fallbackUsed", "createdAt"]
+    },
+    "AIUsageRecord": {
+      "title": "AIUsageRecord",
+      "description": "Aggregated daily/monthly AI usage counters per user, provider, or global.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "scope": { "type": "string", "enum": ["global", "user", "provider"] },
+        "scopeKey": { "type": "string", "maxLength": 128 },
+        "dateKey": { "type": "string", "maxLength": 20 },
+        "monthKey": { "type": "string", "maxLength": 20 },
+        "requestsCount": { "type": "number" },
+        "freeRequestsCount": { "type": "number" },
+        "paidRequestsCount": { "type": "number" },
+        "inputTokens": { "type": "number" },
+        "outputTokens": { "type": "number" },
+        "estimatedCostUsd": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "scope", "scopeKey", "dateKey", "monthKey", "requestsCount", "freeRequestsCount", "paidRequestsCount", "inputTokens", "outputTokens", "estimatedCostUsd", "updatedAt"]
+    },
+    "AIConversationRecord": {
+      "title": "AIConversationRecord",
+      "description": "Unified Multi-AI chat conversation metadata.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "routingMode": { "type": "string", "enum": ["automatica", "manual", "comparacion"] },
+        "preferredProviderId": { "type": "string", "maxLength": 60 },
+        "preferredModelId": { "type": "string", "maxLength": 120 },
+        "favorite": { "type": "boolean" },
+        "messageCount": { "type": "number" },
+        "lastModelUsed": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "subjectId", "title", "routingMode", "preferredProviderId", "preferredModelId", "favorite", "messageCount", "lastModelUsed", "createdAt", "updatedAt"]
+    },
+    "AIMessageRecord": {
+      "title": "AIMessageRecord",
+      "description": "Individual message in a Unified Multi-AI conversation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "conversationId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string", "maxLength": 250000 },
+        "providerId": { "type": "string", "maxLength": 60 },
+        "modelId": { "type": "string", "maxLength": 120 },
+        "accessTier": { "type": "string", "enum": ["free_quota", "open_selfhosted", "commercial"] },
+        "inputTokens": { "type": "number" },
+        "outputTokens": { "type": "number" },
+        "estimatedCostUsd": { "type": "number" },
+        "latencyMs": { "type": "number" },
+        "routingReason": { "type": "string", "maxLength": 500 },
+        "fallbackNotice": { "type": "string", "maxLength": 500 },
+        "favorite": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "conversationId", "userId", "role", "content", "createdAt"]
+    },
+    "SubscriptionRecord": {
+      "title": "SubscriptionRecord",
+      "description": "Authoritative user Freemium/Premium subscription status managed exclusively by administrators or server.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "planTier": { "type": "string", "enum": ["free", "premium"] },
+        "status": { "type": "string", "enum": ["active", "cancelled", "expired"] },
+        "assignedBy": { "type": "string", "maxLength": 200 },
+        "expiresAt": { "type": "string", "maxLength": 60 },
+        "note": { "type": "string", "maxLength": 300 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "planTier", "status", "assignedBy", "updatedAt"]
+    },
+    "DailyUsageRecord": {
+      "title": "DailyUsageRecord",
+      "description": "Server-counted daily AI query consumption per user and timezone dateKey.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 160 },
+        "uid": { "type": "string", "maxLength": 128 },
+        "dateKey": { "type": "string", "maxLength": 20 },
+        "timezone": { "type": "string", "maxLength": 80 },
+        "queriesUsed": { "type": "number" },
+        "creditsUsed": { "type": "number" },
+        "tokensIn": { "type": "number" },
+        "tokensOut": { "type": "number" },
+        "estimatedCostUsd": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uid", "dateKey", "timezone", "queriesUsed", "creditsUsed", "tokensIn", "tokensOut", "estimatedCostUsd", "updatedAt"]
+    },
+    "UserCreditRecord": {
+      "title": "UserCreditRecord",
+      "description": "Extra AI query credits assigned to a user by administrators.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "balance": { "type": "number" },
+        "grantedTotal": { "type": "number" },
+        "usedTotal": { "type": "number" },
+        "lastNote": { "type": "string", "maxLength": 200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "balance", "grantedTotal", "usedTotal", "updatedAt"]
+    },
+    "SystemLimitsRecord": {
+      "title": "SystemLimitsRecord",
+      "description": "Global Freemium daily limits, monthly USD budget, thresholds, and token caps.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 60 },
+        "freeDailyLimit": { "type": "number" },
+        "premiumDailyLimit": { "type": "number" },
+        "resetTimezone": { "type": "string", "maxLength": 80 },
+        "monthlyBudgetUsd": { "type": "number" },
+        "warn50Percent": { "type": "number" },
+        "alert75Percent": { "type": "number" },
+        "restrictPaid90Percent": { "type": "number" },
+        "blockPaid100Percent": { "type": "number" },
+        "freeMaxInputChars": { "type": "number" },
+        "freeMaxOutputTokens": { "type": "number" },
+        "premiumMaxInputChars": { "type": "number" },
+        "premiumMaxOutputTokens": { "type": "number" },
+        "antiSpamPerMinute": { "type": "number" },
+        "updatedBy": { "type": "string", "maxLength": 200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "freeDailyLimit", "premiumDailyLimit", "resetTimezone", "monthlyBudgetUsd", "warn50Percent", "alert75Percent", "restrictPaid90Percent", "blockPaid100Percent", "updatedAt"]
+    },
+    "AICostRecord": {
+      "title": "AICostRecord",
+      "description": "Monthly AI spend rollup and threshold status for cost governance.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 40 },
+        "monthKey": { "type": "string", "maxLength": 20 },
+        "totalUsd": { "type": "number" },
+        "freeQueries": { "type": "number" },
+        "paidQueries": { "type": "number" },
+        "tokensIn": { "type": "number" },
+        "tokensOut": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "monthKey", "totalUsd", "freeQueries", "paidQueries", "tokensIn", "tokensOut", "updatedAt"]
+    },
+    "AdminAlertRecord": {
+      "title": "AdminAlertRecord",
+      "description": "Budget threshold warnings, restrictions, blocks, and provider error alerts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+        "type": { "type": "string", "enum": ["budget_50", "budget_75", "budget_90", "budget_100", "provider_error", "rate_limit"] },
+        "title": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 1000 },
+        "acknowledged": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "severity", "type", "title", "message", "acknowledged", "createdAt"]
+    },
+    "LastDayReflection": {
+      "title": "LastDayReflection",
+      "description": "Private daily reflection, happiness scale 1-10, emotion tracking, and evening tomorrow-prep routine.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "dateKey": { "type": "string", "minLength": 10, "maxLength": 20 },
+        "dailyAnswer": { "type": "string", "maxLength": 8000 },
+        "gratitudeNote": { "type": "string", "maxLength": 3000 },
+        "tomorrowPriorities": { "type": "array" },
+        "tomorrowPrepDone": { "type": "boolean" },
+        "eveningNote": { "type": "string", "maxLength": 3000 },
+        "happinessScore": { "type": "number" },
+        "primaryEmotion": {
+          "type": "string",
+          "enum": ["alegria", "tristeza", "enojo", "preocupacion", "gratitud", "esperanza", "calma", "otro"]
+        },
+        "secondaryEmotions": { "type": "array" },
+        "emotionNote": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "dateKey", "dailyAnswer", "gratitudeNote", "tomorrowPriorities", "tomorrowPrepDone", "eveningNote", "happinessScore", "primaryEmotion", "secondaryEmotions", "emotionNote", "createdAt", "updatedAt"]
+    },
+    "LastDayActivity": {
+      "title": "LastDayActivity",
+      "description": "Private daily scheduled activity or habitual joy routine with timer tracking and rollover.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "dateKey": { "type": "string", "minLength": 10, "maxLength": 20 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "category": {
+          "type": "string",
+          "enum": ["habitual", "felicidad", "sueno", "bienestar", "vinculos", "creatividad", "descanso", "otro"]
+        },
+        "scheduledTime": { "type": "string", "maxLength": 10 },
+        "durationMinutes": { "type": "number" },
+        "elapsedSeconds": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["pendiente", "en_curso", "pausado", "completada", "trasladada"]
+        },
+        "notes": { "type": "string", "maxLength": 1500 },
+        "rolledOverFromDate": { "type": "string", "maxLength": 20 },
+        "isHabitualTemplate": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "dateKey", "title", "category", "scheduledTime", "durationMinutes", "elapsedSeconds", "status", "notes", "rolledOverFromDate", "isHabitualTemplate", "createdAt", "updatedAt"]
+    },
+    "LastDayDream": {
+      "title": "LastDayDream",
+      "description": "Private dreams, goals, and pending life experiences owned by a single user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "description": { "type": "string", "maxLength": 3000 },
+        "category": {
+          "type": "string",
+          "enum": ["viajes", "familia", "aprendizaje", "salud", "creatividad", "proyecto", "naturaleza", "otro"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pendiente", "en_marcha", "cumplido"]
+        },
+        "targetDate": { "type": "string", "maxLength": 20 },
+        "steps": { "type": "array" },
+        "linkedCalendarEventId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "description", "category", "status", "targetDate", "steps", "linkedCalendarEventId", "createdAt", "updatedAt"]
+    },
+    "LastDayWriting": {
+      "title": "LastDayWriting",
+      "description": "Private personal diary, letter, poem, song, story, or autobiography entry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "writingType": {
+          "type": "string",
+          "enum": ["diario", "carta", "poema", "cancion", "relato", "autobiografia"]
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "contentHtml": { "type": "string", "maxLength": 300000 },
+        "contentText": { "type": "string", "maxLength": 300000 },
+        "moodTag": { "type": "string", "maxLength": 80 },
+        "wordCount": { "type": "number" },
+        "dateKey": { "type": "string", "maxLength": 20 },
+        "aiSummary": { "type": "string", "maxLength": 20000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "writingType", "title", "contentHtml", "contentText", "moodTag", "wordCount", "dateKey", "aiSummary", "createdAt", "updatedAt"]
+    },
+    "LastDayMemory": {
+      "title": "LastDayMemory",
+      "description": "Private personal photograph, video memory, or curated music/film/book preference.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "mediaType": {
+          "type": "string",
+          "enum": ["foto", "video", "preferencia"]
+        },
+        "prefKind": {
+          "type": "string",
+          "enum": ["recuerdo", "musica", "pelicula", "libro", "lugar", "frase", "otro"]
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "story": { "type": "string", "maxLength": 4000 },
+        "mediaUrl": { "type": "string", "maxLength": 350000 },
+        "storagePath": { "type": "string", "maxLength": 500 },
+        "youtubeVideoId": { "type": "string", "maxLength": 32 },
+        "creatorOrArtist": { "type": "string", "maxLength": 150 },
+        "locationOrPeople": { "type": "string", "maxLength": 200 },
+        "memoryDate": { "type": "string", "maxLength": 20 },
+        "favorite": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "mediaType", "prefKind", "title", "story", "mediaUrl", "storagePath", "youtubeVideoId", "creatorOrArtist", "locationOrPeople", "memoryDate", "favorite", "createdAt", "updatedAt"]
+    },
+    "LastDayLegacy": {
+      "title": "LastDayLegacy",
+      "description": "Strictly private user-only Mi Legado message with explicit consent and no automated sending.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recipientName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "relationship": { "type": "string", "maxLength": 80 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 40000 },
+        "mediaHint": { "type": "string", "maxLength": 500 },
+        "consentConfirmed": { "type": "boolean" },
+        "privateOnly": { "type": "boolean" },
+        "autoSendDisabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "recipientName", "relationship", "title", "message", "mediaHint", "consentConfirmed", "privateOnly", "autoSendDisabled", "createdAt", "updatedAt"]
+    },
+    "ContactRequest": {
+      "title": "ContactRequest",
+      "description": "Adult-only verified community contact request before starting private 1:1 messaging.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fromUserId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fromName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "toUserId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "toName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "message": { "type": "string", "maxLength": 500 },
+        "hasMinorParticipant": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["pendiente", "aceptada", "rechazada"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "fromUserId", "fromName", "toUserId", "toName", "message", "hasMinorParticipant", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/StudentProfile" },
+      "description": "Private profile and preferences for a student."
+    },
+    "/subjects/{subjectId}": {
+      "schema": { "$ref": "#/entities/Subject" },
+      "description": "Academic subjects belonging to individual students."
+    },
+    "/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/Note" },
+      "description": "Rich academic notes created by students."
+    },
+    "/libraryDocs/{docId}": {
+      "schema": { "$ref": "#/entities/LibraryDoc" },
+      "description": "Personal library documents and extracted study text."
+    },
+    "/exams/{examId}": {
+      "schema": { "$ref": "#/entities/Exam" },
+      "description": "Written and oral exam simulations and evaluations."
+    },
+    "/calendarEvents/{eventId}": {
+      "schema": { "$ref": "#/entities/CalendarEvent" },
+      "description": "Academic deadlines, exams, classes, and weekly goals."
+    },
+    "/flashcardDecks/{deckId}": {
+      "schema": { "$ref": "#/entities/FlashcardDeck" },
+      "description": "Flashcard and spaced-repetition decks."
+    },
+    "/flashcardDecks/{deckId}/cards/{cardId}": {
+      "schema": { "$ref": "#/entities/FlashcardItem" },
+      "description": "Cards nested inside a student's flashcard deck."
+    },
+    "/studySessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/StudySession" },
+      "description": "Logged study sessions for progress tracking."
+    },
+    "/aiChats/{chatId}": {
+      "schema": { "$ref": "#/entities/AIChatThread" },
+      "description": "Saved FABRO AI tutoring threads."
+    },
+    "/books/{bookId}": {
+      "schema": { "$ref": "#/entities/Book" },
+      "description": "Books authored by individual students or writers."
+    },
+    "/books/{bookId}/chapters/{chapterId}": {
+      "schema": { "$ref": "#/entities/BookChapter" },
+      "description": "Chapters nested inside an authored book."
+    },
+    "/dictionaryEntries/{entryId}": {
+      "schema": { "$ref": "#/entities/DictionaryEntry" },
+      "description": "Personal dictionary terms with persistent memory per student."
+    },
+    "/hubStates/{userId}": {
+      "schema": { "$ref": "#/entities/HubUserState" },
+      "description": "Private FABRO HUB favorites, usage history, and tool administration settings per student."
+    },
+    "/subjectMemories/{memoryId}": {
+      "schema": { "$ref": "#/entities/SubjectAcademicMemory" },
+      "description": "Persistent academic memory per subject and user for FABRO IA 2.0."
+    },
+    "/publicProfiles/{userId}": {
+      "schema": { "$ref": "#/entities/PublicUserProfile" },
+      "description": "PII-free public directory profiles with minor protection."
+    },
+    "/instructorVerifications/{verificationId}": {
+      "schema": { "$ref": "#/entities/InstructorVerificationRequest" },
+      "description": "Private instructor accreditation applications and documents."
+    },
+    "/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/Course" },
+      "description": "Free FABRO ACADEMY courses."
+    },
+    "/courses/{courseId}/lessons/{lessonId}": {
+      "schema": { "$ref": "#/entities/CourseLesson" },
+      "description": "Lessons inside a course."
+    },
+    "/courseEnrollments/{enrollmentId}": {
+      "schema": { "$ref": "#/entities/CourseEnrollment" },
+      "description": "Course enrollments and student progress."
+    },
+    "/groups/{groupId}": {
+      "schema": { "$ref": "#/entities/CommunityGroup" },
+      "description": "FABRO COMUNIDAD open and institutional groups."
+    },
+    "/groups/{groupId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/GroupMember" },
+      "description": "Group memberships."
+    },
+    "/groups/{groupId}/posts/{postId}": {
+      "schema": { "$ref": "#/entities/GroupPost" },
+      "description": "Group wall posts, announcements, polls, and materials."
+    },
+    "/groups/{groupId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/GroupChatMessage" },
+      "description": "Real-time group chat messages."
+    },
+    "/classrooms/{classroomId}": {
+      "schema": { "$ref": "#/entities/VirtualClassroom" },
+      "description": "FABRO AULA synchronized virtual classrooms."
+    },
+    "/directThreads/{threadId}": {
+      "schema": { "$ref": "#/entities/DirectThread" },
+      "description": "Adult-only direct messaging threads."
+    },
+    "/directThreads/{threadId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/DirectMessage" },
+      "description": "Messages inside an adult-only direct thread."
+    },
+    "/youtubeVideos/{videoId}": {
+      "schema": { "$ref": "#/entities/SavedVideoResource" },
+      "description": "FABRO VIDEO curated YouTube lessons and AI analyses."
+    },
+    "/sharedLibrary/{itemId}": {
+      "schema": { "$ref": "#/entities/SharedLibraryItem" },
+      "description": "Collaborative educational library materials."
+    },
+    "/platformCategories/{catId}": {
+      "schema": { "$ref": "#/entities/PlatformCategoryRecord" },
+      "description": "Dynamic Academy categories managed by administrators."
+    },
+    "/institutions/{instId}": {
+      "schema": { "$ref": "#/entities/InstitutionRecord" },
+      "description": "Schools, universities, institutes, and training centers."
+    },
+    "/moderationReports/{reportId}": {
+      "schema": { "$ref": "#/entities/ModerationReport" },
+      "description": "Safety and content moderation reports."
+    },
+    "/userSanctions/{sanctionId}": {
+      "schema": { "$ref": "#/entities/UserSanction" },
+      "description": "Warnings, suspensions, revocations, and appeals."
+    },
+    "/adminAuditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AdminAuditLog" },
+      "description": "Audit logs for all administrative actions."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRoleRecord" },
+      "description": "Admin and moderator role assignments."
+    },
+    "/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/PlatformNotification" },
+      "description": "Per-user platform notifications."
+    },
+    "/AIProviders/{providerId}": {
+      "schema": { "$ref": "#/entities/AIProviderRecord" },
+      "description": "AI Gateway provider configuration and availability (without secrets)."
+    },
+    "/AIModels/{modelId}": {
+      "schema": { "$ref": "#/entities/AIModelRecord" },
+      "description": "AI Gateway model catalog with tiers and cost rates."
+    },
+    "/AIProviderStatus/{providerId}": {
+      "schema": { "$ref": "#/entities/AIProviderStatusRecord" },
+      "description": "Live health and latency status for each AI provider."
+    },
+    "/AIBudgets/{budgetId}": {
+      "schema": { "$ref": "#/entities/AIBudgetConfig" },
+      "description": "Global and per-user AI usage budgets."
+    },
+    "/AIAdminSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/AIAdminSettingsRecord" },
+      "description": "Centralized AI Gateway routing and safety policies."
+    },
+    "/AIRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/AIRequestRecord" },
+      "description": "Logged AI Gateway requests with status, tokens, and cost."
+    },
+    "/AIUsage/{usageId}": {
+      "schema": { "$ref": "#/entities/AIUsageRecord" },
+      "description": "Aggregated AI usage counters by user, provider, or global."
+    },
+    "/AIConversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/AIConversationRecord" },
+      "description": "Unified Multi-AI chat conversations per user."
+    },
+    "/AIMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/AIMessageRecord" },
+      "description": "Messages inside Unified Multi-AI conversations."
+    },
+    "/subscriptions/{userId}": {
+      "schema": { "$ref": "#/entities/SubscriptionRecord" },
+      "description": "Authoritative Freemium/Premium subscription state per user."
+    },
+    "/daily_usage/{usageDocId}": {
+      "schema": { "$ref": "#/entities/DailyUsageRecord" },
+      "description": "Timezone-aware daily AI query consumption records."
+    },
+    "/user_credits/{userId}": {
+      "schema": { "$ref": "#/entities/UserCreditRecord" },
+      "description": "Extra AI query credits per user."
+    },
+    "/system_limits/{limitId}": {
+      "schema": { "$ref": "#/entities/SystemLimitsRecord" },
+      "description": "Configurable global Freemium & budget control thresholds."
+    },
+    "/ai_costs/{costId}": {
+      "schema": { "$ref": "#/entities/AICostRecord" },
+      "description": "Monthly AI expenditure rollups."
+    },
+    "/admin_alerts/{alertId}": {
+      "schema": { "$ref": "#/entities/AdminAlertRecord" },
+      "description": "Administrative budget & provider failure alerts."
+    },
+    "/lastDayReflections/{reflectionId}": {
+      "schema": { "$ref": "#/entities/LastDayReflection" },
+      "description": "Private daily reflections, happiness 1-10, emotions, and evening prep."
+    },
+    "/lastDayActivities/{activityId}": {
+      "schema": { "$ref": "#/entities/LastDayActivity" },
+      "description": "Private daily scheduled activities with timers and rollover."
+    },
+    "/lastDayDreams/{dreamId}": {
+      "schema": { "$ref": "#/entities/LastDayDream" },
+      "description": "Private dreams, goals, and bucket list experiences."
+    },
+    "/lastDayWritings/{writingId}": {
+      "schema": { "$ref": "#/entities/LastDayWriting" },
+      "description": "Private personal diary, letters, poems, songs, stories, and autobiography."
+    },
+    "/lastDayMemories/{memoryId}": {
+      "schema": { "$ref": "#/entities/LastDayMemory" },
+      "description": "Private photos, videos, memories, and music/movie/book preferences."
+    },
+    "/lastDayLegacy/{legacyId}": {
+      "schema": { "$ref": "#/entities/LastDayLegacy" },
+      "description": "Private Mi Legado vault with explicit consent and no automatic sending."
+    },
+    "/contactRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/ContactRequest" },
+      "description": "Adult-only community contact connection requests."
+    }
+  }
+}
