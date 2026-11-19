@@ -25,8 +25,11 @@ import { EditSocialProfileModal } from './components/sectors/social/EditSocialPr
 import { SocialProfileModal } from './components/sectors/social/SocialProfileModal';
 import { SharedResourceReader } from './components/shared/SharedResourceReader';
 import { ToolsHubScreen } from './components/tools/ToolsHubScreen';
+import { FabroRadioModal } from './components/radio/FabroRadioModal';
+import { RadioMiniPlayer } from './components/radio/RadioMiniPlayer';
 import { AdminProvider } from './context/AdminContext';
 import { EcosystemProvider, useEcosystem } from './context/EcosystemContext';
+import { RadioProvider } from './context/RadioContext';
 
 const EcosystemRouter: React.FC = () => {
   const { sector, sharedViewerPayload } = useEcosystem();
@@ -64,6 +67,8 @@ const EcosystemRouter: React.FC = () => {
       <CommunityParticipationModal />
       <FloatingBackgroundChat />
       <FloatingMiniWindow />
+      <RadioMiniPlayer />
+      <FabroRadioModal />
       <CalendarAlarmBanner />
       <DeploymentStatusBar hasMobileBottomNav />
     </>
@@ -76,7 +81,9 @@ export default function App() {
       <FabroSplashScreen durationMs={1200} />
       <EcosystemProvider>
         <AdminProvider>
-          <EcosystemRouter />
+          <RadioProvider>
+            <EcosystemRouter />
+          </RadioProvider>
         </AdminProvider>
       </EcosystemProvider>
     </ErrorBoundary>

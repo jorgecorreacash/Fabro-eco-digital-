@@ -3,6 +3,7 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createSportsRouter } from './server/sportsRouter';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +23,9 @@ async function startServer() {
       timestamp: Date.now(),
     });
   });
+
+  // FABRO DEPORTES $0-cost public sports JSON & RSS aggregator with TTL cache
+  app.use('/api/sports', createSportsRouter());
 
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');

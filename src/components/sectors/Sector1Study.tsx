@@ -8,10 +8,12 @@ import {
   GraduationCap,
   MessageSquareText,
   Microscope,
+  Radio,
   Square,
   Trash2,
 } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
+import { useRadio } from '../../context/RadioContext';
 import type { StudySubmenuId } from '../../types/ecosystem';
 import { SectorLayout } from './SectorLayout';
 import { AdvancedNotebooksStudio } from './study/AdvancedNotebooksStudio';
@@ -56,6 +58,7 @@ export const Sector1Study: React.FC = () => {
       : 'academico-panel';
 
   const [showPomodoroPanel, setShowPomodoroPanel] = useState(false);
+  const { openRadioModal } = useRadio();
 
   const studyWallCount = wallPosts.filter(
     (p) => p.origin === 'estudio' || p.origin === 'comunidad'
@@ -160,16 +163,26 @@ export const Sector1Study: React.FC = () => {
           {/* Discreet expandable Pomodoro focus strip without cluttering the document flow */}
           <div className="max-w-4xl mx-auto w-full">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs fabro-muted px-1">
-              <button
-                type="button"
-                onClick={() => setShowPomodoroPanel((v) => !v)}
-                className="min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface px-3.5 py-1.5 text-xs font-semibold cursor-pointer hover:border-[#2563EB]"
-              >
-                <GraduationCap className="w-4 h-4 text-[#2563EB] dark:text-[#60A5FA]" />
-                {showPomodoroPanel
-                  ? 'Ocultar temporizador Pomodoro'
-                  : `Temporizador Pomodoro (${pomodoroLogs.length} sesiones)`}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPomodoroPanel((v) => !v)}
+                  className="min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface px-3.5 py-1.5 text-xs font-semibold cursor-pointer hover:border-[#2563EB]"
+                >
+                  <GraduationCap className="w-4 h-4 text-[#2563EB] dark:text-[#60A5FA]" />
+                  {showPomodoroPanel
+                    ? 'Ocultar temporizador Pomodoro'
+                    : `Temporizador Pomodoro (${pomodoroLogs.length} sesiones)`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openRadioModal('FM', 'fm-lofi')}
+                  className="min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface px-3.5 py-1.5 text-xs font-semibold cursor-pointer hover:border-[#0284C7]"
+                >
+                  <Radio className="w-4 h-4 text-[#0284C7] dark:text-[#38BDF8]" />
+                  Radio Estudio (AM/FM · Lo-Fi)
+                </button>
+              </div>
 
               {!examplesCleared && (
                 <button

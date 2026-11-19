@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { HeartPulse, Menu, X } from 'lucide-react';
+import { HeartPulse, Menu, Radio, Trophy, X } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
+import { useRadio } from '../../context/RadioContext';
 import {
   DEFAULT_WELLNESS_STATE,
   WELLNESS_SIDEBAR_ORDER,
@@ -8,6 +9,7 @@ import {
 import { loadWellnessState, saveWellnessState } from '../../services/wellnessVault';
 import type { WellnessSubmenuId } from '../../types/ecosystem';
 import type { WellnessNavId, WellnessStateSnapshot } from '../../types/wellness';
+import { SectorSports } from './wellness/sports/SectorSports';
 import { WellnessCoachHistoryChallengesPanel } from './wellness/v2/WellnessCoachHistoryChallengesPanel';
 import { WellnessFitnessPanel } from './wellness/v2/WellnessFitnessPanel';
 import { WellnessHealthGrowthPanel } from './wellness/v2/WellnessHealthGrowthPanel';
@@ -29,6 +31,7 @@ const LEGACY_SUBMENU_MAP: Record<WellnessSubmenuId, WellnessNavId> = {
 
 export const Sector2Wellness: React.FC = () => {
   const { submenu } = useEcosystem();
+  const { openRadioModal } = useRadio();
 
   const initialNav = useMemo<WellnessNavId>(() => {
     const mapped = LEGACY_SUBMENU_MAP[submenu as WellnessSubmenuId];
@@ -98,16 +101,46 @@ export const Sector2Wellness: React.FC = () => {
             <HeartPulse className="w-4 h-4 shrink-0" />
             FABRO Bienestar
           </span>
-          <span className="text-[11px] font-mono tabular-nums fabro-muted">18 áreas</span>
+          <span className="text-[11px] font-mono tabular-nums fabro-muted">18 + Deportes</span>
         </div>
         <p className="text-[11px] fabro-muted leading-snug">
           Ecosistema integral · El Último Día de Tu Vida
         </p>
+
+        {/* Dedicated FABRO DEPORTES Space Entry */}
+        <button
+          type="button"
+          onClick={() => selectNav('fabro-deportes')}
+          className="w-full min-h-[40px] rounded-xl border border-[#0284C7]/45 bg-[#0284C7]/10 hover:bg-[#0284C7] hover:text-white text-[#0284C7] dark:text-[#38BDF8] px-3 py-2 text-left text-xs font-bold flex items-center justify-between gap-2 transition-colors cursor-pointer"
+        >
+          <span className="inline-flex items-center gap-2 truncate">
+            <Trophy className="w-4 h-4 shrink-0" />
+            <span className="truncate">FABRO DEPORTES</span>
+          </span>
+          <span className="text-[10px] font-mono opacity-80 shrink-0">18 áreas →</span>
+        </button>
+
+        {/* Compact Radio Digital AM/FM Launcher */}
+        <button
+          type="button"
+          onClick={() => {
+            setMobileSidebarOpen(false);
+            openRadioModal();
+          }}
+          className="w-full min-h-[36px] rounded-xl border fabro-border fabro-surface-elevated hover:border-[#0284C7] px-3 py-1.5 text-left text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer"
+        >
+          <span className="inline-flex items-center gap-2 truncate">
+            <Radio className="w-3.5 h-3.5 text-[#0284C7] shrink-0" />
+            <span className="truncate">Radio Digital AM / FM</span>
+          </span>
+          <span className="text-[10px] font-mono fabro-muted shrink-0">En vivo</span>
+        </button>
+
         <input
           type="search"
           value={sidebarFilter}
           onChange={(e) => setSidebarFilter(e.target.value)}
-          placeholder="Filtrar 18 espacios..."
+          placeholder="Filtrar espacios..."
           className="w-full min-h-[36px] rounded-xl border fabro-border fabro-surface-elevated px-3 text-xs fabro-input"
         />
       </div>
@@ -118,6 +151,7 @@ export const Sector2Wellness: React.FC = () => {
       >
         {filteredSidebarItems.map((item) => {
           const active = activeNav === item.id;
+          const isSports = item.id === 'fabro-deportes';
           return (
             <button
               key={item.id}
@@ -125,7 +159,11 @@ export const Sector2Wellness: React.FC = () => {
               onClick={() => selectNav(item.id)}
               className={`w-full min-h-[38px] rounded-xl px-2.5 py-1.5 text-left text-xs flex items-center gap-2 cursor-pointer transition-colors ${
                 active
-                  ? 'bg-[#059669] text-white font-semibold'
+                  ? isSports
+                    ? 'bg-[#0284C7] text-white font-semibold'
+                    : 'bg-[#059669] text-white font-semibold'
+                  : isSports
+                  ? 'text-[#0284C7] dark:text-[#38BDF8] font-semibold hover:bg-[#0284C7]/10'
                   : 'fabro-muted hover:text-[var(--fabro-text)] hover:bg-[var(--fabro-surface-2)]'
               }`}
             >
@@ -206,18 +244,38 @@ export const Sector2Wellness: React.FC = () => {
     }
   };
 
+  if (activeNav === 'fabro-deportes') {
+    return (
+      <SectorSports
+        wellnessState={state}
+        onUpdateWellnessState={updateWellnessState}
+        onBackToWellness={() => selectNav('mi-dia')}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Mobile Header Bar */}
-      <div className="lg:hidden flex items-center justify-between gap-3 rounded-2xl border fabro-border fabro-surface px-3.5 py-2.5">
-        <button
-          type="button"
-          onClick={() => setMobileSidebarOpen(true)}
-          className="min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface-elevated px-3 text-xs font-semibold cursor-pointer"
-        >
-          <Menu className="w-4 h-4 text-[#059669]" />
-          Menú Bienestar (18)
-        </button>
+      <div className="lg:hidden flex items-center justify-between gap-2 rounded-2xl border fabro-border fabro-surface px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3 text-xs font-semibold cursor-pointer"
+          >
+            <Menu className="w-4 h-4 text-[#059669]" />
+            Bienestar
+          </button>
+          <button
+            type="button"
+            onClick={() => selectNav('fabro-deportes')}
+            className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-[#0284C7]/45 bg-[#0284C7]/10 text-[#0284C7] dark:text-[#38BDF8] px-2.5 text-xs font-bold cursor-pointer"
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            Deportes
+          </button>
+        </div>
         <div className="text-right min-w-0">
           <p className="text-[10px] font-mono fabro-muted">
             {String(activeEntry.number).padStart(2, '0')} / 18

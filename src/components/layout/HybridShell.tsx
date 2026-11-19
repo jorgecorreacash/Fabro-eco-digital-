@@ -19,6 +19,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Pin,
+  Radio,
   Search,
   Settings,
   Shield,
@@ -28,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useAdmin } from '../../context/AdminContext';
 import { useEcosystem } from '../../context/EcosystemContext';
+import { useRadio } from '../../context/RadioContext';
 import { CULTURE_DISCIPLINES } from '../../data/cultureCatalog';
 import {
   ALL_SUBMENUS,
@@ -90,6 +92,12 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
     openParticipationModal,
     isSectorDisabledByAdmin,
   } = useAdmin();
+
+  const {
+    openRadioModal,
+    currentStation: activeRadioStation,
+    status: radioStatus,
+  } = useRadio();
 
   const pendingReportsBadge = useMemo(
     () =>
@@ -1062,8 +1070,35 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
             )}
           </div>
 
-          {/* Right Zone: Streamlined Theme Selector + Notifications + Profile & Sign Out */}
+          {/* Right Zone: Radio AM/FM + Streamlined Theme Selector + Notifications + Profile & Sign Out */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Compact Radio Digital AM/FM Button */}
+            <button
+              type="button"
+              onClick={() => openRadioModal()}
+              aria-label="Abrir Radio Digital AM y FM en vivo"
+              title={
+                activeRadioStation
+                  ? `Radio activa: ${activeRadioStation.name} (${activeRadioStation.band} ${activeRadioStation.frequency})`
+                  : 'Radio Digital AM / FM en vivo'
+              }
+              className={`h-9 inline-flex items-center gap-1.5 rounded-xl border px-2.5 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                radioStatus === 'playing'
+                  ? 'border-[#0284C7] bg-[#0284C7]/12 text-[#0284C7] dark:text-[#38BDF8] font-semibold'
+                  : 'fabro-border fabro-surface hover:border-[#0284C7]'
+              }`}
+            >
+              <Radio className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden md:inline font-mono tabular-nums">
+                {activeRadioStation && radioStatus === 'playing'
+                  ? `${activeRadioStation.band} ${
+                      activeRadioStation.band === 'FM'
+                        ? activeRadioStation.frequency.toFixed(1)
+                        : Math.round(activeRadioStation.frequency)
+                    }`
+                  : 'Radio'}
+              </span>
+            </button>
 
             {/* Theme Quick Switcher */}
             <div ref={themeMenuRef} className="relative">

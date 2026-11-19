@@ -153,6 +153,14 @@ export const WELLNESS_SIDEBAR_ORDER: WellnessSidebarEntry[] = [
     group: 'herramientas',
     accent: '#475569',
   },
+  {
+    id: 'fabro-deportes',
+    number: 19,
+    label: 'FABRO DEPORTES',
+    shortDesc: 'Centro deportivo integral: fútbol, disciplinas, calendario, noticias y herramientas',
+    group: 'herramientas',
+    accent: '#0284C7',
+  },
 ];
 
 export const WELLNESS_COMMUNITY_SPACES: WellnessCommunitySpaceId[] = [

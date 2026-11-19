@@ -15,6 +15,7 @@ import {
   Wind,
 } from 'lucide-react';
 import { useEcosystem } from '../../../../context/EcosystemContext';
+import { useRadio } from '../../../../context/RadioContext';
 import { DEFAULT_HYDRATION_SLEEP, vaultGet } from '../../../../services/localVault';
 import { todayIsoDate } from '../../../../services/wellnessVault';
 import type { HydrationSleepState } from '../../../../types/ecosystem';
@@ -51,6 +52,7 @@ export const WellnessMyDayPanel: React.FC<WellnessMyDayPanelProps> = ({
   onUpdateState,
 }) => {
   const { moodLogs, scheduledReminders, profile } = useEcosystem();
+  const { openRadioModal } = useRadio();
   const [period, setPeriod] = useState<'dia' | 'semana' | 'mes'>('semana');
   const [showCustomize, setShowCustomize] = useState(false);
   const [hydration, setHydration] = useState<HydrationSleepState>(DEFAULT_HYDRATION_SLEEP);
@@ -522,6 +524,7 @@ export const WellnessMyDayPanel: React.FC<WellnessMyDayPanelProps> = ({
             <div className="grid grid-cols-2 gap-2 text-xs">
               {(
                 [
+                  ['fabro-deportes', 'Abrir FABRO DEPORTES'],
                   ['nutricion', 'Registrar comida / escanear'],
                   ['actividad-fisica', 'Iniciar entrenamiento'],
                   ['mente-emociones', 'Diario y Estoicismo'],
@@ -534,11 +537,22 @@ export const WellnessMyDayPanel: React.FC<WellnessMyDayPanelProps> = ({
                   key={target}
                   type="button"
                   onClick={() => onNavigate(target)}
-                  className="min-h-[42px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-left font-medium hover:border-[#059669] transition-colors cursor-pointer"
+                  className={`min-h-[42px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-left font-medium transition-colors cursor-pointer ${
+                    target === 'fabro-deportes'
+                      ? 'col-span-2 border-[#0284C7]/45 text-[#0284C7] dark:text-[#38BDF8] font-semibold hover:border-[#0284C7]'
+                      : 'hover:border-[#059669]'
+                  }`}
                 >
                   {label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => openRadioModal()}
+                className="col-span-2 min-h-[42px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-left font-semibold hover:border-[#0284C7] transition-colors cursor-pointer"
+              >
+                Radio Digital AM / FM en vivo
+              </button>
             </div>
           </div>
         </section>

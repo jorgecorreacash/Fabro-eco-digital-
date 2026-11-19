@@ -16,7 +16,8 @@ export type WellnessNavId =
   | 'fabro-respira'
   | 'primeros-auxilios'
   | 'comunidad-bienestar'
-  | 'configuracion-privacidad';
+  | 'configuracion-privacidad'
+  | 'fabro-deportes';
 
 export interface WellnessSidebarEntry {
   id: WellnessNavId;
