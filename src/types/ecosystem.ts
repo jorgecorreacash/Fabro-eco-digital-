@@ -47,6 +47,7 @@ export type StudySubmenuId =
 
 export type WellnessSubmenuId =
   | 'mi-vida'
+  | 'fabro-deportes'
   | 'organizador-integral'
   | 'organizacion-calorias'
   | 'salud-ejercicios'

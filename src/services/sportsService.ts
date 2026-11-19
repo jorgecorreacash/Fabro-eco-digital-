@@ -1,4 +1,4 @@
-import { DEFAULT_SPORTS_STATE } from '../data/sportsCatalog';
+import { DEFAULT_SPORTS_STATE, SPORTS_LEAGUES_FALLBACK } from '../data/sportsCatalog';
 import type {
   SportAthleteProfile,
   SportLeagueCatalogItem,
@@ -136,7 +136,367 @@ export function buildDatesParam(
 }
 
 // ---------------------------------------------------------------------------
-// API Clients to /api/sports/* ($0 backend gateway)
+// Direct Browser CORS Fallback Helpers ($0 Public JSON, access-control-allow-origin: *)
+// Guarantees sports fixtures, standings, news & profiles ALWAYS load even when
+// the app is served statically (Netlify / Firebase Hosting / Shared App URL).
+// ---------------------------------------------------------------------------
+
+const LEAGUE_ESPN_PATHS: Record<string, string> = {
+  'arg.1': 'soccer/arg.1',
+  'arg.2': 'soccer/arg.2',
+  'arg.3': 'soccer/arg.3',
+  'arg.4': 'soccer/arg.4',
+  'arg.copa': 'soccer/arg.copa',
+  'fifa.worldq.conmebol': 'soccer/fifa.worldq.conmebol',
+  'eng.1': 'soccer/eng.1',
+  'esp.1': 'soccer/esp.1',
+  'ita.1': 'soccer/ita.1',
+  'ger.1': 'soccer/ger.1',
+  'fra.1': 'soccer/fra.1',
+  'uefa.champions': 'soccer/uefa.champions',
+  'uefa.europa': 'soccer/uefa.europa',
+  'uefa.europa.conf': 'soccer/uefa.europa.conf',
+  'conmebol.libertadores': 'soccer/conmebol.libertadores',
+  'conmebol.sudamericana': 'soccer/conmebol.sudamericana',
+  'fifa.world': 'soccer/fifa.world',
+  nba: 'basketball/nba',
+  atp: 'tennis/atp',
+  wta: 'tennis/wta',
+  f1: 'racing/f1',
+  ufc: 'mma/ufc',
+  pga: 'golf/pga',
+  'rugby.int': 'rugby/289234',
+};
+
+async function tryLocalApiJson<T>(url: string, timeoutMs = 5500): Promise<T | null> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: controller.signal });
+    window.clearTimeout(timer);
+    if (!r.ok) return null;
+    const ct = r.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) return null;
+    return (await r.json()) as T;
+  } catch {
+    window.clearTimeout(timer);
+    return null;
+  }
+}
+
+async function fetchExternalJson<T>(url: string, timeoutMs = 8000): Promise<T | null> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: controller.signal });
+    window.clearTimeout(timer);
+    if (!r.ok) return null;
+    return (await r.json()) as T;
+  } catch {
+    window.clearTimeout(timer);
+    return null;
+  }
+}
+
+function stableHashId(prefix: string, raw: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < raw.length; i += 1) {
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return `${prefix}-${Math.abs(h).toString(16)}`;
+}
+
+function mapClientEspnStatus(statusType?: {
+  state?: string;
+  name?: string;
+  shortDetail?: string;
+  description?: string;
+}): { code: SportMatchItem['statusCode']; label: string } {
+  const name = String(statusType?.name || '').toUpperCase();
+  const state = String(statusType?.state || '').toLowerCase();
+  const detail = String(statusType?.shortDetail || statusType?.description || '');
+  if (name.includes('POSTPONED')) return { code: 'postergado', label: 'Postergado' };
+  if (name.includes('SUSPENDED')) return { code: 'suspendido', label: 'Suspendido' };
+  if (name.includes('CANCELED') || name.includes('CANCELLED')) {
+    return { code: 'cancelado', label: 'Cancelado' };
+  }
+  if (name.includes('HALFTIME')) return { code: 'entretiempo', label: 'Entretiempo' };
+  if (state === 'in') return { code: 'en-vivo', label: detail || 'En juego (periódico)' };
+  if (state === 'post' || name.includes('FINAL')) return { code: 'finalizado', label: 'Finalizado' };
+  return { code: 'programado', label: 'Programado' };
+}
+
+function normalizeClientEspnScoreboard(
+  raw: Record<string, unknown>,
+  leagueId: string
+): SportMatchItem[] {
+  const spec =
+    SPORTS_LEAGUES_FALLBACK.find((l) => l.id === leagueId) || SPORTS_LEAGUES_FALLBACK[0];
+  const events = Array.isArray(raw.events) ? (raw.events as Array<Record<string, unknown>>) : [];
+  const out: SportMatchItem[] = [];
+
+  for (const ev of events) {
+    const id = String(ev.id || '');
+    const startDateIso = String(ev.date || '');
+    const competitions = Array.isArray(ev.competitions)
+      ? (ev.competitions as Array<Record<string, unknown>>)
+      : [];
+    const comp = competitions[0] || {};
+    const statusObj = (comp.status || ev.status || {}) as {
+      displayClock?: string;
+      type?: { state?: string; name?: string; shortDetail?: string; description?: string };
+    };
+    const mapped = mapClientEspnStatus(statusObj.type);
+    const clockDetail = String(statusObj.type?.shortDetail || statusObj.displayClock || '');
+    const venueObj = (comp.venue || {}) as {
+      fullName?: string;
+      address?: { city?: string; country?: string };
+    };
+    const venue = venueObj.fullName
+      ? [venueObj.fullName, venueObj.address?.city].filter(Boolean).join(', ')
+      : undefined;
+
+    const broadcasts = Array.isArray(comp.broadcasts)
+      ? (comp.broadcasts as Array<{ names?: string[] }>)
+      : [];
+    const broadcastNames = broadcasts.flatMap((b) => (Array.isArray(b.names) ? b.names : []));
+    const broadcast = broadcastNames.length > 0 ? broadcastNames.slice(0, 3).join(', ') : undefined;
+
+    const competitors = Array.isArray(comp.competitors)
+      ? (comp.competitors as Array<Record<string, unknown>>)
+      : [];
+    const homeRaw = competitors.find((c) => c.homeAway === 'home') || competitors[0];
+    const awayRaw = competitors.find((c) => c.homeAway === 'away') || competitors[1];
+
+    const extractTeam = (c?: Record<string, unknown>, fallbackName = 'Por confirmar') => {
+      if (!c) return { id: '', name: fallbackName, shortName: fallbackName };
+      const team = (c.team || c.athlete || {}) as Record<string, unknown>;
+      const logo =
+        typeof team.logo === 'string'
+          ? team.logo
+          : Array.isArray(team.logos) && team.logos[0]
+          ? String((team.logos[0] as { href?: string }).href || '')
+          : undefined;
+      return {
+        id: String(team.id || c.id || ''),
+        name: String(team.displayName || team.name || fallbackName),
+        shortName: String(
+          team.shortDisplayName || team.abbreviation || team.displayName || fallbackName
+        ),
+        logo: logo || undefined,
+        score: c.score !== undefined && c.score !== null ? String(c.score) : undefined,
+        winner: Boolean(c.winner),
+      };
+    };
+
+    out.push({
+      id,
+      leagueId: spec.id,
+      leagueName: spec.name,
+      country: spec.country,
+      sport: spec.sport,
+      disciplineLabel: spec.disciplineLabel,
+      startDateIso,
+      statusCode: mapped.code,
+      statusLabel: mapped.label,
+      clockDetail,
+      venue,
+      broadcast,
+      homeTeam: extractTeam(homeRaw, String(ev.shortName || ev.name || 'Evento')),
+      awayTeam: extractTeam(awayRaw, competitors.length < 2 ? spec.shortName : 'Por confirmar'),
+      titleFallback: String(ev.name || ''),
+      sourceName: 'ESPN Public Sports JSON (directo)',
+      updateMode: 'periodico',
+    });
+  }
+  return out;
+}
+
+async function fetchDirectEspnScoreboard(
+  leagueId: string,
+  dates = ''
+): Promise<SportMatchItem[]> {
+  const path = LEAGUE_ESPN_PATHS[leagueId];
+  if (!path) return [];
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard${
+    dates ? `?dates=${encodeURIComponent(dates)}` : ''
+  }`;
+  const raw = await fetchExternalJson<Record<string, unknown>>(url);
+  if (!raw) return [];
+  return normalizeClientEspnScoreboard(raw, leagueId);
+}
+
+function inferClientNewsCategory(title: string, summary: string, fallback: string): string {
+  const hay = `${title} ${summary}`.toLowerCase();
+  if (hay.includes('selección argentina') || hay.includes('scaloni') || hay.includes('messi')) {
+    return 'Selección Argentina';
+  }
+  if (hay.includes('mercado de pases') || hay.includes('refuerzo') || hay.includes('fichaje')) {
+    return 'Mercado de pases';
+  }
+  if (hay.includes('champions')) return 'Champions League';
+  if (hay.includes('libertadores') || hay.includes('sudamericana')) return 'Copa Libertadores';
+  if (hay.includes('fórmula 1') || hay.includes('formula 1') || hay.includes('colapinto')) {
+    return 'Fórmula 1';
+  }
+  if (hay.includes('nba') || hay.includes('básquet')) return 'Básquet';
+  if (hay.includes('tenis') || hay.includes('atp') || hay.includes('wta')) return 'Tenis';
+  if (hay.includes('rugby') || hay.includes('pumas')) return 'Rugby';
+  if (hay.includes('boxeo') || hay.includes('ufc') || hay.includes('mma')) return 'Boxeo';
+  if (hay.includes('boca') || hay.includes('river') || hay.includes('racing') || hay.includes('liga profesional')) {
+    return 'Fútbol argentino';
+  }
+  return fallback;
+}
+
+function isLikelyClientRumor(title: string, summary: string): boolean {
+  const t = `${title} ${summary}`.toLowerCase();
+  return (
+    t.includes('rumor') ||
+    t.includes('sondea') ||
+    t.includes('podría llegar') ||
+    t.includes('en la mira') ||
+    t.includes('trascendió') ||
+    t.includes('posible salida')
+  );
+}
+
+async function fetchDirectPublicNews(): Promise<SportNewsArticle[]> {
+  const espnFeeds = [
+    {
+      url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/news?lang=es&region=ar',
+      source: 'ESPN Argentina',
+      category: 'Fútbol argentino',
+    },
+    {
+      url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/news?lang=es&region=ar',
+      source: 'ESPN Fútbol Internacional',
+      category: 'Champions League',
+    },
+    {
+      url: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/news?lang=es&region=ar',
+      source: 'ESPN NBA',
+      category: 'Básquet',
+    },
+    {
+      url: 'https://site.api.espn.com/apis/site/v2/sports/racing/f1/news?lang=es&region=ar',
+      source: 'ESPN Fórmula 1',
+      category: 'Fórmula 1',
+    },
+    {
+      url: 'https://site.api.espn.com/apis/site/v2/sports/tennis/atp/news?lang=es&region=ar',
+      source: 'ESPN Tenis',
+      category: 'Tenis',
+    },
+  ];
+
+  const rss2JsonFeeds = [
+    {
+      url: 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.ole.com.ar%2Frss%2Fultimas-noticias%2F',
+      source: 'Diario Olé',
+      category: 'Fútbol argentino',
+    },
+    {
+      url: 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.infobae.com%2Farc%2Foutboundfeeds%2Frss%2Fcategory%2Fdeportes%2F',
+      source: 'Infobae Deportes',
+      category: 'Fútbol argentino',
+    },
+  ];
+
+  const [espnResults, rssResults] = await Promise.all([
+    Promise.all(
+      espnFeeds.map(async (f) => {
+        const json = await fetchExternalJson<{
+          articles?: Array<{
+            id?: string | number;
+            headline?: string;
+            description?: string;
+            published?: string;
+            links?: { web?: { href?: string } };
+            images?: Array<{ url?: string }>;
+          }>;
+        }>(f.url);
+        const list = Array.isArray(json?.articles) ? json.articles : [];
+        return list
+          .map((a): SportNewsArticle | null => {
+            const title = String(a.headline || '').trim();
+            const link = String(a.links?.web?.href || '').trim();
+            if (!title || !link) return null;
+            const summary = String(a.description || '').trim();
+            return {
+              id: stableHashId('espn-ar', `${f.source}:${a.id || link}`),
+              title,
+              summary:
+                summary || 'Abrir la cobertura completa en el portal deportivo original.',
+              sourceName: f.source,
+              url: link,
+              publishedAt: a.published || new Date().toISOString(),
+              imageUrl: a.images?.[0]?.url,
+              category: inferClientNewsCategory(title, summary, f.category),
+              isRumor: isLikelyClientRumor(title, summary),
+            };
+          })
+          .filter((x): x is SportNewsArticle => Boolean(x));
+      })
+    ),
+    Promise.all(
+      rss2JsonFeeds.map(async (f) => {
+        const json = await fetchExternalJson<{
+          status?: string;
+          items?: Array<{
+            title?: string;
+            link?: string;
+            pubDate?: string;
+            description?: string;
+            thumbnail?: string;
+            enclosure?: { link?: string };
+          }>;
+        }>(f.url);
+        if (json?.status !== 'ok' || !Array.isArray(json.items)) return [];
+        return json.items
+          .map((it): SportNewsArticle | null => {
+            const title = String(it.title || '').trim();
+            const link = String(it.link || '').trim();
+            if (!title || !link) return null;
+            const cleanDesc = String(it.description || '')
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 240);
+            const parsedDate = it.pubDate ? Date.parse(it.pubDate.replace(' ', 'T') + 'Z') : NaN;
+            return {
+              id: stableHashId('rss-pub', `${f.source}:${link}`),
+              title,
+              summary: cleanDesc || 'Leer nota completa en el medio original.',
+              sourceName: f.source,
+              url: link,
+              publishedAt: Number.isNaN(parsedDate)
+                ? new Date().toISOString()
+                : new Date(parsedDate).toISOString(),
+              imageUrl: it.thumbnail || it.enclosure?.link || undefined,
+              category: inferClientNewsCategory(title, cleanDesc, f.category),
+              isRumor: isLikelyClientRumor(title, cleanDesc),
+            };
+          })
+          .filter((x): x is SportNewsArticle => Boolean(x));
+      })
+    ),
+  ]);
+
+  const seenUrls = new Set<string>();
+  const combined: SportNewsArticle[] = [];
+  for (const art of [...rssResults.flat(), ...espnResults.flat()]) {
+    if (seenUrls.has(art.url)) continue;
+    seenUrls.add(art.url);
+    combined.push(art);
+  }
+  combined.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  return combined.slice(0, 60);
+}
+
+// ---------------------------------------------------------------------------
+// API Clients to /api/sports/* with automatic $0 Direct CORS Fallback
 // ---------------------------------------------------------------------------
 export async function fetchSportsSources(): Promise<{
   ok: boolean;
@@ -144,18 +504,75 @@ export async function fetchSportsSources(): Promise<{
   sources: SportSourceStatus[];
   serverTimeIso?: string;
 }> {
-  try {
-    const r = await fetch('/api/sports/sources');
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return (await r.json()) as {
-      ok: boolean;
-      leagues: SportLeagueCatalogItem[];
-      sources: SportSourceStatus[];
-      serverTimeIso?: string;
-    };
-  } catch {
-    return { ok: false, leagues: [], sources: [] };
-  }
+  const local = await tryLocalApiJson<{
+    ok: boolean;
+    leagues: SportLeagueCatalogItem[];
+    sources: SportSourceStatus[];
+    serverTimeIso?: string;
+  }>('/api/sports/sources');
+
+  if (local?.ok) return local;
+
+  const now = new Date().toISOString();
+  return {
+    ok: true,
+    leagues: SPORTS_LEAGUES_FALLBACK,
+    serverTimeIso: now,
+    sources: [
+      {
+        id: 'espn-public-json',
+        name: 'ESPN Public Sports JSON (Conexión directa)',
+        type: 'marcadores-calendarios',
+        url: 'https://site.api.espn.com',
+        accessMethod: 'JSON público CORS (sin clave API)',
+        refreshSeconds: 120,
+        updateMode: 'periodico',
+        status: 'ok',
+        lastCheckedAt: now,
+        lastError: null,
+        termsNote: 'Endpoint público gratuito CORS sin clave API. Actualización periódica.',
+      },
+      {
+        id: 'espn-ar-news',
+        name: 'ESPN Argentina / Internacional Noticias JSON',
+        type: 'noticias-rss',
+        url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/news',
+        accessMethod: 'JSON público CORS en español',
+        refreshSeconds: 300,
+        updateMode: 'periodico',
+        status: 'ok',
+        lastCheckedAt: now,
+        lastError: null,
+        termsNote: 'Noticias deportivas públicas en español sin facturación.',
+      },
+      {
+        id: 'rss-ole-infobae',
+        name: 'Diario Olé / Infobae Deportes (RSS)',
+        type: 'noticias-rss',
+        url: 'https://www.ole.com.ar/rss/ultimas-noticias/',
+        accessMethod: 'RSS público',
+        refreshSeconds: 300,
+        updateMode: 'periodico',
+        status: 'ok',
+        lastCheckedAt: now,
+        lastError: null,
+        termsNote: 'Feeds RSS públicos con enlace al medio original.',
+      },
+      {
+        id: 'thesportsdb-free',
+        name: 'TheSportsDB Public Free API',
+        type: 'fichas-perfiles',
+        url: 'https://www.thesportsdb.com/api/v1/json/123/',
+        accessMethod: 'API pública gratuita CORS',
+        refreshSeconds: 600,
+        updateMode: 'periodico',
+        status: 'ok',
+        lastCheckedAt: now,
+        lastError: null,
+        termsNote: 'Perfiles gratuitos de clubes y deportistas.',
+      },
+    ],
+  };
 }
 
 export async function fetchLeagueScoreboard(
@@ -168,32 +585,41 @@ export async function fetchLeagueScoreboard(
   fromCache?: boolean;
   error?: string;
 }> {
-  try {
-    const q = new URLSearchParams({ league: leagueId });
-    if (dates) q.set('dates', dates);
-    const r = await fetch(`/api/sports/scoreboard?${q.toString()}`);
-    const data = (await r.json()) as {
-      ok: boolean;
-      matches?: SportMatchItem[];
-      fetchedAt?: string;
-      fromCache?: boolean;
-      error?: string;
-    };
+  const q = new URLSearchParams({ league: leagueId });
+  if (dates) q.set('dates', dates);
+  const local = await tryLocalApiJson<{
+    ok: boolean;
+    matches?: SportMatchItem[];
+    fetchedAt?: string;
+    fromCache?: boolean;
+    error?: string;
+  }>(`/api/sports/scoreboard?${q.toString()}`);
+
+  if (local?.ok && Array.isArray(local.matches)) {
     return {
-      ok: Boolean(data.ok),
-      matches: Array.isArray(data.matches) ? data.matches : [],
-      fetchedAt: data.fetchedAt || new Date().toISOString(),
-      fromCache: data.fromCache,
-      error: data.error,
-    };
-  } catch {
-    return {
-      ok: false,
-      matches: [],
-      fetchedAt: new Date().toISOString(),
-      error: 'Sin conexión con el servidor de fuentes deportivas. Mostrando caché local si existe.',
+      ok: true,
+      matches: local.matches,
+      fetchedAt: local.fetchedAt || new Date().toISOString(),
+      fromCache: local.fromCache,
     };
   }
+
+  // Direct CORS fallback to ESPN Public JSON
+  const direct = await fetchDirectEspnScoreboard(leagueId, dates);
+  if (direct.length > 0 || LEAGUE_ESPN_PATHS[leagueId]) {
+    return {
+      ok: true,
+      matches: direct,
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  return {
+    ok: false,
+    matches: [],
+    fetchedAt: new Date().toISOString(),
+    error: 'Sin conexión con las fuentes deportivas. Mostrando caché local si existe.',
+  };
 }
 
 export async function fetchMultiScoreboard(
@@ -205,30 +631,62 @@ export async function fetchMultiScoreboard(
   fetchedAt: string;
   error?: string;
 }> {
-  try {
-    const q = new URLSearchParams({ leagues: leagues.join(',') });
-    if (dates) q.set('dates', dates);
-    const r = await fetch(`/api/sports/multi-scoreboard?${q.toString()}`);
-    const data = (await r.json()) as {
-      ok: boolean;
-      matches?: SportMatchItem[];
-      fetchedAt?: string;
-      error?: string;
-    };
+  const q = new URLSearchParams({ leagues: leagues.join(',') });
+  if (dates) q.set('dates', dates);
+  const local = await tryLocalApiJson<{
+    ok: boolean;
+    matches?: SportMatchItem[];
+    fetchedAt?: string;
+    error?: string;
+  }>(`/api/sports/multi-scoreboard?${q.toString()}`, 9000);
+
+  if (local?.ok && Array.isArray(local.matches) && local.matches.length > 0) {
     return {
-      ok: Boolean(data.ok),
-      matches: Array.isArray(data.matches) ? data.matches : [],
-      fetchedAt: data.fetchedAt || new Date().toISOString(),
-      error: data.error,
-    };
-  } catch {
-    return {
-      ok: false,
-      matches: [],
-      fetchedAt: new Date().toISOString(),
-      error: 'No se pudo actualizar el calendario deportivo (modo offline o red no disponible).',
+      ok: true,
+      matches: local.matches,
+      fetchedAt: local.fetchedAt || new Date().toISOString(),
     };
   }
+
+  // Direct CORS fallback: query ESPN Public JSON directly from browser
+  const batches = await Promise.all(
+    leagues.slice(0, 10).map((lid) => fetchDirectEspnScoreboard(lid, dates))
+  );
+  const merged = batches
+    .flat()
+    .sort((a, b) => a.startDateIso.localeCompare(b.startDateIso));
+
+  if (merged.length > 0) {
+    return {
+      ok: true,
+      matches: merged,
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  // If narrow dates range yielded 0 events, retry without date restriction to get current round
+  if (dates) {
+    const fallbackBatches = await Promise.all(
+      leagues.slice(0, 8).map((lid) => fetchDirectEspnScoreboard(lid, ''))
+    );
+    const roundMatches = fallbackBatches
+      .flat()
+      .sort((a, b) => a.startDateIso.localeCompare(b.startDateIso));
+    if (roundMatches.length > 0) {
+      return {
+        ok: true,
+        matches: roundMatches,
+        fetchedAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    matches: [],
+    fetchedAt: new Date().toISOString(),
+    error: 'No se pudo actualizar el calendario deportivo (modo offline o red no disponible).',
+  };
 }
 
 export async function fetchLeagueStandings(leagueId: string): Promise<{
@@ -238,23 +696,38 @@ export async function fetchLeagueStandings(leagueId: string): Promise<{
   note?: string;
   error?: string;
 }> {
-  try {
-    const r = await fetch(`/api/sports/standings?league=${encodeURIComponent(leagueId)}`);
-    const data = (await r.json()) as {
-      ok: boolean;
-      groups?: SportStandingsGroup[];
-      fetchedAt?: string;
-      note?: string;
-      error?: string;
-    };
+  const local = await tryLocalApiJson<{
+    ok: boolean;
+    groups?: SportStandingsGroup[];
+    fetchedAt?: string;
+    note?: string;
+    error?: string;
+  }>(`/api/sports/standings?league=${encodeURIComponent(leagueId)}`);
+
+  if (local?.ok) {
     return {
-      ok: Boolean(data.ok),
-      groups: Array.isArray(data.groups) ? data.groups : [],
-      fetchedAt: data.fetchedAt || new Date().toISOString(),
-      note: data.note,
-      error: data.error,
+      ok: true,
+      groups: Array.isArray(local.groups) ? local.groups : [],
+      fetchedAt: local.fetchedAt || new Date().toISOString(),
+      note: local.note,
     };
-  } catch {
+  }
+
+  const spec = SPORTS_LEAGUES_FALLBACK.find((l) => l.id === leagueId);
+  const path = LEAGUE_ESPN_PATHS[leagueId];
+  if (!spec?.hasStandings || !path) {
+    return {
+      ok: true,
+      groups: [],
+      fetchedAt: new Date().toISOString(),
+      note: 'Esta competición es de eliminación directa o no ofrece tabla en la fuente gratuita.',
+    };
+  }
+
+  const json = await fetchExternalJson<Record<string, unknown>>(
+    `https://site.api.espn.com/apis/v2/sports/${path}/standings`
+  );
+  if (!json) {
     return {
       ok: false,
       groups: [],
@@ -262,22 +735,132 @@ export async function fetchLeagueStandings(leagueId: string): Promise<{
       error: 'No se pudo cargar la tabla de posiciones en este momento.',
     };
   }
+
+  const rawChildren = Array.isArray(json.children)
+    ? (json.children as Array<Record<string, unknown>>)
+    : [json];
+
+  const groups: SportStandingsGroup[] = rawChildren
+    .map((child) => {
+      const groupName = String(child.name || spec.name);
+      const standingsObj = (child.standings || {}) as Record<string, unknown>;
+      const entries = Array.isArray(standingsObj.entries)
+        ? (standingsObj.entries as Array<Record<string, unknown>>)
+        : [];
+      const rows = entries.map((entry, idx) => {
+        const team = (entry.team || {}) as Record<string, unknown>;
+        const stats = Array.isArray(entry.stats)
+          ? (entry.stats as Array<{ name?: string; abbreviation?: string; displayValue?: string }>)
+          : [];
+        const pick = (...names: string[]) => {
+          const found = stats.find(
+            (s) =>
+              names.includes(String(s.name || '').toLowerCase()) ||
+              names.includes(String(s.abbreviation || '').toLowerCase())
+          );
+          return found?.displayValue ?? '—';
+        };
+        const logos = Array.isArray(team.logos) ? (team.logos as Array<{ href?: string }>) : [];
+        return {
+          rank: Number(pick('rank', 'rk')) || idx + 1,
+          teamId: String(team.id || ''),
+          teamName: String(team.displayName || team.name || 'Equipo'),
+          logo: logos[0]?.href,
+          played: pick('gamesplayed', 'gp'),
+          wins: pick('wins', 'w'),
+          draws: pick('ties', 'd'),
+          losses: pick('losses', 'l'),
+          goalsFor: pick('pointsfor', 'gf', 'f'),
+          goalsAgainst: pick('pointsagainst', 'ga', 'a'),
+          goalDiff: pick('pointdifferential', 'gd', 'diff'),
+          points: pick('points', 'pts', 'p', 'winpercent'),
+          note: (entry.note as { description?: string } | undefined)?.description,
+        };
+      });
+      return { groupName, rows };
+    })
+    .filter((g) => g.rows.length > 0);
+
+  return {
+    ok: true,
+    groups,
+    fetchedAt: new Date().toISOString(),
+  };
 }
 
 export async function fetchMatchSummary(
   leagueId: string,
   eventId: string
 ): Promise<{ ok: boolean; summary?: SportMatchSummary; error?: string }> {
-  try {
-    const r = await fetch(
-      `/api/sports/match-summary?league=${encodeURIComponent(leagueId)}&eventId=${encodeURIComponent(eventId)}`
-    );
-    const data = (await r.json()) as SportMatchSummary & { ok: boolean; error?: string };
-    if (!data.ok) return { ok: false, error: data.error || 'Sin detalle extendido disponible.' };
-    return { ok: true, summary: data };
-  } catch {
-    return { ok: false, error: 'Error consultando detalle del encuentro.' };
-  }
+  const local = await tryLocalApiJson<SportMatchSummary & { ok: boolean; error?: string }>(
+    `/api/sports/match-summary?league=${encodeURIComponent(leagueId)}&eventId=${encodeURIComponent(eventId)}`
+  );
+  if (local?.ok) return { ok: true, summary: local };
+
+  const path = LEAGUE_ESPN_PATHS[leagueId];
+  if (!path) return { ok: false, error: 'Sin detalle extendido disponible.' };
+  const raw = await fetchExternalJson<Record<string, unknown>>(
+    `https://site.api.espn.com/apis/site/v2/sports/${path}/summary?event=${encodeURIComponent(eventId)}`
+  );
+  if (!raw) return { ok: false, error: 'Error consultando detalle del encuentro.' };
+
+  const box = (raw.boxscore || {}) as {
+    teams?: Array<{
+      team?: { displayName?: string };
+      statistics?: Array<{ label?: string; displayValue?: string }>;
+    }>;
+  };
+  const rosters = Array.isArray(raw.rosters)
+    ? (raw.rosters as Array<{
+        team?: { displayName?: string };
+        formation?: string;
+        roster?: Array<{
+          athlete?: { displayName?: string };
+          jersey?: string;
+          position?: { abbreviation?: string; name?: string };
+        }>;
+      }>)
+    : [];
+  const keyEvs = Array.isArray(raw.keyEvents)
+    ? (raw.keyEvents as Array<{
+        id?: string;
+        clock?: { displayValue?: string };
+        type?: { text?: string };
+        text?: string;
+        team?: { displayName?: string };
+      }>)
+    : [];
+
+  return {
+    ok: true,
+    summary: {
+      events: keyEvs.slice(0, 20).map((e, idx) => ({
+        id: String(e.id || `ev-${idx}`),
+        clock: String(e.clock?.displayValue || ''),
+        type: String(e.type?.text || 'Incidencia'),
+        text: String(e.text || ''),
+        teamName: String(e.team?.displayName || ''),
+      })),
+      teamStats: (box.teams || []).map((t) => ({
+        teamName: t.team?.displayName || 'Equipo',
+        stats: (t.statistics || []).slice(0, 10).map((s) => ({
+          label: s.label || '',
+          value: s.displayValue || '—',
+        })),
+      })),
+      lineups: rosters.map((r) => ({
+        teamName: r.team?.displayName || 'Equipo',
+        formation: r.formation || '',
+        players: (r.roster || []).slice(0, 18).map((p) => ({
+          name: p.athlete?.displayName || 'Jugador',
+          jersey: p.jersey || '',
+          position: p.position?.abbreviation || p.position?.name || '',
+        })),
+      })),
+      fetchedAt: new Date().toISOString(),
+      sourceName: 'ESPN Public Sports JSON (directo)',
+    },
+  };
 }
 
 export async function fetchSportsNews(
@@ -289,31 +872,54 @@ export async function fetchSportsNews(
   fetchedAt: string;
   error?: string;
 }> {
-  try {
-    const params = new URLSearchParams();
-    if (category) params.set('category', category);
-    if (q.trim()) params.set('q', q.trim());
-    const r = await fetch(`/api/sports/news?${params.toString()}`);
-    const data = (await r.json()) as {
-      ok: boolean;
-      articles?: SportNewsArticle[];
-      fetchedAt?: string;
-      error?: string;
-    };
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+  if (q.trim()) params.set('q', q.trim());
+  const local = await tryLocalApiJson<{
+    ok: boolean;
+    articles?: SportNewsArticle[];
+    fetchedAt?: string;
+    error?: string;
+  }>(`/api/sports/news?${params.toString()}`, 8000);
+
+  if (local?.ok && Array.isArray(local.articles) && local.articles.length > 0) {
     return {
-      ok: Boolean(data.ok),
-      articles: Array.isArray(data.articles) ? data.articles : [],
-      fetchedAt: data.fetchedAt || new Date().toISOString(),
-      error: data.error,
-    };
-  } catch {
-    return {
-      ok: false,
-      articles: [],
-      fetchedAt: new Date().toISOString(),
-      error: 'Sin conexión a los feeds RSS deportivos.',
+      ok: true,
+      articles: local.articles,
+      fetchedAt: local.fetchedAt || new Date().toISOString(),
     };
   }
+
+  // Direct CORS fallback: ESPN Argentina/ES JSON News + RSS2JSON Olé/Infobae
+  let directArticles = await fetchDirectPublicNews();
+  if (category && category !== 'Todas') {
+    const catLower = category.toLowerCase();
+    directArticles = directArticles.filter((a) => a.category.toLowerCase() === catLower);
+  }
+  if (q.trim()) {
+    const ql = q.trim().toLowerCase();
+    directArticles = directArticles.filter(
+      (a) =>
+        a.title.toLowerCase().includes(ql) ||
+        a.summary.toLowerCase().includes(ql) ||
+        a.sourceName.toLowerCase().includes(ql)
+    );
+  }
+
+  if (directArticles.length > 0) {
+    return {
+      ok: true,
+      articles: directArticles,
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  return {
+    ok: false,
+    articles: [],
+    fetchedAt: new Date().toISOString(),
+    error: 'Sin conexión a las fuentes deportivas de noticias.',
+  };
 }
 
 export async function searchSportsProfiles(
@@ -325,23 +931,34 @@ export async function searchSportsProfiles(
   fetchedAt: string;
   error?: string;
 }> {
-  try {
-    const r = await fetch(
-      `/api/sports/search?type=${type}&q=${encodeURIComponent(q.trim())}`
-    );
-    const data = (await r.json()) as {
-      ok: boolean;
-      items?: Array<SportTeamProfile | SportAthleteProfile>;
-      fetchedAt?: string;
-      error?: string;
-    };
+  const cleanQ = q.trim();
+  if (!cleanQ) {
+    return { ok: true, items: [], fetchedAt: new Date().toISOString() };
+  }
+
+  const local = await tryLocalApiJson<{
+    ok: boolean;
+    items?: Array<SportTeamProfile | SportAthleteProfile>;
+    fetchedAt?: string;
+    error?: string;
+  }>(`/api/sports/search?type=${type}&q=${encodeURIComponent(cleanQ)}`);
+
+  if (local?.ok && Array.isArray(local.items)) {
     return {
-      ok: Boolean(data.ok),
-      items: Array.isArray(data.items) ? data.items : [],
-      fetchedAt: data.fetchedAt || new Date().toISOString(),
-      error: data.error,
+      ok: true,
+      items: local.items,
+      fetchedAt: local.fetchedAt || new Date().toISOString(),
     };
-  } catch {
+  }
+
+  // Direct CORS fallback to TheSportsDB Public Free API (key 123)
+  const endpoint =
+    type === 'player'
+      ? `https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p=${encodeURIComponent(cleanQ)}`
+      : `https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t=${encodeURIComponent(cleanQ)}`;
+
+  const raw = await fetchExternalJson<Record<string, unknown>>(endpoint);
+  if (!raw) {
     return {
       ok: false,
       items: [],
@@ -349,6 +966,38 @@ export async function searchSportsProfiles(
       error: 'Error consultando perfiles en TheSportsDB.',
     };
   }
+
+  if (type === 'player') {
+    const players = Array.isArray(raw.player) ? (raw.player as Array<Record<string, unknown>>) : [];
+    const items: SportAthleteProfile[] = players.slice(0, 12).map((p) => ({
+      id: String(p.idPlayer || ''),
+      kind: 'player',
+      name: String(p.strPlayer || ''),
+      sport: String(p.strSport || ''),
+      country: String(p.strNationality || ''),
+      team: String(p.strTeam || ''),
+      position: String(p.strPosition || ''),
+      birthDate: String(p.dateBorn || ''),
+      image: String(p.strCutout || p.strThumb || ''),
+      description: String(p.strDescriptionES || p.strDescriptionEN || '').slice(0, 420),
+    }));
+    return { ok: true, items, fetchedAt: new Date().toISOString() };
+  }
+
+  const teams = Array.isArray(raw.teams) ? (raw.teams as Array<Record<string, unknown>>) : [];
+  const items: SportTeamProfile[] = teams.slice(0, 12).map((t) => ({
+    id: String(t.idTeam || ''),
+    kind: 'team',
+    name: String(t.strTeam || ''),
+    sport: String(t.strSport || ''),
+    country: String(t.strCountry || ''),
+    league: String(t.strLeague || ''),
+    stadium: String(t.strStadium || ''),
+    formedYear: String(t.intFormedYear || ''),
+    image: String(t.strBadge || ''),
+    description: String(t.strDescriptionES || t.strDescriptionEN || '').slice(0, 420),
+  }));
+  return { ok: true, items, fetchedAt: new Date().toISOString() };
 }
 
 // ---------------------------------------------------------------------------

@@ -337,6 +337,15 @@ export const SECTORS_CATALOG: SectorDefinition[] = [
         keywords: 'ultimo dia vida reflexion ruleta estoica micro acciones felicidad gustos',
       },
       {
+        id: 'fabro-deportes',
+        sector: 'bienestar',
+        groupLabel: 'A. Centro Deportivo',
+        label: 'FABRO DEPORTES · Partidos, Tablas, Noticias y Herramientas',
+        shortLabel: 'Deportes',
+        description: 'Fútbol argentino e internacional, NBA, Tenis, F1, resultados, tablas, noticias deportivas y herramientas.',
+        keywords: 'deportes futbol liga profesional copa libertadores champions nba tenis formula 1 resultados tablas posiciones noticias deportivas running entrenamiento',
+      },
+      {
         id: 'organizador-integral',
         sector: 'bienestar',
         groupLabel: 'B. Organización Personal',

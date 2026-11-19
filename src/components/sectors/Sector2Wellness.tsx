@@ -20,6 +20,7 @@ import { WellnessSafetyCommunityConfigPanel } from './wellness/v2/WellnessSafety
 
 const LEGACY_SUBMENU_MAP: Record<WellnessSubmenuId, WellnessNavId> = {
   'mi-vida': 'mi-dia',
+  'fabro-deportes': 'fabro-deportes',
   'organizacion-calorias': 'nutricion',
   'salud-ejercicios': 'actividad-fisica',
   'bienestar-emocional': 'mente-emociones',

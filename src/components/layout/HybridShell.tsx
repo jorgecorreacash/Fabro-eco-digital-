@@ -24,6 +24,7 @@ import {
   Settings,
   Shield,
   SunMoon,
+  Trophy,
   User,
   X,
 } from 'lucide-react';
@@ -192,6 +193,19 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
         label: 'Panel de Herramientas · Calculadora, Conversor y Suite Multiuso',
         groupLabel: 'Centro unificado',
         description: 'Calculadora científica, conversor universal, cronómetro, divisor de gastos, claves y todas las utilidades.',
+      });
+    }
+    if (
+      'fabro deportes futbol liga profesional copa argentina libertadores champions premier nba tenis formula 1 rugby resultados partidos en vivo tablas posiciones noticias deportivas equipos jugadores'
+        .includes(q)
+    ) {
+      results.push({
+        id: 'fabro-deportes-direct',
+        sector: 'bienestar',
+        submenu: 'fabro-deportes',
+        label: 'FABRO DEPORTES · Partidos, Tablas, Noticias y Herramientas',
+        groupLabel: 'Centro Deportivo',
+        description: 'Fútbol argentino e internacional, NBA, Tenis, F1, resultados, posiciones y noticias deportivas en vivo.',
       });
     }
     if (
@@ -652,6 +666,53 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                     </div>
                   )}
                 </div>
+              );
+            })()}
+
+            {/* Deportes (Acceso directo siempre visible) */}
+            {(() => {
+              const isSportsActive = sector === 'bienestar' && submenu === 'fabro-deportes';
+              return (
+                <button
+                  type="button"
+                  onClick={() => navigateTo('bienestar', 'fabro-deportes')}
+                  onMouseEnter={(e) => showCollapsedTip('Deportes · FABRO DEPORTES', e.currentTarget)}
+                  onMouseLeave={hideCollapsedTip}
+                  aria-label="Deportes"
+                  className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
+                    sidebarCollapsed ? 'justify-center px-0' : ''
+                  } ${
+                    isSportsActive
+                      ? 'font-semibold text-[var(--fabro-text)]'
+                      : 'border-transparent fabro-muted hover:text-[var(--fabro-text)] hover:bg-[var(--fabro-surface-2)]/70'
+                  }`}
+                  style={
+                    isSportsActive
+                      ? {
+                          backgroundColor: 'rgba(2, 132, 199, 0.14)',
+                          borderColor: 'rgba(2, 132, 199, 0.55)',
+                          boxShadow: '0 4px 14px -6px rgba(2, 132, 199, 0.35)',
+                        }
+                      : undefined
+                  }
+                >
+                  {isSportsActive && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full bg-[#0284C7]"
+                    />
+                  )}
+                  <Trophy
+                    className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                      isSportsActive
+                        ? 'translate-x-0.5 text-[#0284C7] dark:text-[#38BDF8]'
+                        : 'text-[#0284C7] dark:text-[#38BDF8]'
+                    }`}
+                  />
+                  {!sidebarCollapsed && (
+                    <span className="truncate flex-1 text-left">Deportes</span>
+                  )}
+                </button>
               );
             })()}
 
@@ -1593,6 +1654,31 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                     </div>
                   );
                 })()}
+
+                {/* Deportes (Visible directamente en el menú móvil) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigateTo('bienestar', 'fabro-deportes');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer ${
+                    sector === 'bienestar' && submenu === 'fabro-deportes'
+                      ? 'border-[#0284C7] bg-[#0284C7]/12 text-[#0284C7] dark:text-[#38BDF8]'
+                      : 'fabro-border fabro-surface-elevated'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #0284C7, #0EA5E9)' }}
+                    >
+                      <Trophy className="w-3.5 h-3.5" />
+                    </span>
+                    <span>Deportes (Partidos y Noticias)</span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 shrink-0" />
+                </button>
 
                 {/* 4. Configuración (IA BYOK + Ideas y propuestas para nuevos sectores) */}
                 {(() => {

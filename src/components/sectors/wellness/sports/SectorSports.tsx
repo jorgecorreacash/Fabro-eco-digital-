@@ -13,7 +13,6 @@ import {
   SPORTS_SIDEBAR_ORDER,
 } from '../../../../data/sportsCatalog';
 import {
-  buildDatesParam,
   fetchMultiScoreboard,
   fetchSportsNews,
   fetchSportsSources,
@@ -122,7 +121,6 @@ export const SectorSports: React.FC<SectorSportsProps> = ({
       setLoading(true);
       setErrorMsg(null);
       const st = stateRef.current;
-      const tz = st.timeZone || 'America/Argentina/Buenos_Aires';
       const targetLeagues =
         customLeagues && customLeagues.length > 0
           ? customLeagues
@@ -130,8 +128,7 @@ export const SectorSports: React.FC<SectorSportsProps> = ({
               new Set([...(st.favoriteLeagues || []), ...DEFAULT_MULTI_LEAGUES])
             ).slice(0, 12);
 
-      const resolvedDates =
-        datesParam !== undefined ? datesParam : buildDatesParam('7-dias', tz);
+      const resolvedDates = datesParam !== undefined ? datesParam : '';
 
       const [sourcesRes, boardRes] = await Promise.all([
         fetchSportsSources(),
@@ -166,8 +163,9 @@ export const SectorSports: React.FC<SectorSportsProps> = ({
 
   const refreshNews = useCallback(async () => {
     const res = await fetchSportsNews('Todas', '');
-    if (res.ok) {
+    if (res.ok && res.articles.length > 0) {
       setNews(res.articles);
+      setLastUpdatedAt((prev) => prev || res.fetchedAt);
       updateSportsState((prev) => ({
         ...prev,
         lastCachedNews: res.articles.slice(0, 80),

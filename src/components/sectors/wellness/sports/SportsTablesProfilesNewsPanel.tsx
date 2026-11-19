@@ -123,6 +123,32 @@ export const SportsTablesProfilesNewsPanel: React.FC<SportsTablesProfilesNewsPan
     if (!res.ok) setProfileError(res.error || 'No se pudo consultar la ficha.');
   };
 
+  useEffect(() => {
+    if (section === 'equipos') {
+      const defaultQ = 'Boca Juniors';
+      setProfileQuery(defaultQ);
+      setProfileLoading(true);
+      setProfileError(null);
+      void searchSportsProfiles('team', defaultQ).then((res) => {
+        setProfileLoading(false);
+        setProfileResults(res.items);
+        if (!res.ok) setProfileError(res.error || 'No se pudo consultar la ficha.');
+      });
+    } else if (section === 'deportistas') {
+      const defaultQ = 'Lionel Messi';
+      setProfileQuery(defaultQ);
+      setProfileLoading(true);
+      setProfileError(null);
+      void searchSportsProfiles('player', defaultQ).then((res) => {
+        setProfileLoading(false);
+        setProfileResults(res.items);
+        if (!res.ok) setProfileError(res.error || 'No se pudo consultar la ficha.');
+      });
+    } else if (section === 'noticias' && news.length === 0) {
+      void onRefreshNews();
+    }
+  }, [section]);
+
   const filteredNews = useMemo(() => {
     const q = newsQuery.trim().toLowerCase();
     return news.filter((a) => {
