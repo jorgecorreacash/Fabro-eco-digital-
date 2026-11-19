@@ -75,10 +75,6 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
     unreadNotifications,
     markNotificationRead,
     markAllNotificationsRead,
-    navigateToCultureSection,
-    notificationPermission,
-    requestNotificationPermission,
-    notificationPrefs,
     rightPanelOpen,
     setRightPanelOpen,
     swipeNextScreen,
@@ -131,19 +127,25 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
   const [headerSearchOpen, setHeaderSearchOpen] = useState(false);
 
   const themeMenuRef = useRef<HTMLDivElement | null>(null);
+  const mobileThemeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const notifMenuRef = useRef<HTMLDivElement | null>(null);
   const headerSearchRef = useRef<HTMLDivElement | null>(null);
   const touchSwipeRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
 
   React.useEffect(() => {
     const onOutside = (e: MouseEvent) => {
-      if (themeMenuRef.current && !themeMenuRef.current.contains(e.target as Node)) {
+      const targetNode = e.target as Node;
+      if (
+        themeMenuRef.current &&
+        !themeMenuRef.current.contains(targetNode) &&
+        !(mobileThemeTriggerRef.current && mobileThemeTriggerRef.current.contains(targetNode))
+      ) {
         setThemeMenuOpen(false);
       }
-      if (notifMenuRef.current && !notifMenuRef.current.contains(e.target as Node)) {
+      if (notifMenuRef.current && !notifMenuRef.current.contains(targetNode)) {
         setNotifOpen(false);
       }
-      if (headerSearchRef.current && !headerSearchRef.current.contains(e.target as Node)) {
+      if (headerSearchRef.current && !headerSearchRef.current.contains(targetNode)) {
         setHeaderSearchOpen(false);
       }
     };
@@ -858,6 +860,20 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
 
             <button
               type="button"
+              onClick={() => openRadioModal()}
+              onMouseEnter={(e) => showCollapsedTip('Radio Digital FABRO', e.currentTarget)}
+              onMouseLeave={hideCollapsedTip}
+              aria-label="Radio Digital FABRO"
+              className={navItemClass(radioStatus === 'playing')}
+            >
+              <Radio className="w-4 h-4 shrink-0 text-[#0284C7] dark:text-[#38BDF8]" />
+              {!sidebarCollapsed && (
+                <span className="truncate flex-1 text-left">Radio Digital FABRO</span>
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={() => navigateTo('hoy', 'hoy-cosmos')}
               onMouseEnter={(e) => showCollapsedTip('Hoy y Cosmos', e.currentTarget)}
               onMouseLeave={hideCollapsedTip}
@@ -1015,15 +1031,15 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
 
       {/* Main Column */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Compact 56px (h-14) Translucent Sticky Top Bar */}
-        <header className="h-14 sticky top-0 z-30 border-b fabro-glass px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-4">
+        {/* Compact 56px (h-14) Translucent Sticky Top Bar — Zero Horizontal Overflow on Mobile */}
+        <header className="h-14 sticky top-0 z-30 border-b fabro-glass px-2 sm:px-5 flex items-center justify-between gap-1.5 sm:gap-3 w-full max-w-full">
           {/* Left Zone: Menu Button + Optional Back + Animated Logo */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Abrir menú completo"
-              className="lg:hidden min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-xl border fabro-border fabro-surface cursor-pointer active:scale-95"
+              className="lg:hidden h-9 w-9 sm:min-h-[40px] sm:min-w-[40px] inline-flex items-center justify-center rounded-xl border fabro-border fabro-surface cursor-pointer active:scale-95 shrink-0"
             >
               <Menu className="w-4 h-4" />
             </button>
@@ -1035,7 +1051,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                 setSidebarTooltip(null);
               }}
               aria-label={sidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
-              className="hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-xl border fabro-border fabro-surface cursor-pointer active:scale-95"
+              className="hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-xl border fabro-border fabro-surface cursor-pointer active:scale-95 shrink-0"
             >
               <Menu className="w-4 h-4" />
             </button>
@@ -1045,7 +1061,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                 type="button"
                 onClick={goBack}
                 aria-label="Volver al módulo anterior"
-                className="hidden sm:inline-flex min-h-[36px] items-center gap-1 rounded-xl border fabro-border fabro-surface px-2.5 py-1 text-xs font-medium cursor-pointer whitespace-nowrap shrink-0 active:scale-95"
+                className="hidden md:inline-flex min-h-[36px] items-center gap-1 rounded-xl border fabro-border fabro-surface px-2.5 py-1 text-xs font-medium cursor-pointer whitespace-nowrap shrink-0 active:scale-95"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Volver</span>
@@ -1055,14 +1071,14 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
             <button
               type="button"
               onClick={() => navigateTo('social', 'perfil-social')}
-              className="cursor-pointer shrink-0 px-1 py-0.5 rounded-lg"
+              className="cursor-pointer shrink-0 px-0.5 sm:px-1 py-0.5 rounded-lg"
               aria-label="Ir a Mi Perfil FABRO"
             >
               <FabroBrandMark size="sm" />
             </button>
 
             {activeSectorMeta && (
-              <span className="hidden 2xl:inline-flex items-center gap-1.5 text-xs fabro-muted truncate max-w-[200px]">
+              <span className="hidden 2xl:inline-flex items-center gap-1.5 text-xs fabro-muted truncate max-w-[180px]">
                 <span aria-hidden="true">/</span>
                 <span className="font-medium text-[var(--fabro-text)] truncate">
                   {activeSubmenuMeta ? activeSubmenuMeta.shortLabel : activeSectorMeta.shortTitle}
@@ -1072,7 +1088,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
           </div>
 
           {/* Center Zone: Compact Global Search */}
-          <div ref={headerSearchRef} className="relative flex-1 max-w-md hidden sm:block min-w-0">
+          <div ref={headerSearchRef} className="relative flex-1 max-w-sm xl:max-w-md hidden md:block min-w-0">
             <Search
               className="w-3.5 h-3.5 fabro-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
               strokeWidth={1.75}
@@ -1136,56 +1152,56 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
             )}
           </div>
 
-          {/* Right Zone: Connection Speed + Radio AM/FM + Theme Selector + Notifications + Profile & Sign Out */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Right Zone: Connection Speed + Radio Digital FABRO + Theme Selector + Notifications + Profile & Sign Out */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             {/* Real-time Connection Speed Monitor (Mbps & Ping) */}
             <ConnectionSpeedBadge />
 
-            {/* Compact Radio Digital AM/FM Button */}
+            {/* Radio Digital FABRO Button (Tablet & Desktop Header; full-width mobile bar sits directly below) */}
             <button
               type="button"
               onClick={() => openRadioModal()}
-              aria-label="Abrir Radio Digital AM y FM en vivo"
+              aria-label="Abrir Radio Digital FABRO en vivo"
               title={
                 activeRadioStation
-                  ? `Radio activa: ${activeRadioStation.name} (${activeRadioStation.band} ${activeRadioStation.frequency})`
-                  : 'Radio Digital AM / FM en vivo'
+                  ? `Radio Digital FABRO · ${activeRadioStation.name} (${activeRadioStation.band} ${activeRadioStation.frequency})`
+                  : 'Radio Digital FABRO en vivo'
               }
-              className={`h-9 inline-flex items-center gap-1.5 rounded-xl border px-2.5 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+              className={`hidden sm:inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
                 radioStatus === 'playing'
-                  ? 'border-[#0284C7] bg-[#0284C7]/12 text-[#0284C7] dark:text-[#38BDF8] font-semibold'
+                  ? 'border-[#0284C7] bg-[#0284C7]/12 text-[#0284C7] dark:text-[#38BDF8]'
                   : 'fabro-border fabro-surface hover:border-[#0284C7]'
               }`}
             >
-              <Radio className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden md:inline font-mono tabular-nums">
-                {activeRadioStation && radioStatus === 'playing'
-                  ? `${activeRadioStation.band} ${
-                      activeRadioStation.band === 'FM'
-                        ? activeRadioStation.frequency.toFixed(1)
-                        : Math.round(activeRadioStation.frequency)
-                    }`
-                  : 'Radio'}
-              </span>
+              <Radio className="w-3.5 h-3.5 shrink-0 text-[#0284C7] dark:text-[#38BDF8]" />
+              <span>Radio Digital FABRO</span>
+              {activeRadioStation && radioStatus === 'playing' && (
+                <span className="hidden xl:inline font-mono tabular-nums text-[11px] opacity-85">
+                  · {activeRadioStation.band}{' '}
+                  {activeRadioStation.band === 'FM'
+                    ? activeRadioStation.frequency.toFixed(1)
+                    : Math.round(activeRadioStation.frequency)}
+                </span>
+              )}
             </button>
 
-            {/* Theme Quick Switcher */}
+            {/* Theme Quick Switcher (Desktop/Tablet button + shared viewport-safe popover for Mobile too) */}
             <div ref={themeMenuRef} className="relative">
               <button
                 type="button"
                 onClick={() => setThemeMenuOpen((v) => !v)}
                 aria-label="Cambiar plantilla de tema"
-                className="h-9 inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface px-2.5 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer"
+                className="hidden sm:inline-flex h-9 items-center gap-1.5 rounded-xl border fabro-border fabro-surface px-2.5 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Palette className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Temas</span>
+                <span className="hidden xl:inline">Temas</span>
               </button>
 
               {themeMenuOpen && (
                 <div
                   role="dialog"
                   aria-label="Selector de temas"
-                  className="absolute right-0 mt-2 w-80 max-w-[90vw] max-h-[75dvh] overflow-y-auto rounded-xl border fabro-surface p-3.5 shadow-lg z-50 space-y-2"
+                  className="fixed sm:absolute right-2.5 sm:right-0 top-[104px] sm:top-auto sm:mt-2 w-80 max-w-[calc(100vw-1.25rem)] max-h-[70dvh] overflow-y-auto rounded-xl border fabro-border fabro-surface p-3.5 shadow-lg z-50 space-y-2"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-semibold fabro-accent-text">
@@ -1237,7 +1253,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                 type="button"
                 onClick={() => setNotifOpen((v) => !v)}
                 aria-label="Notificaciones"
-                className="h-9 inline-flex items-center gap-1 rounded-xl border fabro-border fabro-surface px-2.5 text-xs font-medium cursor-pointer whitespace-nowrap shrink-0"
+                className="h-9 inline-flex items-center justify-center gap-1 rounded-xl border fabro-border fabro-surface px-2 sm:px-2.5 text-xs font-medium cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Bell className="w-3.5 h-3.5" strokeWidth={1.75} />
                 {unreadNotifications > 0 && (
@@ -1251,23 +1267,10 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                 <div
                   role="dialog"
                   aria-label="Notificaciones"
-                  className="absolute right-0 mt-2 w-80 max-w-[90vw] rounded-xl border fabro-surface p-3.5 shadow-lg z-50 space-y-2.5"
+                  className="fixed sm:absolute right-2.5 sm:right-0 top-14 sm:top-auto sm:mt-2 w-80 max-w-[calc(100vw-1.25rem)] rounded-xl border fabro-border fabro-surface p-3.5 shadow-lg z-50 space-y-2.5"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-semibold">Notificaciones</p>
-                      <span
-                        className={`text-[10px] font-semibold ${
-                          notificationPermission === 'granted' && notificationPrefs.enabled
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'fabro-muted'
-                        }`}
-                      >
-                        {notificationPermission === 'granted' && notificationPrefs.enabled
-                          ? 'Push activo'
-                          : 'En app'}
-                      </span>
-                    </div>
+                    <p className="text-xs font-semibold">Notificaciones</p>
                     {unreadNotifications > 0 && (
                       <button
                         type="button"
@@ -1278,59 +1281,24 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                       </button>
                     )}
                   </div>
-
-                  {notificationPermission === 'default' && (
-                    <button
-                      type="button"
-                      onClick={() => void requestNotificationPermission()}
-                      className="w-full min-h-[34px] rounded-lg border border-[#0284C7]/40 bg-[#0284C7]/10 text-[#0369A1] dark:text-[#38BDF8] px-3 text-[11px] font-bold cursor-pointer hover:bg-[#0284C7]/15 text-left"
-                    >
-                      Activar push del dispositivo (Cultura y Comunidades)
-                    </button>
-                  )}
-
                   <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                    {notifications.map((n) => {
-                      const catLabel =
-                        n.category === 'culture-news'
-                          ? 'Cultura · Noticias'
-                          : n.category === 'community'
-                          ? 'Comunidades'
-                          : 'Ecosistema';
-                      const catColor =
-                        n.category === 'culture-news'
-                          ? 'text-[#9A3412] dark:text-[#FDBA74]'
-                          : n.category === 'community'
-                          ? 'text-[#0284C7] dark:text-[#38BDF8]'
-                          : 'fabro-muted';
-                      return (
-                        <button
-                          key={n.id}
-                          type="button"
-                          onClick={() => {
-                            markNotificationRead(n.id);
-                            if (n.target.sector === 'cultura' && n.cultureNav) {
-                              navigateToCultureSection(n.cultureNav);
-                            } else {
-                              navigateTo(n.target.sector, n.target.submenu);
-                            }
-                            setNotifOpen(false);
-                          }}
-                          className={`w-full text-left rounded-lg border fabro-border p-2.5 text-xs cursor-pointer ${
-                            !n.read ? 'fabro-accent-soft' : 'fabro-surface-elevated'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2 text-[10px] mb-0.5">
-                            <span className={`font-semibold uppercase tracking-wide ${catColor}`}>
-                              {catLabel}
-                            </span>
-                            <span className="font-mono tabular-nums fabro-muted">{n.createdAt}</span>
-                          </div>
-                          <p className="font-semibold leading-snug">{n.title}</p>
-                          <p className="text-[11px] fabro-muted mt-0.5 line-clamp-2">{n.detail}</p>
-                        </button>
-                      );
-                    })}
+                    {notifications.map((n) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => {
+                          markNotificationRead(n.id);
+                          navigateTo(n.target.sector, n.target.submenu);
+                          setNotifOpen(false);
+                        }}
+                        className={`w-full text-left rounded-lg border fabro-border p-2.5 text-xs cursor-pointer ${
+                          !n.read ? 'fabro-accent-soft' : 'fabro-surface-elevated'
+                        }`}
+                      >
+                        <p className="font-semibold">{n.title}</p>
+                        <p className="text-[11px] fabro-muted mt-0.5">{n.detail}</p>
+                      </button>
+                    ))}
                   </div>
                   <div className="pt-2 border-t fabro-border flex items-center justify-between gap-2">
                     <button
@@ -1341,22 +1309,22 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                       }}
                       className="text-[11px] font-bold text-[#0284C7] dark:text-[#38BDF8] hover:underline cursor-pointer"
                     >
-                      Configurar push de Cultura y Comunidades
+                      Configurar avisos y segundo plano
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* User Profile + 1-Tap Sign Out (Mobile & Desktop) */}
+            {/* User Profile + 1-Tap Sign Out (Mobile & Desktop — Compact to Guarantee Zero Overflow) */}
             {authUser ? (
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => openSocialProfileModal('publicaciones')}
                   title={`Abrir Mi Perfil Social (@${authUser.username})`}
                   aria-label="Abrir Mi Perfil Social"
-                  className="min-h-[40px] lg:min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface px-2 text-xs cursor-pointer active:scale-95 shrink-0"
+                  className="hidden sm:inline-flex h-9 items-center gap-1.5 rounded-xl border fabro-border fabro-surface px-1.5 sm:px-2 text-xs cursor-pointer active:scale-95 shrink-0"
                 >
                   {profile.photoURL || authUser.photoURL ? (
                     <img
@@ -1370,7 +1338,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                       {authUser.displayName.slice(0, 2).toUpperCase()}
                     </span>
                   )}
-                  <span className="hidden md:inline font-mono font-semibold text-[11px] text-[#6D28D9] dark:text-[#C4B5FD] max-w-[96px] truncate">
+                  <span className="hidden lg:inline font-mono font-semibold text-[11px] text-[#6D28D9] dark:text-[#C4B5FD] max-w-[88px] truncate">
                     @{authUser.username}
                   </span>
                 </button>
@@ -1379,7 +1347,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   onClick={() => void signOutAccount()}
                   title="Cerrar sesión"
                   aria-label="Cerrar sesión"
-                  className="min-h-[40px] lg:min-h-[36px] inline-flex items-center justify-center gap-1 rounded-xl border border-rose-500/55 bg-rose-500/12 text-rose-600 dark:text-rose-400 px-2.5 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
+                  className="h-9 inline-flex items-center justify-center gap-1 rounded-xl border border-rose-500/55 bg-rose-500/12 text-rose-600 dark:text-rose-400 px-2 sm:px-2.5 text-[11px] sm:text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
                 >
                   <LogOut className="w-3.5 h-3.5 shrink-0" />
                   <span>Salir</span>
@@ -1388,13 +1356,11 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
             ) : (
               <button
                 type="button"
-                onClick={() =>
-                  openAuthModal('crear tu perfil en FABRO con tu cuenta de Google', 'login')
-                }
-                className="min-h-[40px] lg:min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] hover:bg-[#6D28D9] text-white px-3.5 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap shrink-0 shadow-xs"
+                onClick={() => openAuthModal('sincronizar tus datos en la nube', 'login')}
+                className="h-9 inline-flex items-center gap-1 rounded-xl border border-[#7C3AED] bg-[#7C3AED] text-white px-2.5 sm:px-3 text-xs font-semibold cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
               >
                 <User className="w-3.5 h-3.5 shrink-0" />
-                <span>Iniciar sesión</span>
+                <span>Entrar</span>
               </button>
             )}
 
@@ -1414,6 +1380,42 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
             </button>
           </div>
         </header>
+
+        {/* Mobile Full-Width Radio Digital FABRO & Theme Strip (Guarantees Zero Header Overflow on Small Phones) */}
+        <div className="sm:hidden border-b fabro-border fabro-surface px-2.5 py-2 flex items-center gap-2 w-full max-w-full">
+          <button
+            type="button"
+            onClick={() => openRadioModal()}
+            aria-label="Abrir Radio Digital FABRO en vivo"
+            className={`flex-1 min-w-0 min-h-[40px] inline-flex items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold cursor-pointer active:scale-[0.99] transition-colors ${
+              radioStatus === 'playing'
+                ? 'border-[#0284C7] bg-[#0284C7]/12 text-[#0284C7] dark:text-[#38BDF8]'
+                : 'fabro-border fabro-surface-elevated hover:border-[#0284C7]'
+            }`}
+          >
+            <Radio className="w-4 h-4 shrink-0 text-[#0284C7] dark:text-[#38BDF8]" />
+            <span className="truncate">
+              {activeRadioStation && radioStatus === 'playing'
+                ? `Radio Digital FABRO · ${activeRadioStation.band} ${
+                    activeRadioStation.band === 'FM'
+                      ? activeRadioStation.frequency.toFixed(1)
+                      : Math.round(activeRadioStation.frequency)
+                  }`
+                : 'Radio Digital FABRO'}
+            </span>
+          </button>
+
+          <button
+            ref={mobileThemeTriggerRef}
+            type="button"
+            onClick={() => setThemeMenuOpen((v) => !v)}
+            aria-label="Cambiar plantilla de tema"
+            className="min-h-[40px] shrink-0 inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3 text-xs font-semibold cursor-pointer active:scale-95 whitespace-nowrap"
+          >
+            <Palette className="w-3.5 h-3.5 shrink-0" />
+            <span>Temas</span>
+          </button>
+        </div>
 
         {/* Workspace + Optional Desktop Right Contextual Panel */}
         <div className="flex-1 flex min-w-0">
@@ -1826,6 +1828,29 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                 <p className="text-[11px] font-bold tracking-wider uppercase fabro-muted">
                   Utilidades
                 </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openRadioModal();
+                  }}
+                  className={`w-full min-h-[44px] rounded-xl border px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer ${
+                    radioStatus === 'playing'
+                      ? 'border-[#0284C7] bg-[#0284C7]/12 text-[#0284C7] dark:text-[#38BDF8]'
+                      : 'fabro-border fabro-surface-elevated'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #0284C7, #0EA5E9)' }}
+                    >
+                      <Radio className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="truncate">Radio Digital FABRO</span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 shrink-0" />
+                </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"

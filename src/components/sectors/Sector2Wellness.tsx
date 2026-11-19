@@ -132,7 +132,7 @@ export const Sector2Wellness: React.FC = () => {
         >
           <span className="inline-flex items-center gap-2 truncate">
             <Radio className="w-3.5 h-3.5 text-[#0284C7] shrink-0" />
-            <span className="truncate">Radio Digital AM / FM</span>
+            <span className="truncate">Radio Digital FABRO</span>
           </span>
           <span className="text-[10px] font-mono fabro-muted shrink-0">En vivo</span>
         </button>

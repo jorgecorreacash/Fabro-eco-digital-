@@ -34,6 +34,14 @@ export const ConnectionSpeedBadge: React.FC = () => {
     ? `${speed.rttMs} ms`
     : 'Red';
 
+  const mobileShortLabel = !speed.online
+    ? 'Off'
+    : speed.effectiveMbps !== null
+    ? `${Math.round(speed.effectiveMbps)}M`
+    : speed.rttMs !== null
+    ? `${speed.rttMs}ms`
+    : 'Red';
+
   const lastCheckedFormatted = speed.lastCheckedAt
     ? new Intl.DateTimeFormat('es-AR', {
         hour: '2-digit',
@@ -50,14 +58,17 @@ export const ConnectionSpeedBadge: React.FC = () => {
         onClick={() => setOpen((v) => !v)}
         aria-label={`Velocidad de conexión: ${compactLabel} (${speed.qualityLabel})`}
         title={`Conexión ${speed.qualityLabel} · ${compactLabel}${speed.rttMs !== null ? ` · ${speed.rttMs} ms` : ''}`}
-        className={`h-9 inline-flex items-center gap-1.5 rounded-xl border px-2.5 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors hover:border-[var(--fabro-accent)] ${accentClass}`}
+        className={`h-9 inline-flex items-center gap-1 sm:gap-1.5 rounded-xl border px-2 sm:px-2.5 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors hover:border-[var(--fabro-accent)] ${accentClass}`}
       >
         {speed.online ? (
           <Wifi className="w-3.5 h-3.5 shrink-0" />
         ) : (
           <WifiOff className="w-3.5 h-3.5 shrink-0" />
         )}
-        <span className="font-mono tabular-nums text-[11px] font-semibold text-[var(--fabro-text)]">
+        <span className="sm:hidden font-mono tabular-nums text-[11px] font-semibold text-[var(--fabro-text)]">
+          {mobileShortLabel}
+        </span>
+        <span className="hidden sm:inline font-mono tabular-nums text-[11px] font-semibold text-[var(--fabro-text)]">
           {compactLabel}
         </span>
       </button>
@@ -66,7 +77,7 @@ export const ConnectionSpeedBadge: React.FC = () => {
         <div
           role="dialog"
           aria-label="Monitor de velocidad de conexión"
-          className="absolute right-0 mt-2 w-72 max-w-[90vw] rounded-xl border fabro-border fabro-surface p-3.5 shadow-lg z-50 space-y-3 text-xs"
+          className="fixed sm:absolute right-2.5 sm:right-0 top-14 sm:top-auto sm:mt-2 w-72 max-w-[calc(100vw-1.25rem)] rounded-xl border fabro-border fabro-surface p-3.5 shadow-lg z-50 space-y-3 text-xs"
         >
           <div className="flex items-center justify-between gap-2 pb-2 border-b fabro-border">
             <div className="flex items-center gap-1.5 font-semibold">

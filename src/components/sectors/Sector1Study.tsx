@@ -180,7 +180,7 @@ export const Sector1Study: React.FC = () => {
                   className="min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface px-3.5 py-1.5 text-xs font-semibold cursor-pointer hover:border-[#0284C7]"
                 >
                   <Radio className="w-4 h-4 text-[#0284C7] dark:text-[#38BDF8]" />
-                  Radio Estudio (AM/FM · Lo-Fi)
+                  Radio Digital FABRO (Lo-Fi)
                 </button>
               </div>
 

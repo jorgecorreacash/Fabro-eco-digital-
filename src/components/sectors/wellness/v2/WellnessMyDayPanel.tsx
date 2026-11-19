@@ -551,7 +551,7 @@ export const WellnessMyDayPanel: React.FC<WellnessMyDayPanelProps> = ({
                 onClick={() => openRadioModal()}
                 className="col-span-2 min-h-[42px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-left font-semibold hover:border-[#0284C7] transition-colors cursor-pointer"
               >
-                Radio Digital AM / FM en vivo
+                Radio Digital FABRO
               </button>
             </div>
           </div>
