@@ -23,13 +23,17 @@ import {
 } from '../data/ecosystemCatalog';
 import {
   auth,
+  clearPendingGoogleRedirect,
   clearWebSessionActive,
   enforceDeviceSessionPersistence,
   googleProvider,
+  hasPendingGoogleRedirect,
   hasWebSessionActive,
   isEmbeddedIframe,
   isInstalledDeviceApp,
+  markPendingGoogleRedirect,
   markWebSessionActive,
+  shouldUseGoogleRedirect,
 } from '../lib/firebase';
 import {
   emitAndroidBubbleEvent,
@@ -489,6 +493,7 @@ interface EcosystemContextValue {
   // Firebase Auth & Cloud Firestore Sync
   authUser: AuthUserSummary | null;
   authLoading: boolean;
+  googleRedirectPending: boolean;
   syncStatus: SyncStatusState;
   lastCloudSyncAt: string | null;
   authModalOpen: boolean;
@@ -3416,17 +3421,34 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   const googleSignInInFlightRef = useRef<boolean>(false);
+  const [googleRedirectPending, setGoogleRedirectPending] = useState<boolean>(() =>
+    hasPendingGoogleRedirect()
+  );
 
-  // Resolve any pending Google redirect sign-in on startup (used by top-level/mobile fallback)
+  // Resolve any pending Google redirect sign-in on startup (mobile, PWA, APK, and desktop fallback)
   useEffect(() => {
+    let active = true;
+    const wasPending = hasPendingGoogleRedirect();
+    if (wasPending) {
+      setGoogleRedirectPending(true);
+      markWebSessionActive();
+    }
     void getRedirectResult(auth, browserPopupRedirectResolver)
       .then((res) => {
+        if (!active) return;
         if (res?.user) {
           markWebSessionActive();
           setAuthModalOpen(false);
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        clearPendingGoogleRedirect();
+        if (active) setGoogleRedirectPending(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Listen to Firebase Auth state and connect Firestore ONLY when authenticated
@@ -3449,7 +3471,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       // Security rule: sessions remain open ONLY in the installed device app (PWA/native).
       // In a regular web browser, any leftover persisted session without an active tab marker is signed out immediately.
-      if (!isInstalledDeviceApp() && !hasWebSessionActive()) {
+      if (!isInstalledDeviceApp() && !hasWebSessionActive() && !hasPendingGoogleRedirect()) {
         setAuthUser(null);
         setAuthLoading(false);
         setSyncStatus('guest-local');
@@ -3458,6 +3480,9 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         void signOut(auth).catch(() => undefined);
         return;
       }
+
+      clearPendingGoogleRedirect();
+      setGoogleRedirectPending(false);
 
       setAuthLoading(false);
       setSyncStatus(network.isOnline ? 'syncing' : 'local-offline');
@@ -3824,13 +3849,35 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return {
         ok: false,
         code: 'auth/cancelled-popup-request',
-        error: 'Ya se está abriendo la ventana de Google. Revisá si quedó detrás o esperá un segundo.',
+        error: 'Ya se está conectando con Google. Esperá un segundo.',
       };
     }
     googleSignInInFlightRef.current = true;
-    // IMPORTANT: Keep everything before signInWithPopup 100% SYNCHRONOUS so the browser preserves
-    // the user-click gesture token and does not block/close the OAuth popup.
     markWebSessionActive();
+
+    // 1. Mobile browsers (Android / iOS), installed PWAs, or APK/WebView wrappers:
+    // use signInWithRedirect directly to avoid OS-level popup closure errors.
+    if (shouldUseGoogleRedirect()) {
+      markPendingGoogleRedirect();
+      setGoogleRedirectPending(true);
+      try {
+        await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
+        return { ok: true };
+      } catch (err) {
+        clearPendingGoogleRedirect();
+        setGoogleRedirectPending(false);
+        if (!auth.currentUser) {
+          clearWebSessionActive();
+        }
+        const mapped = mapFirebaseAuthError(err);
+        return { ok: false, error: mapped.message, code: mapped.code };
+      } finally {
+        googleSignInInFlightRef.current = false;
+      }
+    }
+
+    // 2. Desktop browsers: try signInWithPopup synchronously on click; if popup is closed or blocked,
+    // automatically fall back to signInWithRedirect.
     try {
       const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
       if (cred?.user) {
@@ -3840,14 +3887,28 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return { ok: true };
     } catch (err) {
       const code = (err as { code?: string })?.code || '';
-      // Workaround for Chrome/COOP race where signInWithPopup rejects with popup-closed-by-user
-      // even though the OAuth sign-in actually completed moments later.
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        await new Promise((resolve) => window.setTimeout(resolve, 450));
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/popup-blocked') {
+        // Brief check in case auth actually completed before switching to redirect
+        await new Promise((resolve) => window.setTimeout(resolve, 250));
         if (auth.currentUser) {
           markWebSessionActive();
           closeAuthModal();
           return { ok: true };
+        }
+        // Automatically switch to signInWithRedirect
+        markPendingGoogleRedirect();
+        setGoogleRedirectPending(true);
+        try {
+          await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
+          return { ok: true };
+        } catch (redirectErr) {
+          clearPendingGoogleRedirect();
+          setGoogleRedirectPending(false);
+          if (!auth.currentUser) {
+            clearWebSessionActive();
+          }
+          const mappedRedirect = mapFirebaseAuthError(redirectErr);
+          return { ok: false, error: mappedRedirect.message, code: mappedRedirect.code };
         }
       }
       if (!auth.currentUser) {
@@ -3861,19 +3922,15 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [closeAuthModal, mapFirebaseAuthError]);
 
   const signInWithGoogleRedirect = useCallback(async () => {
-    if (isEmbeddedIframe()) {
-      return {
-        ok: false,
-        code: 'auth/iframe-redirect-unsupported',
-        error:
-          'Google no permite redirecciones dentro de una vista embebida. Usá el botón «Abrir FABRO en pestaña nueva» para iniciar sesión sin bloqueos.',
-      };
-    }
     markWebSessionActive();
+    markPendingGoogleRedirect();
+    setGoogleRedirectPending(true);
     try {
       await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
       return { ok: true };
     } catch (err) {
+      clearPendingGoogleRedirect();
+      setGoogleRedirectPending(false);
       if (!auth.currentUser) {
         clearWebSessionActive();
       }
@@ -5311,6 +5368,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         rolloverPendingTasksToTomorrow,
         authUser,
         authLoading,
+        googleRedirectPending,
         syncStatus,
         lastCloudSyncAt,
         authModalOpen,

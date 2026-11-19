@@ -1,4 +1,5 @@
 import React from 'react';
+import { Loader2 } from 'lucide-react';
 import { FabroAdminPanel } from './components/admin/FabroAdminPanel';
 import { CommunityParticipationModal } from './components/admin/CommunityParticipationModal';
 import { ReportContentModal } from './components/admin/ReportContentModal';
@@ -33,7 +34,7 @@ import { EcosystemProvider, useEcosystem } from './context/EcosystemContext';
 import { RadioProvider } from './context/RadioContext';
 
 const EcosystemRouter: React.FC = () => {
-  const { sector, sharedViewerPayload } = useEcosystem();
+  const { sector, sharedViewerPayload, googleRedirectPending } = useEcosystem();
 
   if (sharedViewerPayload) {
     return (
@@ -72,6 +73,23 @@ const EcosystemRouter: React.FC = () => {
       <FabroRadioModal />
       <CalendarAlarmBanner />
       <PushNotificationToast />
+      {googleRedirectPending && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-[80] bg-slate-950/55 backdrop-blur-xs flex items-center justify-center p-4"
+        >
+          <div className="rounded-2xl border-2 border-[#7C3AED]/60 fabro-surface px-6 py-5 shadow-2xl flex items-center gap-3.5 max-w-sm w-full">
+            <Loader2 className="w-5 h-5 animate-spin text-[#7C3AED] shrink-0" />
+            <div className="space-y-0.5">
+              <p className="text-sm font-bold">Conectando con Google...</p>
+              <p className="text-xs fabro-muted">
+                Estamos abriendo tu sesión de FABRO de forma segura.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <DeploymentStatusBar hasMobileBottomNav />
     </>
   );

@@ -75,6 +75,7 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
     reactToWallPost,
     navigateTo,
     openAuthModal,
+    googleRedirectPending,
     signInWithGoogle,
     signInWithGoogleRedirect,
     needsProfileSetup,
@@ -367,16 +368,20 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
                 <>
                   <button
                     type="button"
-                    disabled={googleSigningIn}
+                    disabled={googleSigningIn || googleRedirectPending}
                     onClick={() => void handleDirectGoogleSignIn()}
                     className="min-h-[42px] inline-flex items-center gap-2 rounded-xl border-2 border-[#7C3AED] bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 text-xs font-bold text-white shadow-sm cursor-pointer active:scale-95 whitespace-nowrap disabled:opacity-60"
                   >
-                    {googleSigningIn ? (
+                    {googleSigningIn || googleRedirectPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <LogIn className="w-4 h-4" />
                     )}
-                    <span>{googleSigningIn ? 'Conectando con Google...' : 'Iniciar sesión con Google'}</span>
+                    <span>
+                      {googleSigningIn || googleRedirectPending
+                        ? 'Conectando con Google...'
+                        : 'Iniciar sesión con Google'}
+                    </span>
                   </button>
                   <button
                     type="button"

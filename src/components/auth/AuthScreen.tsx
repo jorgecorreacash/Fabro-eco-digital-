@@ -1,16 +1,27 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  browserPopupRedirectResolver,
   createUserWithEmailAndPassword,
+  getRedirectResult,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile,
   type User,
 } from 'firebase/auth';
-import { ArrowRight, CheckCircle2, KeyRound, Mail, RefreshCw, ShieldCheck, Sun, Moon } from 'lucide-react';
-import { auth, googleProvider } from '../../lib/firebase';
+import { ArrowRight, CheckCircle2, KeyRound, Loader2, Mail, RefreshCw, ShieldCheck, Sun, Moon } from 'lucide-react';
+import {
+  auth,
+  clearPendingGoogleRedirect,
+  googleProvider,
+  hasPendingGoogleRedirect,
+  markPendingGoogleRedirect,
+  markWebSessionActive,
+  shouldUseGoogleRedirect,
+} from '../../lib/firebase';
 import { FabroLogo } from '../brand/FabroLogo';
 import { PWAInstallButton } from '../pwa/PWAControls';
 
@@ -34,8 +45,30 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleConnecting, setGoogleConnecting] = useState<boolean>(() => hasPendingGoogleRedirect());
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    void getRedirectResult(auth, browserPopupRedirectResolver)
+      .then((res) => {
+        if (active && res?.user) {
+          markWebSessionActive();
+        }
+      })
+      .catch((err) => {
+        if (active) setError(mapFirebaseAuthError(err));
+      })
+      .finally(() => {
+        clearPendingGoogleRedirect();
+        if (active) setGoogleConnecting(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const mapFirebaseAuthError = (err: unknown): string => {
     const code = (err as { code?: string })?.code || '';
@@ -65,10 +98,32 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setError('');
     setNotice('');
     setLoading(true);
+    setGoogleConnecting(true);
+    markWebSessionActive();
     try {
-      await signInWithPopup(auth, googleProvider);
+      if (shouldUseGoogleRedirect()) {
+        markPendingGoogleRedirect();
+        await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
+        return;
+      }
+      await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+      setGoogleConnecting(false);
     } catch (err) {
-      setError(mapFirebaseAuthError(err));
+      const code = (err as { code?: string })?.code || '';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/popup-blocked') {
+        markPendingGoogleRedirect();
+        try {
+          await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
+          return;
+        } catch (redirectErr) {
+          clearPendingGoogleRedirect();
+          setGoogleConnecting(false);
+          setError(mapFirebaseAuthError(redirectErr));
+        }
+      } else {
+        setGoogleConnecting(false);
+        setError(mapFirebaseAuthError(err));
+      }
     } finally {
       setLoading(false);
     }
@@ -349,31 +404,45 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
                 {mode !== 'reset' && (
                   <>
+                    {googleConnecting && (
+                      <div
+                        role="status"
+                        className="rounded-lg border border-sky-500/35 bg-sky-500/10 px-3 py-2.5 text-xs font-semibold text-sky-700 dark:text-sky-300 flex items-center gap-2"
+                      >
+                        <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                        <span>Conectando con Google...</span>
+                      </div>
+                    )}
+
                     <button
                       type="button"
-                      disabled={loading}
+                      disabled={loading || googleConnecting}
                       onClick={handleGoogleLogin}
-                      className="w-full inline-flex items-center justify-center gap-2.5 rounded-lg border border-slate-200 dark:border-white/15 bg-white dark:bg-[#131C33] px-4 py-2.5 text-sm font-medium text-slate-800 dark:text-[#FAF6EE] hover:bg-slate-50 dark:hover:bg-[#192440] transition-colors cursor-pointer whitespace-nowrap"
+                      className="w-full inline-flex items-center justify-center gap-2.5 rounded-lg border border-slate-200 dark:border-white/15 bg-white dark:bg-[#131C33] px-4 py-2.5 text-sm font-medium text-slate-800 dark:text-[#FAF6EE] hover:bg-slate-50 dark:hover:bg-[#192440] transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60"
                     >
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                          fill="#4285F4"
-                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
-                        />
-                      </svg>
-                      Continuar con Google
+                      {googleConnecting ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-[#4285F4] shrink-0" />
+                      ) : (
+                        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            fill="#4285F4"
+                            d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+                          />
+                        </svg>
+                      )}
+                      {googleConnecting ? 'Conectando con Google...' : 'Continuar con Google'}
                     </button>
 
                     <div className="relative flex items-center py-1">

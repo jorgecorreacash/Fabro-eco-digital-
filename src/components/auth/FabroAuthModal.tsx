@@ -60,6 +60,7 @@ export const FabroAuthModal: React.FC = () => {
     authModalReason,
     authModalDefaultTab,
     closeAuthModal,
+    googleRedirectPending,
     signInWithGoogle,
     signInWithGoogleRedirect,
     signInWithEmail,
@@ -325,12 +326,20 @@ export const FabroAuthModal: React.FC = () => {
           <>
             <button
               type="button"
-              disabled={submitting}
+              disabled={submitting || googleRedirectPending}
               onClick={() => void handleGoogle()}
               className="w-full min-h-[48px] rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-4 py-2.5 text-xs font-extrabold inline-flex items-center justify-center gap-3 shadow-sm hover:border-[#4285F4] cursor-pointer active:scale-[0.99] disabled:opacity-60"
             >
-              <GoogleFourColorLogo />
-              <span>Iniciar sesión con Google</span>
+              {submitting || googleRedirectPending ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#4285F4]" />
+              ) : (
+                <GoogleFourColorLogo />
+              )}
+              <span>
+                {submitting || googleRedirectPending
+                  ? 'Conectando con Google...'
+                  : 'Continuar con Google'}
+              </span>
             </button>
             <p className="text-[11px] text-center fabro-muted">
               Al entrar con tu cuenta de Google podrás crear y personalizar tu perfil en FABRO.
