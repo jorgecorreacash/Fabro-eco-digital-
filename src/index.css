@@ -759,6 +759,68 @@
   animation: fabroScreenEnter 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+@keyframes fabroSplashBarFill {
+  0% {
+    width: 8%;
+  }
+  65% {
+    width: 84%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+@keyframes fabroSplashCloverFloat {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.03);
+  }
+}
+
+@keyframes fabroSlideFromRight {
+  0% {
+    opacity: 0.4;
+    transform: translate3d(26px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fabroSlideFromLeft {
+  0% {
+    opacity: 0.4;
+    transform: translate3d(-26px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.fabro-splash-bar {
+  animation-name: fabroSplashBarFill;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: forwards;
+}
+
+.fabro-splash-clovers svg {
+  animation: fabroSplashCloverFloat 1.2s ease-in-out infinite;
+}
+
+.fabro-swipe-enter-left {
+  animation: fabroSlideFromRight 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fabro-swipe-enter-right {
+  animation: fabroSlideFromLeft 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 @layer components {
   /* Futuristic Precision Instrument Surface (adapts cleanly across all themes) */
   .fabro-futuristic-panel {

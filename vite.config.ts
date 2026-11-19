@@ -25,11 +25,11 @@ export default defineConfig(() => {
         manifest: {
           id: '/',
           name: '🍀 FABRO 🍀 — Ecosistema Digital',
-          short_name: '🍀 FABRO',
+          short_name: 'FABRO',
           description:
             'Ecosistema digital integral Offline-First con estudio, bienestar, chat PTT en segundo plano y Centro IA BYOK.',
-          theme_color: '#F8FAFC',
-          background_color: '#F8FAFC',
+          theme_color: '#0B1120',
+          background_color: '#0B1120',
           display: 'standalone',
           orientation: 'any',
           start_url: '/',

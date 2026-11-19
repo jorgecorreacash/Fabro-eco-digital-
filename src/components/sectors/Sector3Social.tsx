@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import {
   Award,
+  Compass,
+  Edit3,
   LayoutGrid,
   Lock,
   MessageSquare,
@@ -8,6 +10,7 @@ import {
   Radio,
   ShieldCheck,
   Sparkles,
+  User,
   UserCheck,
   UserPlus,
   Users,
@@ -21,9 +24,11 @@ import { playPttTone } from '../../services/webAudioPtt';
 import type { SocialSubmenuId } from '../../types/ecosystem';
 import { FabroBrandMark } from '../brand/FabroBrandMark';
 import { SectorLayout } from './SectorLayout';
+import { DiscoverPeoplePanel } from './social/DiscoverPeoplePanel';
 import { EphemeralStoriesBar } from './social/EphemeralStoriesBar';
 import { FriendsNetworkPanel } from './social/FriendsNetworkPanel';
 import { InteractiveChatInbox } from './social/InteractiveChatInbox';
+import { SocialProfileView } from './social/SocialProfileView';
 import { StudyRoomsTool } from './social/StudyRoomsTool';
 import { WallPollsFeed } from './social/WallPollsFeed';
 
@@ -41,10 +46,13 @@ export const Sector3Social: React.FC = () => {
     openDirectChatWithFriend,
     pomodoroLogs,
     moodLogs,
+    setEditSocialProfileOpen,
   } = useEcosystem();
 
   const activeSub: SocialSubmenuId =
     submenu === 'fabro-id' ||
+    submenu === 'perfil-social' ||
+    submenu === 'descubrir' ||
     submenu === 'amistades' ||
     submenu === 'mensajeria' ||
     submenu === 'push-to-talk' ||
@@ -138,19 +146,27 @@ export const Sector3Social: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => navigateTo('social', 'mensajeria')}
+              onClick={() => navigateTo('social', 'perfil-social')}
               className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border border-[#7C3AED] bg-[#7C3AED] hover:bg-[#6D28D9] text-white px-3.5 py-1.5 md:py-2 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200 whitespace-nowrap"
             >
-              <MessageSquare className="w-4 h-4" />
-              Mensajes Offline ({queuedOfflineCount})
+              <User className="w-4 h-4" />
+              Mi Perfil Social
             </button>
             <button
               type="button"
-              onClick={() => navigateTo('social', 'amistades')}
+              onClick={() => navigateTo('social', 'mensajeria')}
+              className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border border-[#7C3AED]/50 bg-[#7C3AED]/10 text-[#6D28D9] dark:text-[#C4B5FD] px-3.5 py-1.5 md:py-2 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200 whitespace-nowrap"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Mensajes ({queuedOfflineCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateTo('social', 'descubrir')}
               className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border border-[#EC4899]/50 bg-[#EC4899]/10 text-[#BE185D] dark:text-[#F472B6] px-3.5 py-1.5 md:py-2 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200 whitespace-nowrap"
             >
-              <UserPlus className="w-4 h-4" />
-              Agregar amistad
+              <Compass className="w-4 h-4" />
+              Descubrir
             </button>
             <button
               type="button"
@@ -158,14 +174,14 @@ export const Sector3Social: React.FC = () => {
               className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-1.5 md:py-2 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200 whitespace-nowrap"
             >
               <LayoutGrid className="w-4 h-4 fabro-accent-text" />
-              Espacio Configurable
+              Espacio
             </button>
           </div>
         </section>
       )}
 
-      {/* Always visible 24h Ephemeral Stories Bar in Social sector */}
-      <EphemeralStoriesBar />
+      {/* 24h Ephemeral Stories Bar in Social sector (hidden on dedicated profile page for clean cover focus) */}
+      {activeSub !== 'perfil-social' && <EphemeralStoriesBar />}
 
       {activeSub === 'fabro-id' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -227,19 +243,52 @@ export const Sector3Social: React.FC = () => {
             </div>
 
             <div className="rounded-2xl border fabro-surface p-5 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl border border-[#7C3AED]/40 bg-gradient-to-br from-[#7C3AED] to-[#EC4899] text-white flex items-center justify-center shrink-0">
-                  <UserCheck className="w-6 h-6" />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  {profile.photoURL ? (
+                    <img
+                      src={profile.photoURL}
+                      alt={profile.displayName}
+                      referrerPolicy="no-referrer"
+                      className="w-12 h-12 rounded-2xl object-cover border border-[#7C3AED]/40 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-2xl border border-[#7C3AED]/40 bg-gradient-to-br from-[#7C3AED] to-[#EC4899] text-white flex items-center justify-center shrink-0">
+                      <UserCheck className="w-6 h-6" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <h2 className="font-display text-base font-bold truncate">
+                      {profile.displayName}
+                    </h2>
+                    <p className="text-xs font-mono font-bold text-[#7C3AED] dark:text-[#C4B5FD] tabular-nums truncate">
+                      {profile.username ? `@${profile.username} · ` : ''}
+                      {profile.fabroId}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h2 className="font-display text-base font-bold truncate">
-                    {profile.displayName}
-                  </h2>
-                  <p className="text-xs font-mono font-bold text-[#7C3AED] dark:text-[#C4B5FD] tabular-nums">
-                    {profile.fabroId}
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditSocialProfileOpen(true)}
+                  className="min-h-[36px] inline-flex items-center gap-1 rounded-xl border fabro-border fabro-surface-elevated hover:border-[#7C3AED] px-2.5 py-1 text-[11px] font-bold cursor-pointer active:scale-95 shrink-0"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  Editar
+                </button>
               </div>
+
+              {profile.bio && (
+                <p className="text-xs fabro-muted leading-relaxed line-clamp-2">{profile.bio}</p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => navigateTo('social', 'perfil-social')}
+                className="w-full min-h-[40px] inline-flex items-center justify-center gap-2 rounded-xl border border-[#7C3AED]/40 bg-[#7C3AED]/10 text-[#6D28D9] dark:text-[#C4B5FD] px-3 py-1.5 text-xs font-bold cursor-pointer active:scale-95"
+              >
+                <User className="w-3.5 h-3.5" />
+                Abrir Mi Perfil Social completo
+              </button>
 
               <div className="space-y-1 text-xs">
                 <p className="font-bold flex items-center gap-1.5">
@@ -309,6 +358,10 @@ export const Sector3Social: React.FC = () => {
           </div>
         </div>
       )}
+
+      {activeSub === 'perfil-social' && <SocialProfileView />}
+
+      {activeSub === 'descubrir' && <DiscoverPeoplePanel />}
 
       {activeSub === 'amistades' && <FriendsNetworkPanel />}
 

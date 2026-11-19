@@ -87,7 +87,11 @@ export async function vaultGet<T>(key: string, fallback: T): Promise<T> {
 
 export async function vaultSet<T>(key: string, value: T): Promise<void> {
   try {
-    localStorage.setItem(`${LS_PREFIX}${key}`, JSON.stringify(value));
+    const serialized = JSON.stringify(value);
+    // Avoid filling LocalStorage with heavy payloads; IndexedDB handles full persistence cleanly
+    if (serialized.length < 280000) {
+      localStorage.setItem(`${LS_PREFIX}${key}`, serialized);
+    }
   } catch {
     // ignore quota errors
   }
@@ -101,6 +105,20 @@ export async function vaultSet<T>(key: string, value: T): Promise<void> {
   } catch {
     // ignore IndexedDB errors when private browsing restricts IDB
   }
+}
+
+export async function vaultSetIdbOnly<T>(key: string, value: T): Promise<void> {
+  try {
+    const db = getDb();
+    if (db) {
+      const instance = await db;
+      await instance.put(STORE_NAME, value, key);
+      return;
+    }
+  } catch {
+    // fallback if IDB unavailable
+  }
+  await vaultSet(key, value);
 }
 
 export async function vaultClearAll(): Promise<void> {
@@ -193,7 +211,15 @@ export async function vaultExportSnapshot(): Promise<Record<string, unknown>> {
 export const DEFAULT_LOCAL_PROFILE: LocalUserProfile = {
   displayName: 'Invitado FABRO',
   fabroId: 'FBR-INVITADO',
+  username: 'invitado_fabro',
   fabroIdConfigured: false,
+  bio: 'Construyendo hábitos de estudio consciente, bienestar diario y proyectos personales en mi Ecosistema Digital FABRO.',
+  interests: ['Estudio Activo', 'Calistenia', 'Lectura', 'Organización'],
+  currentActivity: 'En modo enfoque · Explorando FABRO',
+  publicNoteIds: ['adv-seed-1'],
+  publicRoutineIds: ['mobility-default'],
+  followingIds: ['comm-camila', 'comm-lucia'],
+  followersCount: 12,
   dailyPhrase: 'Si hoy fuera tu último día, elegí vivir con claridad, gratitud y propósito.',
   icebreaker: 'Preguntame qué libro estoy leyendo o qué hábito de 7 días arrancamos hoy.',
   privacyMode: 'grupo',
@@ -840,8 +866,28 @@ export const DEFAULT_WALL_POSTS: WallPostItem[] = [
     author: 'Jorge Luis Correa',
     fabroId: 'FBR-LOCAL-01',
     text: '¿Qué bloque de enfoque les rinde más hoy para estudiar desde el celular?',
-    likes: 6,
+    likes: 11,
     createdAt: 'Hace 20 min',
+    reactions: { like: 5, insightful: 4, inspiring: 2 },
+    myReaction: null,
+    comments: [
+      {
+        id: 'cmt-1',
+        author: 'Camila Mendoza',
+        fabroId: 'FBR-4821',
+        text: 'El de 25/5 me salva cuando estudio de noche porque no pierdo ritmo.',
+        createdAt: 'Hace 12 min',
+        parentId: null,
+      },
+      {
+        id: 'cmt-2',
+        author: 'Lucía Pereyra',
+        fabroId: 'FBR-2049',
+        text: 'Coincido totalmente, y en los 5 minutos meto movilidad cervical.',
+        createdAt: 'Hace 8 min',
+        parentId: 'cmt-1',
+      },
+    ],
     poll: {
       question: 'Bloque favorito de estudio',
       votedOptionId: null,
@@ -851,6 +897,34 @@ export const DEFAULT_WALL_POSTS: WallPostItem[] = [
         { id: 'opt-3', label: 'Sprint 15 / 3 min', votes: 4 },
       ],
     },
+  },
+  {
+    id: 'post-2',
+    author: 'Camila Mendoza',
+    fabroId: 'FBR-4821',
+    text: 'Comparto mi resumen estructurado de Estudio Activo (Cornell + Feynman) para quienes están preparando parciales esta semana.',
+    likes: 16,
+    createdAt: 'Hace 1 h',
+    reactions: { love: 6, insightful: 7, strength: 3 },
+    myReaction: null,
+    sharedResource: {
+      kind: 'note',
+      refId: 'adv-seed-1',
+      title: 'Guía Práctica: Técnicas de Estudio Activo y Resumen Estructurado',
+      subtitle: 'Resumen Cornell + Feynman con 3 bloques de autoevaluación rápida.',
+      subject: 'Técnicas de Estudio',
+      metricLabel: 'Apunte abierto · Sector 1',
+    },
+    comments: [
+      {
+        id: 'cmt-3',
+        author: 'Tomás Villalba',
+        fabroId: 'FBR-7390',
+        text: '¡Excelente aporte! Ya lo guardé en marcadores para repasarlo hoy.',
+        createdAt: 'Hace 40 min',
+        parentId: null,
+      },
+    ],
   },
 ];
 

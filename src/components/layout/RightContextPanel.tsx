@@ -28,6 +28,7 @@ export const RightContextPanel: React.FC<{ onClose?: () => void }> = ({ onClose 
     sendQuickChatMessage,
     floatingMode,
     openFloatingMiniWindow,
+    openSocialProfileModal,
   } = useEcosystem();
 
   const [draft, setDraft] = useState('');
@@ -92,32 +93,58 @@ export const RightContextPanel: React.FC<{ onClose?: () => void }> = ({ onClose 
         )}
       </div>
 
-      {/* Persistent Floating FABRO ID Profile */}
+      {/* Persistent FABRO ID Profile */}
       <div className="p-4 border-b fabro-border space-y-3">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl border border-[#7C3AED]/40 bg-gradient-to-br from-[#7C3AED] to-[#EC4899] text-white flex items-center justify-center shrink-0">
-              <User className="w-5 h-5" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold truncate">{profile.displayName}</p>
-              <p className="text-xs font-mono fabro-muted tabular-nums truncate">
-                {profile.fabroId}
-              </p>
-            </div>
-          </div>
           <button
             type="button"
-            onClick={() => navigateTo('configuracion', 'config-general')}
-            title="Configurar perfil"
-            aria-label="Configurar perfil"
+            onClick={() => openSocialProfileModal('publicaciones')}
+            className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer group"
+          >
+            {profile.photoURL ? (
+              <img
+                src={profile.photoURL}
+                alt={profile.displayName}
+                referrerPolicy="no-referrer"
+                className="w-10 h-10 rounded-xl border border-[#7C3AED]/40 object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-xl border border-[#7C3AED]/40 bg-gradient-to-br from-[#7C3AED] to-[#EC4899] text-white flex items-center justify-center shrink-0">
+                <User className="w-5 h-5" strokeWidth={1.75} />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-bold truncate group-hover:text-[#7C3AED] transition-colors">
+                {profile.displayName}
+              </p>
+              <p className="text-xs font-mono fabro-muted tabular-nums truncate">
+                {profile.username ? `@${profile.username}` : profile.fabroId}
+              </p>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => openSocialProfileModal('publicaciones', true)}
+            title="Editar Mi Perfil Social"
+            aria-label="Editar Mi Perfil Social"
             className="min-h-[44px] min-w-[44px] rounded-xl border fabro-border fabro-surface-elevated flex items-center justify-center fabro-muted hover:opacity-100 cursor-pointer shrink-0 active:scale-95"
           >
             <SlidersHorizontal className="w-4 h-4" strokeWidth={1.75} />
           </button>
         </div>
 
-        <p className="text-xs fabro-muted leading-relaxed line-clamp-2">{profile.dailyPhrase}</p>
+        <p className="text-xs fabro-muted leading-relaxed line-clamp-2">
+          {profile.bio || profile.dailyPhrase}
+        </p>
+
+        <button
+          type="button"
+          onClick={() => openSocialProfileModal('publicaciones')}
+          className="w-full min-h-[38px] inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#7C3AED]/45 bg-[#7C3AED]/10 text-[#6D28D9] dark:text-[#C4B5FD] px-3 py-1.5 text-xs font-semibold cursor-pointer active:scale-95 transition-all"
+        >
+          <User className="w-3.5 h-3.5 shrink-0" />
+          Abrir Mi Perfil Social
+        </button>
 
         <div className="space-y-1.5">
           <label className="flex items-center gap-1.5 text-[11px] font-medium fabro-muted">

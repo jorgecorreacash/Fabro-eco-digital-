@@ -18,6 +18,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Pin,
+  Plus,
   Search,
   Settings,
   SlidersHorizontal,
@@ -83,6 +84,8 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
     updatePresenceStatus,
     inboxItems,
     setOrganizerActiveTab,
+    setQuickCaptureOpen,
+    openSocialProfileModal,
   } = useEcosystem();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -193,7 +196,9 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
         tag === 'INPUT' ||
         tag === 'TEXTAREA' ||
         tag === 'SELECT' ||
+        node.isContentEditable ||
         node.dataset.noSwipe === 'true' ||
+        node.dataset.swipeGallery === 'true' ||
         node.scrollWidth > node.clientWidth + 6
       ) {
         ignore = true;
@@ -373,6 +378,18 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   )}
                 </>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setQuickCaptureOpen(true)}
+              onMouseEnter={(e) => showCollapsedTip('Captura Rápida (Inbox)', e.currentTarget)}
+              onMouseLeave={hideCollapsedTip}
+              aria-label="Abrir Captura Rápida"
+              className={navItemClass(false)}
+            >
+              <Plus className="w-4 h-4 shrink-0 text-[#0EA5E9]" />
+              {!sidebarCollapsed && <span className="truncate">Captura Rápida</span>}
             </button>
 
             <button
@@ -611,10 +628,10 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
         <div className="p-2.5 border-t fabro-border space-y-2 shrink-0">
           <button
             type="button"
-            onClick={() => navigateTo('configuracion', 'config-general')}
+            onClick={() => openSocialProfileModal('publicaciones')}
             onMouseEnter={(e) =>
               showCollapsedTip(
-                authUser ? `${authUser.displayName} (@${authUser.username})` : profile.displayName,
+                `Mi Perfil Social · ${authUser ? authUser.displayName : profile.displayName}`,
                 e.currentTarget
               )
             }
@@ -623,10 +640,10 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               sidebarCollapsed ? 'justify-center' : ''
             }`}
           >
-            {authUser?.photoURL ? (
+            {profile.photoURL || authUser?.photoURL ? (
               <img
-                src={authUser.photoURL}
-                alt={authUser.displayName}
+                src={profile.photoURL || authUser?.photoURL}
+                alt={profile.displayName}
                 className="w-8 h-8 rounded-lg object-cover border fabro-border shrink-0"
                 referrerPolicy="no-referrer"
               />
@@ -641,7 +658,11 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   {authUser ? authUser.displayName : profile.displayName}
                 </p>
                 <p className="text-[11px] font-mono fabro-muted truncate">
-                  {authUser ? `@${authUser.username}` : 'Modo Invitado'}
+                  {authUser
+                    ? `@${authUser.username}`
+                    : profile.username
+                    ? `@${profile.username}`
+                    : 'Mi Perfil Social'}
                 </p>
               </div>
             )}
@@ -952,18 +973,18 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               )}
             </div>
 
-            {/* User Profile / FABRO ID */}
+            {/* User Profile / Mi Perfil Social + FABRO ID */}
             {authUser ? (
               <div className="h-9 inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface px-2 text-xs shrink-0">
                 <button
                   type="button"
-                  onClick={() => navigateTo('configuracion', 'config-general')}
-                  title={`Cuenta FABRO ID (@${authUser.username})`}
+                  onClick={() => openSocialProfileModal('publicaciones')}
+                  title={`Abrir Mi Perfil Social (@${authUser.username})`}
                   className="inline-flex items-center gap-1.5 cursor-pointer min-w-0"
                 >
-                  {authUser.photoURL ? (
+                  {profile.photoURL || authUser.photoURL ? (
                     <img
-                      src={authUser.photoURL}
+                      src={profile.photoURL || authUser.photoURL}
                       alt={authUser.displayName}
                       className="w-6 h-6 rounded-md object-cover shrink-0"
                       referrerPolicy="no-referrer"
@@ -993,14 +1014,37 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                 </select>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => openAuthModal('sincronizar tus datos en la nube', 'login')}
-                className="h-9 inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] text-white px-3 text-xs font-medium cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
-              >
-                <User className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Entrar</span>
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => openSocialProfileModal('publicaciones')}
+                  title="Abrir Mi Perfil Social"
+                  aria-label="Abrir Mi Perfil Social"
+                  className="h-9 inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface px-2 text-xs font-medium cursor-pointer active:scale-95 shrink-0"
+                >
+                  {profile.photoURL ? (
+                    <img
+                      src={profile.photoURL}
+                      alt={profile.displayName}
+                      className="w-6 h-6 rounded-md object-cover shrink-0"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span className="w-6 h-6 rounded-md bg-[#7C3AED] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                      {(profile.displayName || 'FA').slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="hidden md:inline max-w-[82px] truncate">Mi Perfil</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openAuthModal('sincronizar tus datos en la nube', 'login')}
+                  className="h-9 inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] text-white px-3 text-xs font-medium cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
+                >
+                  <User className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Entrar</span>
+                </button>
+              </div>
             )}
 
             {/* Right Contextual Panel Toggle (Desktop) */}

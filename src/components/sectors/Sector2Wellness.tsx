@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import {
+  Brain,
   CalendarCheck,
   CheckSquare,
   Dumbbell,
   Feather,
+  Film,
   Flame,
   Heart,
+  KeyRound,
+  Loader2,
+  MessageSquareHeart,
   Play,
   ShieldAlert,
   Sparkles,
@@ -16,7 +21,12 @@ import {
 import { useEcosystem } from '../../context/EcosystemContext';
 import { DEFAULT_MOBILITY_ROUTINE } from '../../services/localVault';
 import { activateMediaSession, stopMediaSession } from '../../services/mediaSessionBridge';
-import type { WellnessSubmenuId } from '../../types/ecosystem';
+import {
+  findByokKeyForWellnessEngine,
+  generateStoicReflectionWithByok,
+  getOfflineStoicSession,
+} from '../../services/wellnessAiService';
+import type { WellnessStoicSessionItem, WellnessSubmenuId } from '../../types/ecosystem';
 import { ShareResourceButton } from '../common/ShareResourceButton';
 import { OrganizerHub } from '../organizer/OrganizerHub';
 import { SectorLayout } from './SectorLayout';
@@ -26,6 +36,10 @@ import { GuidedStoicReflectionsTool } from './wellness/GuidedStoicReflectionsToo
 import { HydrationSleepTool } from './wellness/HydrationSleepTool';
 import { StoicRouletteTool } from './wellness/StoicRouletteTool';
 import { TimeCapsuleTool } from './wellness/TimeCapsuleTool';
+import { WellnessAiHeaderBar } from './wellness/WellnessAiHeaderBar';
+import { WellnessAiStudioPanel } from './wellness/WellnessAiStudioPanel';
+import { WellnessVideoLibraryPanel } from './wellness/WellnessVideoLibraryPanel';
+import { WellnessWallPanel } from './wellness/WellnessWallPanel';
 
 export const Sector2Wellness: React.FC = () => {
   const {
@@ -39,9 +53,18 @@ export const Sector2Wellness: React.FC = () => {
     toggleBalancedPlanner,
     examplesCleared,
     clearSeedExamples,
+    byokKeys,
+    getByokSecret,
+    wellnessAiEngine,
+    wellnessPhysicalProfile,
+    saveWellnessStoicSession,
+    wellnessVideos,
+    wallPosts,
   } = useEcosystem();
   const activeSub: WellnessSubmenuId =
     submenu === 'mi-vida' ||
+    submenu === 'videoteca-bienestar' ||
+    submenu === 'muro-bienestar' ||
     submenu === 'organizador-integral' ||
     submenu === 'organizacion-calorias' ||
     submenu === 'salud-ejercicios' ||
@@ -49,6 +72,14 @@ export const Sector2Wellness: React.FC = () => {
     submenu === 'escritura-recuerdos'
       ? submenu
       : 'mi-vida';
+
+  const wellnessWallCount = wallPosts.filter((p) => p.origin === 'bienestar').length;
+  const isCoreWellnessTab =
+    activeSub === 'mi-vida' ||
+    activeSub === 'organizacion-calorias' ||
+    activeSub === 'salud-ejercicios' ||
+    activeSub === 'bienestar-emocional' ||
+    activeSub === 'escritura-recuerdos';
 
   const [happinessScore, setHappinessScore] = useState(8);
   const [gratitudeNote, setGratitudeNote] = useState(
@@ -61,6 +92,44 @@ export const Sector2Wellness: React.FC = () => {
     'Si hoy fuera mi último día, elegiría escuchar con calma, agradecer sin prisa y dejar palabras honestas.'
   );
   const [speaking, setSpeaking] = useState(false);
+  const [journalAiLoading, setJournalAiLoading] = useState(false);
+  const [journalAiError, setJournalAiError] = useState<string | null>(null);
+  const [journalAiSession, setJournalAiSession] = useState<WellnessStoicSessionItem | null>(null);
+
+  const handleJournalReflectWithAi = async () => {
+    const moodFeeling = writingTitle.trim() || 'Reflexión personal en mi diario';
+    const journalContext = writingText.trim();
+    if (!journalContext && !writingTitle.trim()) return;
+    setJournalAiError(null);
+    const found = findByokKeyForWellnessEngine(byokKeys, getByokSecret, wellnessAiEngine);
+    if (!found) {
+      const offline = getOfflineStoicSession(journalContext || moodFeeling);
+      setJournalAiSession(offline);
+      saveWellnessStoicSession(offline);
+      setJournalAiError(
+        `No tenés clave propia de ${wellnessAiEngine === 'gemini' ? 'Gemini' : 'ChatGPT'} conectada. Te mostramos la guía estoica offline y la guardamos en tu cuaderno local.`
+      );
+      return;
+    }
+    setJournalAiLoading(true);
+    try {
+      const res = await generateStoicReflectionWithByok({
+        keyMeta: found.keyMeta,
+        rawApiKey: found.secret,
+        moodFeeling,
+        journalContext,
+      });
+      if (!res.ok || !res.session) {
+        throw new Error(res.error || 'No se pudo generar la reflexión con IA.');
+      }
+      setJournalAiSession(res.session);
+      saveWellnessStoicSession(res.session);
+    } catch (err) {
+      setJournalAiError(err instanceof Error ? err.message : 'No se pudo generar la reflexión con IA.');
+    } finally {
+      setJournalAiLoading(false);
+    }
+  };
 
   const handleReadAloud = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -136,11 +205,119 @@ export const Sector2Wellness: React.FC = () => {
         </div>
       </div>
 
+      {/* Compact Wellness Quick Tabs (IA/Bienestar · Videoteca · Muro · Organizador) */}
+      <nav
+        aria-label="Accesos rápidos de Bienestar"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-2"
+      >
+        <button
+          type="button"
+          onClick={() => navigateTo('bienestar', 'mi-vida')}
+          className={`min-h-[44px] rounded-xl border-2 px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] ${
+            isCoreWellnessTab
+              ? 'border-[#10B981] bg-[#10B981] text-white shadow-[0_8px_18px_-10px_rgba(16,185,129,0.75)]'
+              : 'fabro-border fabro-surface hover:border-[#10B981]'
+          }`}
+        >
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <Sparkles
+              className={`w-4 h-4 shrink-0 ${
+                isCoreWellnessTab ? 'text-white' : 'text-[#10B981]'
+              }`}
+            />
+            <span className="truncate">Bienestar e IA</span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigateTo('bienestar', 'videoteca-bienestar')}
+          className={`min-h-[44px] rounded-xl border-2 px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] ${
+            activeSub === 'videoteca-bienestar'
+              ? 'border-[#10B981] bg-[#10B981] text-white shadow-[0_8px_18px_-10px_rgba(16,185,129,0.75)]'
+              : 'fabro-border fabro-surface hover:border-[#10B981]'
+          }`}
+        >
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <Film
+              className={`w-4 h-4 shrink-0 ${
+                activeSub === 'videoteca-bienestar' ? 'text-white' : 'text-[#10B981]'
+              }`}
+            />
+            <span className="truncate">Videoteca Bienestar</span>
+          </span>
+          <span
+            className={`rounded-md border px-1.5 py-0.5 text-[10px] font-mono tabular-nums shrink-0 ${
+              activeSub === 'videoteca-bienestar'
+                ? 'border-white/30 bg-white/15 text-white'
+                : 'fabro-border fabro-surface-elevated fabro-muted'
+            }`}
+          >
+            {wellnessVideos.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigateTo('bienestar', 'muro-bienestar')}
+          className={`min-h-[44px] rounded-xl border-2 px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] ${
+            activeSub === 'muro-bienestar'
+              ? 'border-[#10B981] bg-[#10B981] text-white shadow-[0_8px_18px_-10px_rgba(16,185,129,0.75)]'
+              : 'fabro-border fabro-surface hover:border-[#10B981]'
+          }`}
+        >
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <MessageSquareHeart
+              className={`w-4 h-4 shrink-0 ${
+                activeSub === 'muro-bienestar' ? 'text-white' : 'text-[#10B981]'
+              }`}
+            />
+            <span className="truncate">Muro de Bienestar</span>
+          </span>
+          <span
+            className={`rounded-md border px-1.5 py-0.5 text-[10px] font-mono tabular-nums shrink-0 ${
+              activeSub === 'muro-bienestar'
+                ? 'border-white/30 bg-white/15 text-white'
+                : 'fabro-border fabro-surface-elevated fabro-muted'
+            }`}
+          >
+            {wellnessWallCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigateTo('bienestar', 'organizador-integral')}
+          className={`min-h-[44px] rounded-xl border-2 px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] ${
+            activeSub === 'organizador-integral'
+              ? 'border-[#0EA5E9] bg-[#0EA5E9] text-white shadow-[0_8px_18px_-10px_rgba(14,165,233,0.75)]'
+              : 'fabro-border fabro-surface hover:border-[#0EA5E9]'
+          }`}
+        >
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <CalendarCheck
+              className={`w-4 h-4 shrink-0 ${
+                activeSub === 'organizador-integral' ? 'text-white' : 'text-[#0EA5E9]'
+              }`}
+            />
+            <span className="truncate">Organizador</span>
+          </span>
+        </button>
+      </nav>
+
+      {isCoreWellnessTab && <WellnessAiHeaderBar />}
+
+      {activeSub === 'videoteca-bienestar' && <WellnessVideoLibraryPanel />}
+
+      {activeSub === 'muro-bienestar' && <WellnessWallPanel />}
+
       {activeSub === 'organizador-integral' && <OrganizerHub />}
 
       {activeSub === 'mi-vida' && (
         <div className="space-y-5">
           <GuidedStoicReflectionsTool />
+
+          <WellnessAiStudioPanel key="well-mi-vida" initialTab="claridad" />
 
           <StoicRouletteTool />
 
@@ -228,6 +405,8 @@ export const Sector2Wellness: React.FC = () => {
               Abrir Organizador Integral
             </button>
           </div>
+
+          <WellnessAiStudioPanel key="well-dietas" initialTab="dietas" />
 
           <HydrationSleepTool />
 
@@ -326,6 +505,8 @@ export const Sector2Wellness: React.FC = () => {
 
       {activeSub === 'salud-ejercicios' && (
         <div className="space-y-5">
+          <WellnessAiStudioPanel key="well-entrenador" initialTab="entrenador" />
+
           <div className="rounded-2xl border-2 border-[#10B981]/40 bg-[#10B981]/10 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="space-y-1">
               <p className="text-xs font-bold uppercase text-[#047857] dark:text-[#34D399]">
@@ -480,6 +661,8 @@ export const Sector2Wellness: React.FC = () => {
               />
             </div>
           </div>
+
+          <WellnessAiStudioPanel key="well-emocional" initialTab="claridad" />
         </div>
       )}
 
@@ -494,6 +677,19 @@ export const Sector2Wellness: React.FC = () => {
                 E. Escritura, diarios, cartas, legado y lectura por voz
               </h2>
               <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleJournalReflectWithAi()}
+                  disabled={journalAiLoading}
+                  className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border-2 border-[#6366F1] bg-[#6366F1] text-white px-4 py-2 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap disabled:opacity-60"
+                >
+                  {journalAiLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Brain className="w-3.5 h-3.5" />
+                  )}
+                  {journalAiLoading ? 'Reflexionando...' : 'Reflexionar con IA'}
+                </button>
                 <button
                   type="button"
                   onClick={handleReadAloud}
@@ -526,6 +722,52 @@ export const Sector2Wellness: React.FC = () => {
               aria-label="Texto de diario o legado"
               className="w-full rounded-xl border-2 fabro-border fabro-surface-elevated p-3 text-xs leading-relaxed fabro-input"
             />
+
+            {journalAiError && (
+              <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-3 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-800 dark:text-amber-300">
+                <span>{journalAiError}</span>
+                <button
+                  type="button"
+                  onClick={() => navigateTo('ia', 'claves-byok')}
+                  className="min-h-[40px] inline-flex items-center gap-1.5 rounded-lg border border-amber-500 bg-amber-500 text-white px-3 py-1.5 text-[11px] font-bold cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  Configurar mi clave BYOK
+                </button>
+              </div>
+            )}
+
+            {journalAiSession && (
+              <div className="rounded-2xl border-2 border-[#6366F1]/40 bg-gradient-to-br from-[#6366F1]/10 via-transparent to-[#10B981]/10 p-4 space-y-3 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-bold text-[#4F46E5] dark:text-[#A5B4FC] flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4" />
+                    {journalAiSession.reframeTitle} (Guardado en tu cuaderno local)
+                  </p>
+                  <span className="rounded-md border border-[#6366F1]/40 px-2 py-0.5 text-[10px] font-bold">
+                    {journalAiSession.providerLabel}
+                  </span>
+                </div>
+                <div className="rounded-xl border fabro-border fabro-surface-elevated p-3 space-y-1">
+                  <p className="font-bold text-[#4F46E5] dark:text-[#A5B4FC]">
+                    Reencuadre cognitivo estoico
+                  </p>
+                  <p className="leading-relaxed">{journalAiSession.guidance}</p>
+                </div>
+                <div className="rounded-xl border fabro-border fabro-surface-elevated p-3 space-y-1">
+                  <p className="font-bold text-[#047857] dark:text-[#34D399]">
+                    Ejercicio de calma mental
+                  </p>
+                  <p className="leading-relaxed">{journalAiSession.calmExercise}</p>
+                </div>
+                <div className="rounded-xl border border-[#F59E0B]/40 bg-[#F59E0B]/10 p-3 space-y-1">
+                  <p className="font-bold text-[#B45309] dark:text-[#FBBF24]">
+                    Pregunta guiada para profundizar
+                  </p>
+                  <p className="leading-relaxed">{journalAiSession.journalPrompt}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

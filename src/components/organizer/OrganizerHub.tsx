@@ -25,6 +25,7 @@ import type {
   TimeBlockDuration,
   TimeBlockSector,
 } from '../../types/ecosystem';
+import { SwipeableSubscreenContainer } from '../navigation/SwipeableSubscreenContainer';
 
 interface OrganizerHubProps {
   compact?: boolean;
@@ -325,6 +326,13 @@ export const OrganizerHub: React.FC<OrganizerHubProps> = ({ compact = false }) =
         </div>
       )}
 
+      <SwipeableSubscreenContainer
+        items={tabs.map((t) => ({ id: t.id, label: t.label }))}
+        activeId={organizerActiveTab}
+        onSelect={(nextId) => setOrganizerActiveTab(nextId as OrganizerTabId)}
+        accentColor="#10B981"
+        galleryLabel="Indicador deslizable del Organizador Integral"
+      >
       {/* TAB 1: BANDEJA DE ENTRADA RÁPIDA (INBOX) */}
       {organizerActiveTab === 'inbox' && (
         <div className="space-y-4">
@@ -1143,6 +1151,7 @@ export const OrganizerHub: React.FC<OrganizerHubProps> = ({ compact = false }) =
           )}
         </div>
       )}
+      </SwipeableSubscreenContainer>
 
       {/* Quick shortcut footer to Study Notes */}
       <div className="pt-2 border-t fabro-border flex flex-wrap items-center justify-between gap-2 text-[11px] fabro-muted">

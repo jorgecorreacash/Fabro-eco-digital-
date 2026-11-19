@@ -1,15 +1,15 @@
 {
   "id": "/",
   "name": "🍀 FABRO 🍀 — Ecosistema Digital",
-  "short_name": "🍀 FABRO",
+  "short_name": "FABRO",
   "description": "Ecosistema digital integral Offline-First con estudio, bienestar, chat PTT en segundo plano y Centro IA BYOK.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "lang": "es",
-  "theme_color": "#F8FAFC",
-  "background_color": "#F8FAFC",
+  "theme_color": "#0B1120",
+  "background_color": "#0B1120",
   "icons": [
     {
       "src": "/pwa-192x192.png",

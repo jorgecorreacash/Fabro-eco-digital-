@@ -26,8 +26,16 @@ import type {
   LocalUserProfile,
   MoodLogItem,
   OrganizerTaskItem,
+  PaintedCalendarEvent,
+  StudyCommunityItem,
   TimeBlockItem,
+  VideoLibraryItem,
   WallPostItem,
+  WellnessDietPlanItem,
+  WellnessHabitPlanItem,
+  WellnessPhysicalProfile,
+  WellnessStoicSessionItem,
+  WellnessWorkoutPlanItem,
 } from '../types/ecosystem';
 
 export interface CloudProfilePayload {
@@ -37,6 +45,13 @@ export interface CloudProfilePayload {
   username: string;
   fabroId: string;
   photoURL: string;
+  coverPhotoURL?: string;
+  bio?: string;
+  interests?: string[];
+  currentActivity?: string;
+  publicNoteIds?: string[];
+  publicRoutineIds?: string[];
+  followingIds?: string[];
   birthDate: string;
   isMinor: boolean;
   presenceStatus: AuthPresenceStatus;
@@ -53,6 +68,7 @@ export interface CloudOrganizerSnapshot {
   organizerTasks: OrganizerTaskItem[];
   timeBlocks: TimeBlockItem[];
   dailyReview: DailyReviewState;
+  calendarEvents?: PaintedCalendarEvent[];
 }
 
 export interface CloudWellnessSnapshot {
@@ -60,6 +76,14 @@ export interface CloudWellnessSnapshot {
   guidedReflections: GuidedReflectionItem[];
   balancedPlanner: BalancedPlannerItem[];
   glossaryTerms: GlossaryTermItem[];
+  physicalProfile?: WellnessPhysicalProfile;
+  aiDietPlans?: WellnessDietPlanItem[];
+  aiWorkoutPlans?: WellnessWorkoutPlanItem[];
+  aiHabitPlans?: WellnessHabitPlanItem[];
+  aiStoicSessions?: WellnessStoicSessionItem[];
+  studyVideos?: VideoLibraryItem[];
+  wellnessVideos?: VideoLibraryItem[];
+  studyCommunities?: StudyCommunityItem[];
 }
 
 export function normalizeHandle(raw: string): string {
@@ -146,6 +170,21 @@ export async function reserveUsernameAndSaveProfile(
       username: cleanHandle,
       fabroId: (payload.fabroId || `FBR-${cleanHandle.slice(0, 8).toUpperCase()}`).slice(0, 40),
       photoURL: (payload.photoURL || '').slice(0, 140000),
+      coverPhotoURL: (payload.coverPhotoURL || '').slice(0, 180000),
+      bio: (payload.bio || '').slice(0, 600),
+      interests: Array.isArray(payload.interests)
+        ? payload.interests.map((x) => String(x).slice(0, 40)).slice(0, 20)
+        : [],
+      currentActivity: (payload.currentActivity || '').slice(0, 160),
+      publicNoteIds: Array.isArray(payload.publicNoteIds)
+        ? payload.publicNoteIds.map((x) => String(x).slice(0, 120)).slice(0, 50)
+        : [],
+      publicRoutineIds: Array.isArray(payload.publicRoutineIds)
+        ? payload.publicRoutineIds.map((x) => String(x).slice(0, 120)).slice(0, 30)
+        : [],
+      followingIds: Array.isArray(payload.followingIds)
+        ? payload.followingIds.map((x) => String(x).slice(0, 120)).slice(0, 200)
+        : [],
       birthDate: (payload.birthDate || '').slice(0, 20),
       isMinor: Boolean(payload.isMinor),
       presenceStatus: payload.presenceStatus || 'online',
@@ -175,7 +214,7 @@ export async function reserveUsernameAndSaveProfile(
           displayName: safeProfileDoc.displayName,
           username: cleanHandle,
           customFabroId: safeProfileDoc.fabroId,
-          photoURL: safeProfileDoc.photoURL,
+          photoURL: safeProfileDoc.photoURL.slice(0, 1000),
           sharedPhrase: safeProfileDoc.dailyPhrase,
           favoriteBooks: safeProfileDoc.tastes.books,
           favoriteMovies: safeProfileDoc.tastes.movies,
@@ -183,8 +222,8 @@ export async function reserveUsernameAndSaveProfile(
           country: '',
           province: '',
           city: '',
-          bio: safeProfileDoc.icebreaker,
-          interests: [],
+          bio: safeProfileDoc.bio || safeProfileDoc.icebreaker,
+          interests: safeProfileDoc.interests,
           institutions: [],
           isStudent: true,
           isInstructor: false,
@@ -282,6 +321,9 @@ export async function syncOrganizerStateToCloud(
         organizerTasks: snapshot.organizerTasks.slice(0, 200),
         timeBlocks: snapshot.timeBlocks.slice(0, 150),
         dailyReview: snapshot.dailyReview,
+        ...(Array.isArray(snapshot.calendarEvents)
+          ? { calendarEvents: snapshot.calendarEvents.slice(0, 200) }
+          : {}),
         updatedAt: serverTimestamp(),
       },
       { merge: true }
@@ -306,6 +348,28 @@ export async function syncWellnessStateToCloud(
         guidedReflections: snapshot.guidedReflections.slice(0, 20),
         balancedPlanner: snapshot.balancedPlanner.slice(0, 30),
         glossaryTerms: snapshot.glossaryTerms.slice(0, 120),
+        ...(snapshot.physicalProfile ? { physicalProfile: snapshot.physicalProfile } : {}),
+        ...(Array.isArray(snapshot.aiDietPlans)
+          ? { aiDietPlans: snapshot.aiDietPlans.slice(0, 20) }
+          : {}),
+        ...(Array.isArray(snapshot.aiWorkoutPlans)
+          ? { aiWorkoutPlans: snapshot.aiWorkoutPlans.slice(0, 20) }
+          : {}),
+        ...(Array.isArray(snapshot.aiHabitPlans)
+          ? { aiHabitPlans: snapshot.aiHabitPlans.slice(0, 20) }
+          : {}),
+        ...(Array.isArray(snapshot.aiStoicSessions)
+          ? { aiStoicSessions: snapshot.aiStoicSessions.slice(0, 30) }
+          : {}),
+        ...(Array.isArray(snapshot.studyVideos)
+          ? { studyVideos: snapshot.studyVideos.slice(0, 100) }
+          : {}),
+        ...(Array.isArray(snapshot.wellnessVideos)
+          ? { wellnessVideos: snapshot.wellnessVideos.slice(0, 100) }
+          : {}),
+        ...(Array.isArray(snapshot.studyCommunities)
+          ? { studyCommunities: snapshot.studyCommunities.slice(0, 40) }
+          : {}),
         updatedAt: serverTimestamp(),
       },
       { merge: true }
@@ -419,6 +483,7 @@ export function subscribeToUserCloudWorkspace(
           organizerTasks: Array.isArray(data.organizerTasks) ? data.organizerTasks : [],
           timeBlocks: Array.isArray(data.timeBlocks) ? data.timeBlocks : [],
           dailyReview: data.dailyReview,
+          calendarEvents: Array.isArray(data.calendarEvents) ? data.calendarEvents : undefined,
         });
       }
     },
@@ -435,6 +500,17 @@ export function subscribeToUserCloudWorkspace(
           guidedReflections: Array.isArray(data.guidedReflections) ? data.guidedReflections : [],
           balancedPlanner: Array.isArray(data.balancedPlanner) ? data.balancedPlanner : [],
           glossaryTerms: Array.isArray(data.glossaryTerms) ? data.glossaryTerms : [],
+          physicalProfile:
+            data.physicalProfile && typeof data.physicalProfile === 'object'
+              ? (data.physicalProfile as WellnessPhysicalProfile)
+              : undefined,
+          aiDietPlans: Array.isArray(data.aiDietPlans) ? data.aiDietPlans : undefined,
+          aiWorkoutPlans: Array.isArray(data.aiWorkoutPlans) ? data.aiWorkoutPlans : undefined,
+          aiHabitPlans: Array.isArray(data.aiHabitPlans) ? data.aiHabitPlans : undefined,
+          aiStoicSessions: Array.isArray(data.aiStoicSessions) ? data.aiStoicSessions : undefined,
+          studyVideos: Array.isArray(data.studyVideos) ? data.studyVideos : undefined,
+          wellnessVideos: Array.isArray(data.wellnessVideos) ? data.wellnessVideos : undefined,
+          studyCommunities: Array.isArray(data.studyCommunities) ? data.studyCommunities : undefined,
         });
       }
     },
@@ -462,9 +538,29 @@ export function subscribeToPublicPosts(
         return {
           id: String(data.id || d.id),
           author: String(data.author || 'Usuario FABRO'),
+          authorAvatar: typeof data.authorAvatar === 'string' ? data.authorAvatar : undefined,
           fabroId: String(data.fabroId || 'FABRO'),
           text: String(data.text || ''),
           likes: typeof data.likes === 'number' ? data.likes : 0,
+          origin:
+            data.origin === 'estudio' ||
+            data.origin === 'bienestar' ||
+            data.origin === 'comunidad' ||
+            data.origin === 'general'
+              ? data.origin
+              : 'general',
+          categoryTag: typeof data.categoryTag === 'string' ? data.categoryTag : undefined,
+          communityId: typeof data.communityId === 'string' ? data.communityId : undefined,
+          communityName: typeof data.communityName === 'string' ? data.communityName : undefined,
+          videoEmbed:
+            data.videoEmbed && typeof data.videoEmbed === 'object' ? data.videoEmbed : undefined,
+          reactions: data.reactions && typeof data.reactions === 'object' ? data.reactions : undefined,
+          comments: Array.isArray(data.comments) ? data.comments : [],
+          media: Array.isArray(data.media) ? data.media : undefined,
+          sharedResource:
+            data.sharedResource && typeof data.sharedResource === 'object'
+              ? data.sharedResource
+              : undefined,
           createdAt: String(data.createdAtLabel || 'Recién'),
           poll: data.poll || undefined,
         };
@@ -478,14 +574,44 @@ export function subscribeToPublicPosts(
 export async function publishPublicPost(uid: string, post: WallPostItem): Promise<void> {
   const safeId = post.id.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
   const path = `public_posts/${safeId}`;
+  // Keep Firestore media entries compact (thumbnails/posters only, never raw video blobs)
+  const cloudMedia = Array.isArray(post.media)
+    ? post.media.slice(0, 4).map((m) => ({
+        id: m.id,
+        kind: m.kind,
+        ...(m.mediaVaultId ? { mediaVaultId: m.mediaVaultId } : {}),
+        ...(m.kind === 'image' && m.dataUrl && m.dataUrl.length <= 150000
+          ? { dataUrl: m.dataUrl }
+          : {}),
+        ...(m.posterDataUrl && m.posterDataUrl.length <= 120000
+          ? { posterDataUrl: m.posterDataUrl }
+          : {}),
+        ...(m.caption ? { caption: m.caption.slice(0, 240) } : {}),
+        ...(m.filter ? { filter: m.filter } : {}),
+        ...(typeof m.durationSec === 'number' ? { durationSec: m.durationSec } : {}),
+      }))
+    : undefined;
+
   try {
     await setDoc(doc(db, 'public_posts', safeId), {
       id: safeId,
       authorUid: uid,
       author: post.author.slice(0, 100),
+      ...(post.authorAvatar && post.authorAvatar.length <= 140000
+        ? { authorAvatar: post.authorAvatar }
+        : {}),
       fabroId: post.fabroId.slice(0, 50),
-      text: post.text.slice(0, 2000),
-      likes: post.likes || 0,
+      text: (post.text.trim() || 'Publicación multimedia en FABRO').slice(0, 2000),
+      likes: 0,
+      ...(post.origin ? { origin: post.origin } : { origin: 'general' }),
+      ...(post.categoryTag ? { categoryTag: post.categoryTag.slice(0, 80) } : {}),
+      ...(post.communityId ? { communityId: post.communityId.slice(0, 128) } : {}),
+      ...(post.communityName ? { communityName: post.communityName.slice(0, 120) } : {}),
+      ...(post.videoEmbed ? { videoEmbed: post.videoEmbed } : {}),
+      ...(post.reactions ? { reactions: post.reactions } : {}),
+      ...(post.comments && post.comments.length > 0 ? { comments: post.comments.slice(0, 50) } : {}),
+      ...(cloudMedia && cloudMedia.length > 0 ? { media: cloudMedia } : {}),
+      ...(post.sharedResource ? { sharedResource: post.sharedResource } : {}),
       createdAtLabel: post.createdAt || 'Recién',
       createdAtMs: Date.now(),
       ...(post.poll ? { poll: post.poll } : {}),
@@ -503,6 +629,40 @@ export async function updatePublicPostLikes(postId: string, nextLikes: number): 
   try {
     await updateDoc(doc(db, 'public_posts', safeId), {
       likes: Math.max(0, nextLikes),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, path);
+  }
+}
+
+export async function updatePublicPostReactions(
+  postId: string,
+  nextLikes: number,
+  reactions: NonNullable<WallPostItem['reactions']>
+): Promise<void> {
+  const safeId = postId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
+  const path = `public_posts/${safeId}`;
+  try {
+    await updateDoc(doc(db, 'public_posts', safeId), {
+      likes: Math.max(0, nextLikes),
+      reactions,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, path);
+  }
+}
+
+export async function updatePublicPostComments(
+  postId: string,
+  comments: NonNullable<WallPostItem['comments']>
+): Promise<void> {
+  const safeId = postId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
+  const path = `public_posts/${safeId}`;
+  try {
+    await updateDoc(doc(db, 'public_posts', safeId), {
+      comments: comments.slice(-100),
       updatedAt: serverTimestamp(),
     });
   } catch (err) {

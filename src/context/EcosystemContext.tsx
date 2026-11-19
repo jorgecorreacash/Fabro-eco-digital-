@@ -37,11 +37,16 @@ import {
   loadUserProfileDoc,
   migrateGuestVaultToCloud,
   normalizeHandle,
+  publishPublicPost,
   reserveUsernameAndSaveProfile,
+  subscribeToPublicPosts,
   subscribeToUserCloudWorkspace,
   syncOrganizerStateToCloud,
   syncSingleNoteToCloud,
   syncWellnessStateToCloud,
+  updatePublicPostComments,
+  updatePublicPostPoll,
+  updatePublicPostReactions,
 } from '../services/cloudSyncService';
 import {
   DEFAULT_ADVANCED_NOTES,
@@ -66,14 +71,18 @@ import {
   DEFAULT_POMODORO_LOGS,
   DEFAULT_QUICK_NOTES,
   DEFAULT_SCHEDULED_REMINDERS,
+  DEFAULT_STORIES,
   DEFAULT_STUDY_QUIZ,
+  DEFAULT_STUDY_ROOMS,
   DEFAULT_TIME_BLOCKS,
   DEFAULT_USER_QUOTES,
+  DEFAULT_WALL_POSTS,
   DEFAULT_ZODIAC_SIGN,
   getTodayDateKey,
   vaultClearAll,
   vaultGet,
   vaultSet,
+  vaultSetIdbOnly,
 } from '../services/localVault';
 import {
   activateMediaSession,
@@ -82,9 +91,12 @@ import {
 } from '../services/mediaSessionBridge';
 import { useNetworkMonitor } from '../services/networkMonitor';
 import { clearShareFromLocation, readShareFromLocation } from '../services/shareCodec';
+import { playCalendarAlarmTone } from '../services/calendarAlarmAudio';
 import { playSoftBell } from '../services/webAudioPtt';
+import { DEFAULT_WELLNESS_PHYSICAL_PROFILE } from '../services/wellnessAiService';
 import type {
   AcademicAgendaTask,
+  ActiveCalendarAlarmAlert,
   ActivityEntry,
   AdvancedNoteItem,
   AuthPresenceStatus,
@@ -96,6 +108,7 @@ import type {
   ConnectProviderItem,
   DailyReviewState,
   EisenhowerQuadrant,
+  EphemeralStory,
   FiveSectorId,
   FriendAvailability,
   FriendContact,
@@ -112,6 +125,7 @@ import type {
   NotificationPreferences,
   OrganizerTabId,
   OrganizerTaskItem,
+  PaintedCalendarEvent,
   PinnedToolEntry,
   PinnedToolSize,
   PomodoroSessionLog,
@@ -121,9 +135,13 @@ import type {
   ScheduledReminderItem,
   SectorId,
   SharedResourcePayload,
+  SocialMediaAttachment,
+  SocialReactionKey,
   SrsFlashcard,
+  StudyCommunityItem,
   StudyQuiz,
   StudyQuizQuestion,
+  StudyRoomItem,
   SubmenuId,
   SyncStatusState,
   ThemeId,
@@ -131,10 +149,86 @@ import type {
   TimeBlockItem,
   TimeBlockSector,
   UserQuoteItem,
+  VideoLibraryItem,
+  WallCommentItem,
+  WallPostItem,
+  WellnessAiEngine,
+  WellnessDietPlanItem,
+  WellnessHabitPlanItem,
+  WellnessPhysicalProfile,
+  WellnessStoicSessionItem,
+  WellnessWorkoutPlanItem,
   WorkspaceColumns,
   WorkoutLogEntry,
   ZodiacSignId,
 } from '../types/ecosystem';
+
+const DEFAULT_STUDY_COMMUNITIES: StudyCommunityItem[] = [
+  {
+    id: 'comm-ipc',
+    name: 'Introducción al Pensamiento Científico',
+    careerOrSubject: 'IPC · Metodología',
+    description: 'Debates sobre epistemología, Popper, Kuhn, lógica proposicional y guías de parcial.',
+    accentColor: '#2563EB',
+    memberCount: 18,
+    joined: true,
+    createdBy: 'Cátedra Abierta FABRO',
+    createdAt: 'Activa hoy',
+    threads: [
+      {
+        id: 'thr-ipc-1',
+        author: 'Sofía M.',
+        fabroId: 'FBR-SOFIA88',
+        title: '¿Cómo diferenciar rápido falsacionismo de inductivismo en el parcial?',
+        body: 'Estoy armando un cuadro comparativo entre Popper y los inductivistas ingenuos. ¿Alguien tiene un ejemplo cotidiano que ayude a fijarlo?',
+        createdAt: 'Hace 2 h',
+        replies: [
+          {
+            id: 'rep-ipc-1',
+            author: 'Martín R.',
+            fabroId: 'FBR-MART21',
+            text: 'Clave rápida: el inductivismo busca confirmar con muchos casos positivos (cisnes blancos); Popper busca refutar buscando un solo contraejemplo (un cisne negro).',
+            createdAt: 'Hace 1 h',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'comm-derecho',
+    name: 'Derecho y Ciencias Jurídicas',
+    careerOrSubject: 'Derecho · Constitucional y Civil',
+    description: 'Resúmenes de fallos, fuentes del derecho, códigos comentados y simulacros orales.',
+    accentColor: '#7C3AED',
+    memberCount: 24,
+    joined: true,
+    createdBy: 'Comunidad Jurídica FABRO',
+    createdAt: 'Activa hoy',
+    threads: [
+      {
+        id: 'thr-der-1',
+        author: 'Lucía G.',
+        fabroId: 'FBR-LUCI04',
+        title: 'Jerarquía normativa y tratados de DD.HH. (Art. 75 inc. 22)',
+        body: 'Comparto esquema clave: Bloque de Constitucionalidad Federal arriba, luego tratados sin jerarquía constitucional por encima de leyes nacionales.',
+        createdAt: 'Ayer',
+        replies: [],
+      },
+    ],
+  },
+  {
+    id: 'comm-prog',
+    name: 'Programación y Algoritmos',
+    careerOrSubject: 'Sistemas · Desarrollo Web y Python',
+    description: 'Estructuras de datos, complejidad algorítmica, proyectos prácticos y videoclases recomendadas.',
+    accentColor: '#06B6D4',
+    memberCount: 31,
+    joined: false,
+    createdBy: 'Dev Lab FABRO',
+    createdAt: 'Activa hoy',
+    threads: [],
+  },
+];
 
 export const POMODORO_PRESETS = [
   { id: '25-5' as const, label: '25 / 5 min', focus: 25, rest: 5 },
@@ -193,8 +287,9 @@ interface EcosystemContextValue {
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   byokKeys: ByokProviderKey[];
-  saveByokKey: (keyItem: ByokProviderKey) => void;
+  saveByokKey: (keyItem: ByokProviderKey, rawSecret?: string) => void;
   removeByokKey: (id: string) => void;
+  getByokSecret: (id: string) => string;
   connectItems: ConnectProviderItem[];
   saveConnectItems: (items: ConnectProviderItem[]) => void;
   network: NetworkSnapshot;
@@ -376,6 +471,86 @@ interface EcosystemContextValue {
   deleteAccountSafely: () => Promise<{ ok: boolean; error?: string }>;
   updatePresenceStatus: (status: AuthPresenceStatus) => Promise<void>;
   syncNowToCloud: () => Promise<void>;
+  // Social Profile, Multimedia Wall, Stories, Study Rooms & Discovery
+  wallPosts: WallPostItem[];
+  addWallPost: (post: Omit<WallPostItem, 'id' | 'likes' | 'createdAt'> & { id?: string }) => Promise<WallPostItem>;
+  deleteWallPost: (postId: string) => void;
+  reactToWallPost: (postId: string, reaction: SocialReactionKey) => void;
+  addWallPostComment: (postId: string, text: string, parentId?: string | null) => void;
+  voteOnWallPoll: (postId: string, optionId: string) => void;
+  toggleWallPostBookmark: (postId: string) => void;
+  ephemeralStories: EphemeralStory[];
+  addEphemeralStory: (story: Omit<EphemeralStory, 'id' | 'createdAtMs' | 'expiresLabel'>) => void;
+  deleteEphemeralStory: (storyId: string) => void;
+  studyRooms: StudyRoomItem[];
+  setStudyRoomsState: (updater: (prev: StudyRoomItem[]) => StudyRoomItem[]) => void;
+  addStudyRoomPost: (roomId: string, text: string, media?: SocialMediaAttachment) => void;
+  toggleFollowProfile: (profileId: string) => void;
+  togglePublicNote: (noteId: string) => void;
+  togglePublicRoutine: (routineId: string) => void;
+  saveFullSocialProfile: (patch: Partial<LocalUserProfile>) => Promise<{ ok: boolean; error?: string }>;
+  socialProfileModalOpen: boolean;
+  socialProfileModalTab: 'publicaciones' | 'galeria' | 'recursos' | 'sobre-mi';
+  openSocialProfileModal: (
+    tab?: 'publicaciones' | 'galeria' | 'recursos' | 'sobre-mi',
+    openEditor?: boolean
+  ) => void;
+  closeSocialProfileModal: () => void;
+  editSocialProfileOpen: boolean;
+  setEditSocialProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  // Sector 2 — Bienestar IA (BYOK Gemini / ChatGPT) + Offline & Firestore Sync
+  wellnessAiEngine: WellnessAiEngine;
+  setWellnessAiEngine: (engine: WellnessAiEngine) => void;
+  wellnessPhysicalProfile: WellnessPhysicalProfile;
+  updateWellnessPhysicalProfile: (patch: Partial<WellnessPhysicalProfile>) => void;
+  wellnessDietPlans: WellnessDietPlanItem[];
+  saveWellnessDietPlan: (plan: WellnessDietPlanItem) => void;
+  toggleWellnessShoppingItem: (planId: string, itemId: string) => void;
+  deleteWellnessDietPlan: (planId: string) => void;
+  wellnessWorkoutPlans: WellnessWorkoutPlanItem[];
+  saveWellnessWorkoutPlan: (plan: WellnessWorkoutPlanItem) => void;
+  deleteWellnessWorkoutPlan: (planId: string) => void;
+  wellnessHabitPlans: WellnessHabitPlanItem[];
+  saveWellnessHabitPlan: (plan: WellnessHabitPlanItem) => void;
+  markWellnessHabitAdded: (planId: string, habitId: string) => void;
+  deleteWellnessHabitPlan: (planId: string) => void;
+  wellnessStoicSessions: WellnessStoicSessionItem[];
+  saveWellnessStoicSession: (session: WellnessStoicSessionItem) => void;
+  updateWellnessStoicSessionNotes: (sessionId: string, notes: string) => void;
+  deleteWellnessStoicSession: (sessionId: string) => void;
+  // Videotecas (Estudio y Bienestar), Calendario Pintable con Alarmas Sonoras y Comunidades
+  studyVideos: VideoLibraryItem[];
+  wellnessVideos: VideoLibraryItem[];
+  addVideoLibraryItem: (
+    item: Omit<VideoLibraryItem, 'id' | 'createdAt' | 'sharedToWall'>
+  ) => VideoLibraryItem;
+  updateVideoNotes: (sector: 'estudio' | 'bienestar', videoId: string, notes: string) => void;
+  deleteVideoLibraryItem: (sector: 'estudio' | 'bienestar', videoId: string) => void;
+  shareVideoToWall: (video: VideoLibraryItem, customComment?: string) => Promise<void>;
+  paintedCalendarEvents: PaintedCalendarEvent[];
+  savePaintedCalendarEvent: (
+    event: Omit<PaintedCalendarEvent, 'id' | 'createdAt' | 'syncedBlockId' | 'alarmFired'> & {
+      id?: string;
+    }
+  ) => PaintedCalendarEvent;
+  deletePaintedCalendarEvent: (eventId: string) => void;
+  activeCalendarAlarm: ActiveCalendarAlarmAlert | null;
+  dismissActiveCalendarAlarm: () => void;
+  studyCommunities: StudyCommunityItem[];
+  createStudyCommunity: (payload: {
+    name: string;
+    careerOrSubject: string;
+    description: string;
+    accentColor: string;
+  }) => StudyCommunityItem;
+  toggleJoinStudyCommunity: (communityId: string) => void;
+  addStudyCommunityThread: (
+    communityId: string,
+    title: string,
+    body: string,
+    alsoShareToWall?: boolean
+  ) => void;
+  replyStudyCommunityThread: (communityId: string, threadId: string, text: string) => void;
 }
 
 const EcosystemContext = createContext<EcosystemContextValue | null>(null);
@@ -392,6 +567,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [recents, setRecents] = useState<ActivityEntry[]>([]);
   const [notifications, setNotifications] = useState<NotificationEntry[]>(DEFAULT_NOTIFICATIONS);
   const [byokKeys, setByokKeys] = useState<ByokProviderKey[]>([]);
+  const [byokSecrets, setByokSecrets] = useState<Record<string, string>>({});
   const [connectItems, setConnectItems] = useState<ConnectProviderItem[]>(DEFAULT_CONNECT_ITEMS);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [quickChatMessages, setQuickChatMessages] = useState<ChatMessageItem[]>(DEFAULT_CHAT_MESSAGES);
@@ -476,6 +652,35 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [authModalReason, setAuthModalReason] = useState<string | null>(null);
   const [authModalDefaultTab, setAuthModalDefaultTab] = useState<'login' | 'register'>('login');
 
+  // Social Profile, Multimedia Wall, Stories & Study Rooms State
+  const [wallPosts, setWallPosts] = useState<WallPostItem[]>(DEFAULT_WALL_POSTS);
+  const [ephemeralStories, setEphemeralStories] = useState<EphemeralStory[]>(DEFAULT_STORIES);
+  const [studyRooms, setStudyRooms] = useState<StudyRoomItem[]>(DEFAULT_STUDY_ROOMS);
+  const [socialProfileModalOpen, setSocialProfileModalOpen] = useState<boolean>(false);
+  const [socialProfileModalTab, setSocialProfileModalTab] = useState<
+    'publicaciones' | 'galeria' | 'recursos' | 'sobre-mi'
+  >('publicaciones');
+  const [editSocialProfileOpen, setEditSocialProfileOpen] = useState<boolean>(false);
+
+  // Sector 2 — Bienestar IA (BYOK Gemini / ChatGPT) State
+  const [wellnessAiEngine, setWellnessAiEngineState] = useState<WellnessAiEngine>('gemini');
+  const [wellnessPhysicalProfile, setWellnessPhysicalProfile] =
+    useState<WellnessPhysicalProfile>(DEFAULT_WELLNESS_PHYSICAL_PROFILE);
+  const [wellnessDietPlans, setWellnessDietPlans] = useState<WellnessDietPlanItem[]>([]);
+  const [wellnessWorkoutPlans, setWellnessWorkoutPlans] = useState<WellnessWorkoutPlanItem[]>([]);
+  const [wellnessHabitPlans, setWellnessHabitPlans] = useState<WellnessHabitPlanItem[]>([]);
+  const [wellnessStoicSessions, setWellnessStoicSessions] = useState<WellnessStoicSessionItem[]>([]);
+
+  // Videotecas, Calendario Pintable con Alarma Sonora y Comunidades por Materia
+  const [studyVideos, setStudyVideos] = useState<VideoLibraryItem[]>([]);
+  const [wellnessVideos, setWellnessVideos] = useState<VideoLibraryItem[]>([]);
+  const [paintedCalendarEvents, setPaintedCalendarEvents] = useState<PaintedCalendarEvent[]>([]);
+  const [activeCalendarAlarm, setActiveCalendarAlarm] =
+    useState<ActiveCalendarAlarmAlert | null>(null);
+  const [studyCommunities, setStudyCommunities] = useState<StudyCommunityItem[]>(
+    DEFAULT_STUDY_COMMUNITIES
+  );
+
   const applyingRemoteRef = useRef<boolean>(false);
   const pendingCloudSyncTimerRef = useRef<number | null>(null);
   const latestStateRef = useRef({
@@ -485,10 +690,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     organizerTasks,
     timeBlocks,
     dailyReview,
+    paintedCalendarEvents,
     moodLogs,
     guidedReflections,
     balancedPlanner,
     glossaryTerms,
+    wellnessPhysicalProfile,
+    wellnessDietPlans,
+    wellnessWorkoutPlans,
+    wellnessHabitPlans,
+    wellnessStoicSessions,
+    studyVideos,
+    wellnessVideos,
+    studyCommunities,
   });
   latestStateRef.current = {
     profile,
@@ -497,10 +711,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     organizerTasks,
     timeBlocks,
     dailyReview,
+    paintedCalendarEvents,
     moodLogs,
     guidedReflections,
     balancedPlanner,
     glossaryTerms,
+    wellnessPhysicalProfile,
+    wellnessDietPlans,
+    wellnessWorkoutPlans,
+    wellnessHabitPlans,
+    wellnessStoicSessions,
+    studyVideos,
+    wellnessVideos,
+    studyCommunities,
   };
 
   const { snapshot: network, measureNow: measureNetwork } = useNetworkMonitor();
@@ -603,6 +826,20 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         savedOrganizerTasks,
         savedTimeBlocks,
         savedDailyReview,
+        savedByokSecrets,
+        savedWallPosts,
+        savedStories,
+        savedStudyRooms,
+        savedWellnessEngine,
+        savedPhysicalProfile,
+        savedDietPlans,
+        savedWorkoutPlans,
+        savedHabitPlans,
+        savedStoicSessions,
+        savedStudyVideos,
+        savedWellnessVideos,
+        savedPaintedCalendar,
+        savedStudyCommunities,
       ] = await Promise.all([
         vaultGet<ThemeId>('theme', 'estandar'),
         vaultGet<LocalUserProfile>('profile', DEFAULT_LOCAL_PROFILE),
@@ -635,11 +872,41 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         vaultGet<OrganizerTaskItem[] | null>('org_tasks', null),
         vaultGet<TimeBlockItem[] | null>('org_time_blocks', null),
         vaultGet<DailyReviewState | null>('org_daily_review', null),
+        vaultGet<Record<string, string>>('byok_raw_secrets', {}),
+        vaultGet<WallPostItem[] | null>('wall_posts', null),
+        vaultGet<EphemeralStory[] | null>('ephemeral_stories', null),
+        vaultGet<StudyRoomItem[] | null>('study_rooms', null),
+        vaultGet<WellnessAiEngine>('wellness_ai_engine', 'gemini'),
+        vaultGet<WellnessPhysicalProfile | null>('wellness_physical_profile', null),
+        vaultGet<WellnessDietPlanItem[]>('wellness_diet_plans', []),
+        vaultGet<WellnessWorkoutPlanItem[]>('wellness_workout_plans', []),
+        vaultGet<WellnessHabitPlanItem[]>('wellness_habit_plans', []),
+        vaultGet<WellnessStoicSessionItem[]>('wellness_stoic_sessions', []),
+        vaultGet<VideoLibraryItem[]>('study_video_library', []),
+        vaultGet<VideoLibraryItem[]>('wellness_video_library', []),
+        vaultGet<PaintedCalendarEvent[]>('painted_calendar_events', []),
+        vaultGet<StudyCommunityItem[] | null>('study_communities', null),
       ]);
 
       if (!active) return;
       setThemeState(savedTheme);
-      setProfile(savedProfile);
+      setProfile({
+        ...DEFAULT_LOCAL_PROFILE,
+        ...savedProfile,
+        tastes: { ...DEFAULT_LOCAL_PROFILE.tastes, ...(savedProfile?.tastes || {}) },
+        interests: Array.isArray(savedProfile?.interests)
+          ? savedProfile.interests
+          : DEFAULT_LOCAL_PROFILE.interests,
+        publicNoteIds: Array.isArray(savedProfile?.publicNoteIds)
+          ? savedProfile.publicNoteIds
+          : DEFAULT_LOCAL_PROFILE.publicNoteIds,
+        publicRoutineIds: Array.isArray(savedProfile?.publicRoutineIds)
+          ? savedProfile.publicRoutineIds
+          : DEFAULT_LOCAL_PROFILE.publicRoutineIds,
+        followingIds: Array.isArray(savedProfile?.followingIds)
+          ? savedProfile.followingIds
+          : DEFAULT_LOCAL_PROFILE.followingIds,
+      });
       setFavorites(savedFavs);
       setPinnedTools(savedPinnedTools);
       setWorkspaceColumnsState(savedWorkspaceCols === 2 ? 2 : 3);
@@ -648,6 +915,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setRecents(savedRecents);
       setNotifications(savedNotifs);
       setByokKeys(savedKeys);
+      setByokSecrets(savedByokSecrets || {});
       setConnectItems(
         (savedConnect || DEFAULT_CONNECT_ITEMS).filter(
           (item) => (item.id as string) !== 'videoconf'
@@ -689,6 +957,26 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         savedTimeBlocks !== null ? savedTimeBlocks : savedCleared ? [] : DEFAULT_TIME_BLOCKS
       );
       setDailyReview(savedDailyReview || DEFAULT_DAILY_REVIEW);
+      setWallPosts(savedWallPosts !== null ? savedWallPosts : DEFAULT_WALL_POSTS);
+      setEphemeralStories(savedStories !== null ? savedStories : DEFAULT_STORIES);
+      setStudyRooms(savedStudyRooms !== null ? savedStudyRooms : DEFAULT_STUDY_ROOMS);
+      setWellnessAiEngineState(savedWellnessEngine === 'openai' ? 'openai' : 'gemini');
+      if (savedPhysicalProfile) {
+        setWellnessPhysicalProfile({
+          ...DEFAULT_WELLNESS_PHYSICAL_PROFILE,
+          ...savedPhysicalProfile,
+        });
+      }
+      setWellnessDietPlans(Array.isArray(savedDietPlans) ? savedDietPlans : []);
+      setWellnessWorkoutPlans(Array.isArray(savedWorkoutPlans) ? savedWorkoutPlans : []);
+      setWellnessHabitPlans(Array.isArray(savedHabitPlans) ? savedHabitPlans : []);
+      setWellnessStoicSessions(Array.isArray(savedStoicSessions) ? savedStoicSessions : []);
+      setStudyVideos(Array.isArray(savedStudyVideos) ? savedStudyVideos : []);
+      setWellnessVideos(Array.isArray(savedWellnessVideos) ? savedWellnessVideos : []);
+      setPaintedCalendarEvents(Array.isArray(savedPaintedCalendar) ? savedPaintedCalendar : []);
+      setStudyCommunities(
+        savedStudyCommunities !== null ? savedStudyCommunities : DEFAULT_STUDY_COMMUNITIES
+      );
     })();
 
     return () => {
@@ -971,12 +1259,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   }, []);
 
-  const saveByokKey = useCallback((keyItem: ByokProviderKey) => {
+  const saveByokKey = useCallback((keyItem: ByokProviderKey, rawSecret?: string) => {
     setByokKeys((prev) => {
       const next = [keyItem, ...prev.filter((k) => k.id !== keyItem.id)];
       void vaultSet('byok_keys', next);
       return next;
     });
+    if (rawSecret && rawSecret.trim()) {
+      setByokSecrets((prev) => {
+        const next = { ...prev, [keyItem.id]: rawSecret.trim() };
+        void vaultSet('byok_raw_secrets', next);
+        return next;
+      });
+    }
   }, []);
 
   const removeByokKey = useCallback((id: string) => {
@@ -985,7 +1280,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       void vaultSet('byok_keys', next);
       return next;
     });
+    setByokSecrets((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      void vaultSet('byok_raw_secrets', next);
+      return next;
+    });
   }, []);
+
+  const getByokSecret = useCallback(
+    (id: string) => byokSecrets[id] || '',
+    [byokSecrets]
+  );
 
   const saveConnectItems = useCallback((items: ConnectProviderItem[]) => {
     setConnectItems(items);
@@ -2622,6 +2929,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             birthDate: summary.birthDate,
             isMinor: summary.isMinor,
             fabroIdConfigured: true,
+            ...(cloudProfile?.coverPhotoURL ? { coverPhotoURL: cloudProfile.coverPhotoURL } : {}),
+            ...(cloudProfile?.bio ? { bio: cloudProfile.bio } : {}),
+            ...(Array.isArray(cloudProfile?.interests) ? { interests: cloudProfile.interests } : {}),
+            ...(cloudProfile?.currentActivity ? { currentActivity: cloudProfile.currentActivity } : {}),
+            ...(Array.isArray(cloudProfile?.publicNoteIds)
+              ? { publicNoteIds: cloudProfile.publicNoteIds }
+              : {}),
+            ...(Array.isArray(cloudProfile?.publicRoutineIds)
+              ? { publicRoutineIds: cloudProfile.publicRoutineIds }
+              : {}),
+            ...(Array.isArray(cloudProfile?.followingIds)
+              ? { followingIds: cloudProfile.followingIds }
+              : {}),
             ...(cloudProfile?.dailyPhrase ? { dailyPhrase: cloudProfile.dailyPhrase } : {}),
             ...(cloudProfile?.icebreaker ? { icebreaker: cloudProfile.icebreaker } : {}),
             ...(cloudProfile?.privacyMode ? { privacyMode: cloudProfile.privacyMode } : {}),
@@ -2631,19 +2951,27 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }, 150);
 
           if (!cloudProfile) {
+            const loc = latestStateRef.current.profile;
             await reserveUsernameAndSaveProfile(fbUser.uid, {
               displayName: summary.displayName,
               username: summary.username,
               fabroId: summary.fabroId,
               photoURL: summary.photoURL,
+              coverPhotoURL: loc.coverPhotoURL,
+              bio: loc.bio,
+              interests: loc.interests,
+              currentActivity: loc.currentActivity,
+              publicNoteIds: loc.publicNoteIds,
+              publicRoutineIds: loc.publicRoutineIds,
+              followingIds: loc.followingIds,
               birthDate: summary.birthDate,
               isMinor: summary.isMinor,
               presenceStatus: summary.presenceStatus,
-              dailyPhrase: latestStateRef.current.profile.dailyPhrase,
-              icebreaker: latestStateRef.current.profile.icebreaker || '',
-              privacyMode: latestStateRef.current.profile.privacyMode,
-              shareTastesPublicly: latestStateRef.current.profile.shareTastesPublicly,
-              tastes: latestStateRef.current.profile.tastes,
+              dailyPhrase: loc.dailyPhrase,
+              icebreaker: loc.icebreaker || '',
+              privacyMode: loc.privacyMode,
+              shareTastesPublicly: loc.shareTastesPublicly,
+              tastes: loc.tastes,
             }).catch(() => undefined);
           }
 
@@ -2695,6 +3023,23 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 username: remoteProf.username,
                 fabroId: remoteProf.fabroId,
                 photoURL: remoteProf.photoURL,
+                ...(remoteProf.coverPhotoURL !== undefined
+                  ? { coverPhotoURL: remoteProf.coverPhotoURL }
+                  : {}),
+                ...(remoteProf.bio !== undefined ? { bio: remoteProf.bio } : {}),
+                ...(Array.isArray(remoteProf.interests) ? { interests: remoteProf.interests } : {}),
+                ...(remoteProf.currentActivity !== undefined
+                  ? { currentActivity: remoteProf.currentActivity }
+                  : {}),
+                ...(Array.isArray(remoteProf.publicNoteIds)
+                  ? { publicNoteIds: remoteProf.publicNoteIds }
+                  : {}),
+                ...(Array.isArray(remoteProf.publicRoutineIds)
+                  ? { publicRoutineIds: remoteProf.publicRoutineIds }
+                  : {}),
+                ...(Array.isArray(remoteProf.followingIds)
+                  ? { followingIds: remoteProf.followingIds }
+                  : {}),
                 dailyPhrase: remoteProf.dailyPhrase,
                 icebreaker: remoteProf.icebreaker,
                 privacyMode: remoteProf.privacyMode,
@@ -2742,9 +3087,55 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 setDailyReview(remoteOrg.dailyReview);
                 void vaultSet('org_daily_review', remoteOrg.dailyReview);
               }
+              if (Array.isArray(remoteOrg.calendarEvents) && remoteOrg.calendarEvents.length > 0) {
+                setPaintedCalendarEvents(remoteOrg.calendarEvents);
+                void vaultSet('painted_calendar_events', remoteOrg.calendarEvents);
+              }
               setLastCloudSyncAt(
                 new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
               );
+              setTimeout(() => {
+                applyingRemoteRef.current = false;
+              }, 120);
+            },
+            onWellness: (remoteWell) => {
+              applyingRemoteRef.current = true;
+              if (remoteWell.physicalProfile) {
+                const merged = {
+                  ...DEFAULT_WELLNESS_PHYSICAL_PROFILE,
+                  ...remoteWell.physicalProfile,
+                };
+                setWellnessPhysicalProfile(merged);
+                void vaultSet('wellness_physical_profile', merged);
+              }
+              if (Array.isArray(remoteWell.aiDietPlans) && remoteWell.aiDietPlans.length > 0) {
+                setWellnessDietPlans(remoteWell.aiDietPlans);
+                void vaultSet('wellness_diet_plans', remoteWell.aiDietPlans);
+              }
+              if (Array.isArray(remoteWell.aiWorkoutPlans) && remoteWell.aiWorkoutPlans.length > 0) {
+                setWellnessWorkoutPlans(remoteWell.aiWorkoutPlans);
+                void vaultSet('wellness_workout_plans', remoteWell.aiWorkoutPlans);
+              }
+              if (Array.isArray(remoteWell.aiHabitPlans) && remoteWell.aiHabitPlans.length > 0) {
+                setWellnessHabitPlans(remoteWell.aiHabitPlans);
+                void vaultSet('wellness_habit_plans', remoteWell.aiHabitPlans);
+              }
+              if (Array.isArray(remoteWell.aiStoicSessions) && remoteWell.aiStoicSessions.length > 0) {
+                setWellnessStoicSessions(remoteWell.aiStoicSessions);
+                void vaultSet('wellness_stoic_sessions', remoteWell.aiStoicSessions);
+              }
+              if (Array.isArray(remoteWell.studyVideos) && remoteWell.studyVideos.length > 0) {
+                setStudyVideos(remoteWell.studyVideos);
+                void vaultSet('study_video_library', remoteWell.studyVideos);
+              }
+              if (Array.isArray(remoteWell.wellnessVideos) && remoteWell.wellnessVideos.length > 0) {
+                setWellnessVideos(remoteWell.wellnessVideos);
+                void vaultSet('wellness_video_library', remoteWell.wellnessVideos);
+              }
+              if (Array.isArray(remoteWell.studyCommunities) && remoteWell.studyCommunities.length > 0) {
+                setStudyCommunities(remoteWell.studyCommunities);
+                void vaultSet('study_communities', remoteWell.studyCommunities);
+              }
               setTimeout(() => {
                 applyingRemoteRef.current = false;
               }, 120);
@@ -2796,12 +3187,21 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           organizerTasks: snap.organizerTasks,
           timeBlocks: snap.timeBlocks,
           dailyReview: snap.dailyReview,
+          calendarEvents: snap.paintedCalendarEvents,
         }),
         syncWellnessStateToCloud(authUser.uid, {
           moodLogs: snap.moodLogs,
           guidedReflections: snap.guidedReflections,
           balancedPlanner: snap.balancedPlanner,
           glossaryTerms: snap.glossaryTerms,
+          physicalProfile: snap.wellnessPhysicalProfile,
+          aiDietPlans: snap.wellnessDietPlans,
+          aiWorkoutPlans: snap.wellnessWorkoutPlans,
+          aiHabitPlans: snap.wellnessHabitPlans,
+          aiStoicSessions: snap.wellnessStoicSessions,
+          studyVideos: snap.studyVideos,
+          wellnessVideos: snap.wellnessVideos,
+          studyCommunities: snap.studyCommunities,
         }),
         ...snap.advancedNotes.slice(0, 20).map((n) => syncSingleNoteToCloud(authUser.uid, n)),
       ])
@@ -2827,11 +3227,20 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     organizerTasks,
     timeBlocks,
     dailyReview,
+    paintedCalendarEvents,
     advancedNotes,
     moodLogs,
     guidedReflections,
     balancedPlanner,
     glossaryTerms,
+    wellnessPhysicalProfile,
+    wellnessDietPlans,
+    wellnessWorkoutPlans,
+    wellnessHabitPlans,
+    wellnessStoicSessions,
+    studyVideos,
+    wellnessVideos,
+    studyCommunities,
   ]);
 
   const syncNowToCloud = useCallback(async () => {
@@ -2852,12 +3261,21 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           organizerTasks: snap.organizerTasks,
           timeBlocks: snap.timeBlocks,
           dailyReview: snap.dailyReview,
+          calendarEvents: snap.paintedCalendarEvents,
         }),
         syncWellnessStateToCloud(authUser.uid, {
           moodLogs: snap.moodLogs,
           guidedReflections: snap.guidedReflections,
           balancedPlanner: snap.balancedPlanner,
           glossaryTerms: snap.glossaryTerms,
+          physicalProfile: snap.wellnessPhysicalProfile,
+          aiDietPlans: snap.wellnessDietPlans,
+          aiWorkoutPlans: snap.wellnessWorkoutPlans,
+          aiHabitPlans: snap.wellnessHabitPlans,
+          aiStoicSessions: snap.wellnessStoicSessions,
+          studyVideos: snap.studyVideos,
+          wellnessVideos: snap.wellnessVideos,
+          studyCommunities: snap.studyCommunities,
         }),
         ...snap.advancedNotes.slice(0, 25).map((n) => syncSingleNoteToCloud(authUser.uid, n)),
       ]);
@@ -3097,10 +3515,393 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [authUser, profile, updateProfile]
   );
 
-  // Sync deleteAdvancedNote with Firestore if signed in
+  // Subscribe to cloud public wall posts when signed in & online, merging cleanly with local posts
   useEffect(() => {
-    // Kept lightweight: deletions are handled cleanly
+    if (!authUser || !network.isOnline) return;
+    const unsub = subscribeToPublicPosts(
+      (cloudPosts) => {
+        if (cloudPosts.length === 0) return;
+        setWallPosts((prev) => {
+          const localMap = new Map(prev.map((p) => [p.id, p]));
+          const merged = cloudPosts.map((cp) => {
+            const local = localMap.get(cp.id);
+            return {
+              ...cp,
+              myReaction: local?.myReaction ?? cp.myReaction ?? null,
+              bookmarked: local?.bookmarked ?? cp.bookmarked ?? false,
+              media: local?.media && local.media.some((m) => m.mediaVaultId) ? local.media : cp.media,
+            };
+          });
+          const cloudIds = new Set(cloudPosts.map((cp) => cp.id));
+          const localOnly = prev.filter((p) => !cloudIds.has(p.id));
+          const next = [...merged, ...localOnly].slice(0, 80);
+          void vaultSetIdbOnly('wall_posts', next);
+          return next;
+        });
+      },
+      () => undefined
+    );
+    return () => unsub();
+  }, [authUser, network.isOnline]);
+
+  // ------------------------------------------------------------------
+  // Social Profile, Multimedia Wall, Ephemeral Stories & Groups Actions
+  // ------------------------------------------------------------------
+  const openSocialProfileModal = useCallback(
+    (
+      tab: 'publicaciones' | 'galeria' | 'recursos' | 'sobre-mi' = 'publicaciones',
+      openEditor = false
+    ) => {
+      setSocialProfileModalTab(tab);
+      setSocialProfileModalOpen(true);
+      if (openEditor) {
+        setEditSocialProfileOpen(true);
+      }
+    },
+    []
+  );
+
+  const closeSocialProfileModal = useCallback(() => {
+    setSocialProfileModalOpen(false);
   }, []);
+
+  const addWallPost = useCallback(
+    async (
+      draft: Omit<WallPostItem, 'id' | 'likes' | 'createdAt'> & { id?: string }
+    ): Promise<WallPostItem> => {
+      const created: WallPostItem = {
+        ...draft,
+        id: draft.id || `post_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        likes: 0,
+        createdAt: 'Recién',
+        reactions: draft.reactions || {},
+        myReaction: null,
+        comments: draft.comments || [],
+      };
+      setWallPosts((prev) => {
+        const next = [created, ...prev].slice(0, 80);
+        void vaultSetIdbOnly('wall_posts', next);
+        return next;
+      });
+      if (authUser && network.isOnline) {
+        void publishPublicPost(authUser.uid, created).catch(() => undefined);
+      }
+      return created;
+    },
+    [authUser, network.isOnline]
+  );
+
+  const deleteWallPost = useCallback((postId: string) => {
+    setWallPosts((prev) => {
+      const next = prev.filter((p) => p.id !== postId);
+      void vaultSetIdbOnly('wall_posts', next);
+      return next;
+    });
+  }, []);
+
+  const reactToWallPost = useCallback(
+    (postId: string, reaction: SocialReactionKey) => {
+      let syncedPayload: { likes: number; reactions: Partial<Record<SocialReactionKey, number>> } | null =
+        null;
+      setWallPosts((prev) => {
+        const next = prev.map((p) => {
+          if (p.id !== postId) return p;
+          const prevReactions = { ...(p.reactions || {}) };
+          const currentMine = p.myReaction || null;
+          let nextMine: SocialReactionKey | null = reaction;
+
+          if (currentMine === reaction) {
+            prevReactions[reaction] = Math.max(0, (prevReactions[reaction] || 1) - 1);
+            nextMine = null;
+          } else {
+            if (currentMine) {
+              prevReactions[currentMine] = Math.max(0, (prevReactions[currentMine] || 1) - 1);
+            }
+            prevReactions[reaction] = (prevReactions[reaction] || 0) + 1;
+          }
+
+          const totalReactions = (Object.values(prevReactions) as number[]).reduce(
+            (sum, v) => sum + (v || 0),
+            0
+          );
+          const nextLikes = Math.max(totalReactions, 0);
+          syncedPayload = { likes: nextLikes, reactions: prevReactions };
+          return {
+            ...p,
+            reactions: prevReactions,
+            myReaction: nextMine,
+            likes: nextLikes,
+          };
+        });
+        void vaultSetIdbOnly('wall_posts', next);
+        return next;
+      });
+      if (authUser && network.isOnline && syncedPayload) {
+        const payload = syncedPayload as {
+          likes: number;
+          reactions: Partial<Record<SocialReactionKey, number>>;
+        };
+        void updatePublicPostReactions(postId, payload.likes, payload.reactions).catch(
+          () => undefined
+        );
+      }
+    },
+    [authUser, network.isOnline]
+  );
+
+  const addWallPostComment = useCallback(
+    (postId: string, text: string, parentId: string | null = null) => {
+      const clean = text.trim();
+      if (!clean) return;
+      const comment: WallCommentItem = {
+        id: `cmt-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        author: profile.displayName || 'Invitado FABRO',
+        fabroId: profile.fabroId || 'FBR-INVITADO',
+        authorAvatar: profile.photoURL,
+        text: clean.slice(0, 600),
+        createdAt: 'Recién',
+        parentId,
+      };
+      let nextCommentsForSync: WallCommentItem[] | null = null;
+      setWallPosts((prev) => {
+        const next = prev.map((p) => {
+          if (p.id !== postId) return p;
+          const updated = [...(p.comments || []), comment].slice(-100);
+          nextCommentsForSync = updated;
+          return { ...p, comments: updated };
+        });
+        void vaultSetIdbOnly('wall_posts', next);
+        return next;
+      });
+      if (authUser && network.isOnline && nextCommentsForSync) {
+        void updatePublicPostComments(postId, nextCommentsForSync).catch(() => undefined);
+      }
+    },
+    [authUser, network.isOnline, profile.displayName, profile.fabroId, profile.photoURL]
+  );
+
+  const voteOnWallPoll = useCallback(
+    (postId: string, optionId: string) => {
+      let updatedPollForSync: WallPostItem['poll'] | null = null;
+      setWallPosts((prev) => {
+        const next = prev.map((p) => {
+          if (p.id !== postId || !p.poll || p.poll.votedOptionId) return p;
+          const nextPoll = {
+            ...p.poll,
+            votedOptionId: optionId,
+            options: p.poll.options.map((opt) =>
+              opt.id === optionId ? { ...opt, votes: opt.votes + 1 } : opt
+            ),
+          };
+          updatedPollForSync = nextPoll;
+          return { ...p, poll: nextPoll };
+        });
+        void vaultSetIdbOnly('wall_posts', next);
+        return next;
+      });
+      if (authUser && network.isOnline && updatedPollForSync) {
+        void updatePublicPostPoll(postId, updatedPollForSync).catch(() => undefined);
+      }
+    },
+    [authUser, network.isOnline]
+  );
+
+  const toggleWallPostBookmark = useCallback((postId: string) => {
+    setWallPosts((prev) => {
+      const next = prev.map((p) => (p.id === postId ? { ...p, bookmarked: !p.bookmarked } : p));
+      void vaultSetIdbOnly('wall_posts', next);
+      return next;
+    });
+  }, []);
+
+  const addEphemeralStory = useCallback(
+    (story: Omit<EphemeralStory, 'id' | 'createdAtMs' | 'expiresLabel'>) => {
+      const created: EphemeralStory = {
+        ...story,
+        id: `st-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        createdAtMs: Date.now(),
+        expiresLabel: 'Expira en 24h',
+      };
+      setEphemeralStories((prev) => {
+        const next = [created, ...prev].slice(0, 30);
+        void vaultSetIdbOnly('ephemeral_stories', next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const deleteEphemeralStory = useCallback((storyId: string) => {
+    setEphemeralStories((prev) => {
+      const next = prev.filter((s) => s.id !== storyId);
+      void vaultSetIdbOnly('ephemeral_stories', next);
+      return next;
+    });
+  }, []);
+
+  const setStudyRoomsState = useCallback((updater: (prev: StudyRoomItem[]) => StudyRoomItem[]) => {
+    setStudyRooms((prev) => {
+      const next = updater(prev);
+      void vaultSetIdbOnly('study_rooms', next);
+      return next;
+    });
+  }, []);
+
+  const addStudyRoomPost = useCallback(
+    (roomId: string, text: string, media?: SocialMediaAttachment) => {
+      const clean = text.trim();
+      if (!clean && !media) return;
+      setStudyRooms((prev) => {
+        const next = prev.map((r) => {
+          if (r.id !== roomId) return r;
+          return {
+            ...r,
+            sharedNotes: [
+              {
+                id: `rn-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+                author: profile.displayName || 'Invitado FABRO',
+                text: clean || (media?.kind === 'video' ? 'Compartió un video' : 'Compartió una foto'),
+                media,
+                createdAt: 'Recién',
+              },
+              ...r.sharedNotes,
+            ].slice(0, 40),
+          };
+        });
+        void vaultSetIdbOnly('study_rooms', next);
+        return next;
+      });
+    },
+    [profile.displayName]
+  );
+
+  const syncExtendedProfileIfSignedIn = useCallback(
+    async (nextProfile: LocalUserProfile, previousHandle?: string) => {
+      if (!auth.currentUser || !authUser || !navigator.onLine) return;
+      const cleanHandle = normalizeHandle(nextProfile.username || authUser.username);
+      const nextFabroId =
+        nextProfile.fabroId || `FBR-${cleanHandle.slice(0, 10).toUpperCase()}`;
+      if (nextProfile.displayName && nextProfile.displayName !== authUser.displayName) {
+        await updateFirebaseProfile(auth.currentUser, {
+          displayName: nextProfile.displayName,
+        }).catch(() => undefined);
+      }
+      await reserveUsernameAndSaveProfile(authUser.uid, {
+        previousHandle,
+        displayName: nextProfile.displayName || authUser.displayName,
+        username: cleanHandle || authUser.username,
+        fabroId: nextFabroId,
+        photoURL: nextProfile.photoURL || '',
+        coverPhotoURL: nextProfile.coverPhotoURL || '',
+        bio: nextProfile.bio || '',
+        interests: nextProfile.interests || [],
+        currentActivity: nextProfile.currentActivity || '',
+        publicNoteIds: nextProfile.publicNoteIds || [],
+        publicRoutineIds: nextProfile.publicRoutineIds || [],
+        followingIds: nextProfile.followingIds || [],
+        birthDate: authUser.birthDate,
+        isMinor: authUser.isMinor,
+        presenceStatus: authUser.presenceStatus,
+        dailyPhrase: nextProfile.dailyPhrase || '',
+        icebreaker: nextProfile.icebreaker || '',
+        privacyMode: nextProfile.privacyMode,
+        shareTastesPublicly: nextProfile.shareTastesPublicly,
+        tastes: nextProfile.tastes,
+      });
+      setAuthUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              displayName: nextProfile.displayName || prev.displayName,
+              username: cleanHandle || prev.username,
+              fabroId: nextFabroId,
+              photoURL: nextProfile.photoURL ?? prev.photoURL,
+            }
+          : prev
+      );
+    },
+    [authUser]
+  );
+
+  const saveFullSocialProfile = useCallback(
+    async (patch: Partial<LocalUserProfile>): Promise<{ ok: boolean; error?: string }> => {
+      const previousHandle = profile.username;
+      const cleanUsername = patch.username ? normalizeHandle(patch.username) : profile.username;
+      const nextProfile: LocalUserProfile = {
+        ...profile,
+        ...patch,
+        username: cleanUsername,
+        fabroId:
+          patch.fabroId ||
+          (cleanUsername ? `FBR-${cleanUsername.slice(0, 10).toUpperCase()}` : profile.fabroId),
+        fabroIdConfigured: true,
+        tastes: patch.tastes ? { ...profile.tastes, ...patch.tastes } : profile.tastes,
+      };
+      setProfile(nextProfile);
+      await vaultSet('profile', nextProfile);
+
+      if (authUser && navigator.onLine) {
+        try {
+          await syncExtendedProfileIfSignedIn(nextProfile, previousHandle);
+        } catch (err) {
+          return {
+            ok: false,
+            error:
+              err instanceof Error
+                ? err.message
+                : 'Se guardó localmente, pero no se pudo sincronizar con la nube.',
+          };
+        }
+      }
+      return { ok: true };
+    },
+    [authUser, profile, syncExtendedProfileIfSignedIn]
+  );
+
+  const toggleFollowProfile = useCallback(
+    (profileId: string) => {
+      setProfile((prev) => {
+        const list = prev.followingIds || [];
+        const exists = list.includes(profileId);
+        const nextList = exists ? list.filter((id) => id !== profileId) : [...list, profileId];
+        const next: LocalUserProfile = { ...prev, followingIds: nextList };
+        void vaultSet('profile', next);
+        void syncExtendedProfileIfSignedIn(next).catch(() => undefined);
+        return next;
+      });
+    },
+    [syncExtendedProfileIfSignedIn]
+  );
+
+  const togglePublicNote = useCallback(
+    (noteId: string) => {
+      setProfile((prev) => {
+        const list = prev.publicNoteIds || [];
+        const exists = list.includes(noteId);
+        const nextList = exists ? list.filter((id) => id !== noteId) : [...list, noteId];
+        const next: LocalUserProfile = { ...prev, publicNoteIds: nextList };
+        void vaultSet('profile', next);
+        void syncExtendedProfileIfSignedIn(next).catch(() => undefined);
+        return next;
+      });
+    },
+    [syncExtendedProfileIfSignedIn]
+  );
+
+  const togglePublicRoutine = useCallback(
+    (routineId: string) => {
+      setProfile((prev) => {
+        const list = prev.publicRoutineIds || [];
+        const exists = list.includes(routineId);
+        const nextList = exists ? list.filter((id) => id !== routineId) : [...list, routineId];
+        const next: LocalUserProfile = { ...prev, publicRoutineIds: nextList };
+        void vaultSet('profile', next);
+        void syncExtendedProfileIfSignedIn(next).catch(() => undefined);
+        return next;
+      });
+    },
+    [syncExtendedProfileIfSignedIn]
+  );
 
   const deleteAdvancedNoteWithCloud = useCallback(
     (id: string) => {
@@ -3148,6 +3949,494 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setExamplesCleared(false);
   }, []);
 
+  // --- Sector 2 Wellness AI (BYOK) Callbacks ---
+  const setWellnessAiEngine = useCallback((engine: WellnessAiEngine) => {
+    setWellnessAiEngineState(engine);
+    void vaultSet('wellness_ai_engine', engine);
+  }, []);
+
+  const updateWellnessPhysicalProfile = useCallback(
+    (patch: Partial<WellnessPhysicalProfile>) => {
+      setWellnessPhysicalProfile((prev) => {
+        const next = { ...prev, ...patch };
+        void vaultSet('wellness_physical_profile', next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const saveWellnessDietPlan = useCallback((plan: WellnessDietPlanItem) => {
+    setWellnessDietPlans((prev) => {
+      const next = [plan, ...prev.filter((p) => p.id !== plan.id)].slice(0, 20);
+      void vaultSet('wellness_diet_plans', next);
+      return next;
+    });
+  }, []);
+
+  const toggleWellnessShoppingItem = useCallback((planId: string, itemId: string) => {
+    setWellnessDietPlans((prev) => {
+      const next = prev.map((plan) =>
+        plan.id === planId
+          ? {
+              ...plan,
+              shoppingList: plan.shoppingList.map((it) =>
+                it.id === itemId ? { ...it, checked: !it.checked } : it
+              ),
+            }
+          : plan
+      );
+      void vaultSet('wellness_diet_plans', next);
+      return next;
+    });
+  }, []);
+
+  const deleteWellnessDietPlan = useCallback((planId: string) => {
+    setWellnessDietPlans((prev) => {
+      const next = prev.filter((p) => p.id !== planId);
+      void vaultSet('wellness_diet_plans', next);
+      return next;
+    });
+  }, []);
+
+  const saveWellnessWorkoutPlan = useCallback((plan: WellnessWorkoutPlanItem) => {
+    setWellnessWorkoutPlans((prev) => {
+      const next = [plan, ...prev.filter((p) => p.id !== plan.id)].slice(0, 20);
+      void vaultSet('wellness_workout_plans', next);
+      return next;
+    });
+  }, []);
+
+  const deleteWellnessWorkoutPlan = useCallback((planId: string) => {
+    setWellnessWorkoutPlans((prev) => {
+      const next = prev.filter((p) => p.id !== planId);
+      void vaultSet('wellness_workout_plans', next);
+      return next;
+    });
+  }, []);
+
+  const saveWellnessHabitPlan = useCallback((plan: WellnessHabitPlanItem) => {
+    setWellnessHabitPlans((prev) => {
+      const next = [plan, ...prev.filter((p) => p.id !== plan.id)].slice(0, 20);
+      void vaultSet('wellness_habit_plans', next);
+      return next;
+    });
+  }, []);
+
+  const markWellnessHabitAdded = useCallback((planId: string, habitId: string) => {
+    setWellnessHabitPlans((prev) => {
+      const next = prev.map((plan) =>
+        plan.id === planId
+          ? {
+              ...plan,
+              habits: plan.habits.map((h) =>
+                h.id === habitId ? { ...h, addedToOrganizer: true } : h
+              ),
+            }
+          : plan
+      );
+      void vaultSet('wellness_habit_plans', next);
+      return next;
+    });
+  }, []);
+
+  const deleteWellnessHabitPlan = useCallback((planId: string) => {
+    setWellnessHabitPlans((prev) => {
+      const next = prev.filter((p) => p.id !== planId);
+      void vaultSet('wellness_habit_plans', next);
+      return next;
+    });
+  }, []);
+
+  const saveWellnessStoicSession = useCallback((session: WellnessStoicSessionItem) => {
+    setWellnessStoicSessions((prev) => {
+      const next = [session, ...prev.filter((s) => s.id !== session.id)].slice(0, 30);
+      void vaultSet('wellness_stoic_sessions', next);
+      return next;
+    });
+  }, []);
+
+  const updateWellnessStoicSessionNotes = useCallback((sessionId: string, notes: string) => {
+    setWellnessStoicSessions((prev) => {
+      const next = prev.map((s) => (s.id === sessionId ? { ...s, userNotes: notes } : s));
+      void vaultSet('wellness_stoic_sessions', next);
+      return next;
+    });
+  }, []);
+
+  const deleteWellnessStoicSession = useCallback((sessionId: string) => {
+    setWellnessStoicSessions((prev) => {
+      const next = prev.filter((s) => s.id !== sessionId);
+      void vaultSet('wellness_stoic_sessions', next);
+      return next;
+    });
+  }, []);
+
+  // ------------------------------------------------------------------
+  // Videotecas (Estudio & Bienestar), Calendario Pintable + Alarmas y Comunidades
+  // ------------------------------------------------------------------
+  const addVideoLibraryItem = useCallback(
+    (item: Omit<VideoLibraryItem, 'id' | 'createdAt' | 'sharedToWall'>): VideoLibraryItem => {
+      const created: VideoLibraryItem = {
+        ...item,
+        id: `vid_${item.sector}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        createdAt: new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }),
+        sharedToWall: false,
+      };
+      if (item.sector === 'estudio') {
+        setStudyVideos((prev) => {
+          const next = [created, ...prev].slice(0, 100);
+          void vaultSet('study_video_library', next);
+          return next;
+        });
+      } else {
+        setWellnessVideos((prev) => {
+          const next = [created, ...prev].slice(0, 100);
+          void vaultSet('wellness_video_library', next);
+          return next;
+        });
+      }
+      return created;
+    },
+    []
+  );
+
+  const updateVideoNotes = useCallback(
+    (videoSector: 'estudio' | 'bienestar', videoId: string, notes: string) => {
+      if (videoSector === 'estudio') {
+        setStudyVideos((prev) => {
+          const next = prev.map((v) => (v.id === videoId ? { ...v, notes } : v));
+          void vaultSet('study_video_library', next);
+          return next;
+        });
+      } else {
+        setWellnessVideos((prev) => {
+          const next = prev.map((v) => (v.id === videoId ? { ...v, notes } : v));
+          void vaultSet('wellness_video_library', next);
+          return next;
+        });
+      }
+    },
+    []
+  );
+
+  const deleteVideoLibraryItem = useCallback(
+    (videoSector: 'estudio' | 'bienestar', videoId: string) => {
+      if (videoSector === 'estudio') {
+        setStudyVideos((prev) => {
+          const next = prev.filter((v) => v.id !== videoId);
+          void vaultSet('study_video_library', next);
+          return next;
+        });
+      } else {
+        setWellnessVideos((prev) => {
+          const next = prev.filter((v) => v.id !== videoId);
+          void vaultSet('wellness_video_library', next);
+          return next;
+        });
+      }
+    },
+    []
+  );
+
+  const shareVideoToWall = useCallback(
+    async (video: VideoLibraryItem, customComment?: string) => {
+      const isStudy = video.sector === 'estudio';
+      const defaultMsg = isStudy
+        ? `Comparto esta clase de ${video.categoryOrSubject}: «${video.title}»${
+            video.notes.trim() ? `\n\nNotas clave: ${video.notes.trim().slice(0, 280)}` : ''
+          }`
+        : `Recomiendo este video de bienestar (${video.categoryOrSubject}): «${video.title}»${
+            video.notes.trim() ? `\n\n${video.notes.trim().slice(0, 280)}` : ''
+          }`;
+
+      await addWallPost({
+        author: profile.displayName || 'Usuario FABRO',
+        fabroId: profile.fabroId || 'FABRO',
+        authorAvatar: profile.photoURL,
+        text: (customComment?.trim() || defaultMsg).slice(0, 1800),
+        origin: isStudy ? 'estudio' : 'bienestar',
+        categoryTag: isStudy ? video.categoryOrSubject : 'Videos',
+        videoEmbed: {
+          title: video.title,
+          url: video.url,
+          embedUrl: video.embedUrl,
+          provider: video.provider,
+          categoryOrSubject: video.categoryOrSubject,
+        },
+      });
+
+      if (isStudy) {
+        setStudyVideos((prev) => {
+          const next = prev.map((v) => (v.id === video.id ? { ...v, sharedToWall: true } : v));
+          void vaultSet('study_video_library', next);
+          return next;
+        });
+      } else {
+        setWellnessVideos((prev) => {
+          const next = prev.map((v) => (v.id === video.id ? { ...v, sharedToWall: true } : v));
+          void vaultSet('wellness_video_library', next);
+          return next;
+        });
+      }
+    },
+    [addWallPost, profile.displayName, profile.fabroId, profile.photoURL]
+  );
+
+  const savePaintedCalendarEvent = useCallback(
+    (
+      draft: Omit<PaintedCalendarEvent, 'id' | 'createdAt' | 'syncedBlockId' | 'alarmFired'> & {
+        id?: string;
+      }
+    ): PaintedCalendarEvent => {
+      const eventId = draft.id || `cal_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const blockId = `blk_cal_${eventId}`;
+      const created: PaintedCalendarEvent = {
+        ...draft,
+        id: eventId,
+        syncedBlockId: blockId,
+        alarmFired: false,
+        createdAt: new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }),
+      };
+
+      setPaintedCalendarEvents((prev) => {
+        const next = [created, ...prev.filter((e) => e.id !== eventId)].slice(0, 200);
+        void vaultSet('painted_calendar_events', next);
+        return next;
+      });
+
+      // Automatically synchronize with Organizer Time Blocks
+      const mappedSector: TimeBlockSector =
+        created.colorCode === 'personal'
+          ? 'personal'
+          : created.colorCode === 'trabajo'
+          ? 'bienestar'
+          : 'estudio';
+      const syncedBlock: TimeBlockItem = {
+        id: blockId,
+        title: created.title,
+        startHour: Math.max(6, Math.min(22, created.startHour)),
+        startMinute: 0,
+        durationMinutes: created.durationMinutes,
+        sector: mappedSector,
+        subject: created.subject || 'Calendario FABRO',
+        done: false,
+        dateKey: created.dateKey,
+      };
+      setTimeBlocks((prev) => {
+        const next = [syncedBlock, ...prev.filter((b) => b.id !== blockId)].slice(0, 150);
+        void vaultSet('org_time_blocks', next);
+        return next;
+      });
+
+      return created;
+    },
+    []
+  );
+
+  const deletePaintedCalendarEvent = useCallback((eventId: string) => {
+    const blockId = `blk_cal_${eventId}`;
+    setPaintedCalendarEvents((prev) => {
+      const next = prev.filter((e) => e.id !== eventId);
+      void vaultSet('painted_calendar_events', next);
+      return next;
+    });
+    setTimeBlocks((prev) => {
+      const next = prev.filter((b) => b.id !== blockId);
+      void vaultSet('org_time_blocks', next);
+      return next;
+    });
+  }, []);
+
+  const dismissActiveCalendarAlarm = useCallback(() => {
+    setActiveCalendarAlarm(null);
+  }, []);
+
+  // Background watcher for Paintable Calendar Sound Alarms (checks every 15 seconds)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const checkAlarms = () => {
+      const now = new Date();
+      const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+        now.getDate()
+      ).padStart(2, '0')}`;
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+      setPaintedCalendarEvents((prev) => {
+        let changed = false;
+        const next = prev.map((ev) => {
+          if (!ev.alarmEnabled || ev.alarmFired || !ev.alarmTime) return ev;
+          if (ev.dateKey !== todayKey) return ev;
+          const [hhStr, mmStr] = ev.alarmTime.split(':');
+          const targetMin = Number(hhStr) * 60 + Number(mmStr);
+          if (Number.isNaN(targetMin)) return ev;
+          if (nowMinutes >= targetMin && nowMinutes <= targetMin + 5) {
+            changed = true;
+            playCalendarAlarmTone(ev.alarmTone);
+            setActiveCalendarAlarm({
+              eventId: ev.id,
+              title: ev.title,
+              subject: ev.subject,
+              dateKey: ev.dateKey,
+              alarmTime: ev.alarmTime,
+              tone: ev.alarmTone,
+            });
+            void dispatchSystemNotification({
+              title: `⏰ Recordatorio FABRO: ${ev.title}`,
+              body: `${ev.subject || 'Calendario'} · ${ev.alarmTime} hs`,
+              tag: `fabro-cal-alarm-${ev.id}`,
+              sector: 'estudio',
+              submenu: 'calendario-pintable',
+              soundType: null,
+              vibratePattern: [220, 100, 260],
+            });
+            return { ...ev, alarmFired: true };
+          }
+          return ev;
+        });
+        if (changed) {
+          void vaultSet('painted_calendar_events', next);
+          return next;
+        }
+        return prev;
+      });
+    };
+
+    checkAlarms();
+    const interval = window.setInterval(checkAlarms, 15000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const createStudyCommunity = useCallback(
+    (payload: {
+      name: string;
+      careerOrSubject: string;
+      description: string;
+      accentColor: string;
+    }): StudyCommunityItem => {
+      const created: StudyCommunityItem = {
+        id: `comm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name: payload.name.trim(),
+        careerOrSubject: payload.careerOrSubject.trim() || 'General',
+        description:
+          payload.description.trim() ||
+          'Comunidad académica colaborativa para consultas, apuntes y parciales.',
+        accentColor: payload.accentColor || '#2563EB',
+        memberCount: 1,
+        joined: true,
+        createdBy: profile.displayName || 'Usuario FABRO',
+        createdAt: 'Recién creada',
+        threads: [],
+      };
+      setStudyCommunities((prev) => {
+        const next = [created, ...prev].slice(0, 40);
+        void vaultSet('study_communities', next);
+        return next;
+      });
+      return created;
+    },
+    [profile.displayName]
+  );
+
+  const toggleJoinStudyCommunity = useCallback((communityId: string) => {
+    setStudyCommunities((prev) => {
+      const next = prev.map((c) => {
+        if (c.id !== communityId) return c;
+        const joined = !c.joined;
+        return {
+          ...c,
+          joined,
+          memberCount: Math.max(1, c.memberCount + (joined ? 1 : -1)),
+        };
+      });
+      void vaultSet('study_communities', next);
+      return next;
+    });
+  }, []);
+
+  const addStudyCommunityThread = useCallback(
+    (communityId: string, title: string, body: string, alsoShareToWall = true) => {
+      const cleanTitle = title.trim();
+      const cleanBody = body.trim();
+      if (!cleanTitle || !cleanBody) return;
+      let targetCommName = '';
+      setStudyCommunities((prev) => {
+        const next = prev.map((c) => {
+          if (c.id !== communityId) return c;
+          targetCommName = c.name;
+          return {
+            ...c,
+            joined: true,
+            threads: [
+              {
+                id: `thr_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+                author: profile.displayName || 'Usuario FABRO',
+                fabroId: profile.fabroId || 'FABRO',
+                title: cleanTitle,
+                body: cleanBody,
+                createdAt: 'Recién',
+                replies: [],
+              },
+              ...c.threads,
+            ].slice(0, 50),
+          };
+        });
+        void vaultSet('study_communities', next);
+        return next;
+      });
+
+      if (alsoShareToWall) {
+        const commObj = studyCommunities.find((c) => c.id === communityId);
+        void addWallPost({
+          author: profile.displayName || 'Usuario FABRO',
+          fabroId: profile.fabroId || 'FABRO',
+          authorAvatar: profile.photoURL,
+          text: `${cleanTitle}\n\n${cleanBody}`,
+          origin: 'comunidad',
+          categoryTag: commObj?.careerOrSubject || 'Comunidad',
+          communityId,
+          communityName: commObj?.name || targetCommName || 'Comunidad de Estudio',
+        });
+      }
+    },
+    [addWallPost, profile.displayName, profile.fabroId, profile.photoURL, studyCommunities]
+  );
+
+  const replyStudyCommunityThread = useCallback(
+    (communityId: string, threadId: string, text: string) => {
+      const cleanText = text.trim();
+      if (!cleanText) return;
+      setStudyCommunities((prev) => {
+        const next = prev.map((c) => {
+          if (c.id !== communityId) return c;
+          return {
+            ...c,
+            threads: c.threads.map((t) =>
+              t.id === threadId
+                ? {
+                    ...t,
+                    replies: [
+                      ...t.replies,
+                      {
+                        id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+                        author: profile.displayName || 'Usuario FABRO',
+                        fabroId: profile.fabroId || 'FABRO',
+                        text: cleanText,
+                        createdAt: 'Recién',
+                      },
+                    ].slice(-40),
+                  }
+                : t
+            ),
+          };
+        });
+        void vaultSet('study_communities', next);
+        return next;
+      });
+    },
+    [profile.displayName, profile.fabroId]
+  );
+
   const unreadNotifications = notifications.filter((n) => !n.read).length;
 
   return (
@@ -3193,6 +4482,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         byokKeys,
         saveByokKey,
         removeByokKey,
+        getByokSecret,
         connectItems,
         saveConnectItems,
         network,
@@ -3326,6 +4616,64 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         deleteAccountSafely,
         updatePresenceStatus,
         syncNowToCloud,
+        wallPosts,
+        addWallPost,
+        deleteWallPost,
+        reactToWallPost,
+        addWallPostComment,
+        voteOnWallPoll,
+        toggleWallPostBookmark,
+        ephemeralStories,
+        addEphemeralStory,
+        deleteEphemeralStory,
+        studyRooms,
+        setStudyRoomsState,
+        addStudyRoomPost,
+        toggleFollowProfile,
+        togglePublicNote,
+        togglePublicRoutine,
+        saveFullSocialProfile,
+        socialProfileModalOpen,
+        socialProfileModalTab,
+        openSocialProfileModal,
+        closeSocialProfileModal,
+        editSocialProfileOpen,
+        setEditSocialProfileOpen,
+        wellnessAiEngine,
+        setWellnessAiEngine,
+        wellnessPhysicalProfile,
+        updateWellnessPhysicalProfile,
+        wellnessDietPlans,
+        saveWellnessDietPlan,
+        toggleWellnessShoppingItem,
+        deleteWellnessDietPlan,
+        wellnessWorkoutPlans,
+        saveWellnessWorkoutPlan,
+        deleteWellnessWorkoutPlan,
+        wellnessHabitPlans,
+        saveWellnessHabitPlan,
+        markWellnessHabitAdded,
+        deleteWellnessHabitPlan,
+        wellnessStoicSessions,
+        saveWellnessStoicSession,
+        updateWellnessStoicSessionNotes,
+        deleteWellnessStoicSession,
+        studyVideos,
+        wellnessVideos,
+        addVideoLibraryItem,
+        updateVideoNotes,
+        deleteVideoLibraryItem,
+        shareVideoToWall,
+        paintedCalendarEvents,
+        savePaintedCalendarEvent,
+        deletePaintedCalendarEvent,
+        activeCalendarAlarm,
+        dismissActiveCalendarAlarm,
+        studyCommunities,
+        createStudyCommunity,
+        toggleJoinStudyCommunity,
+        addStudyCommunityThread,
+        replyStudyCommunityThread,
       }}
     >
       {children}

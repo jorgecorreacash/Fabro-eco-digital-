@@ -52,26 +52,10 @@ export const InboxQuickCaptureModal: React.FC = () => {
     navigateTo('bienestar', 'organizador-integral');
   };
 
+  if (!quickCaptureOpen) return null;
+
   return (
     <>
-      {/* Thumb-friendly Floating + Captura Rápida Button (Mobile & Desktop) */}
-      <button
-        type="button"
-        onClick={() => setQuickCaptureOpen(true)}
-        aria-label="Abrir captura rápida mental"
-        className="no-print fixed bottom-[124px] left-2.5 lg:bottom-4 lg:left-[256px] z-40 min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border border-[#0EA5E9] bg-[var(--fabro-surface)] text-[#0284C7] dark:text-[#38BDF8] px-3.5 py-1.5 text-sm font-medium shadow-[0_8px_20px_-6px_rgba(14,165,233,0.42)] cursor-pointer hover:-translate-y-0.5 active:scale-95 transition-all duration-200 whitespace-nowrap"
-      >
-        <span className="w-6 h-6 rounded-lg bg-[#0EA5E9] text-white flex items-center justify-center shrink-0">
-          <Plus className="w-4 h-4" strokeWidth={2.5} />
-        </span>
-        <span>Captura Rápida</span>
-        {inboxItems.length > 0 && (
-          <span className="rounded-lg border border-[#0EA5E9]/45 bg-[#0EA5E9]/12 px-1.5 py-0.5 font-mono text-[11px] tabular-nums">
-            {inboxItems.length}
-          </span>
-        )}
-      </button>
-
       {/* Ultra-Fast Capture Modal (<3s capture, no folder/date required) */}
       {quickCaptureOpen && (
         <div

@@ -81,7 +81,7 @@ export const FloatingBackgroundChat: React.FC = () => {
         onClick={() => setFloatingChatOpen(true)}
         aria-label="Abrir chat flotante para segundo plano"
         title="Chat flotante de segundo plano"
-        className="no-print fixed bottom-[124px] right-2.5 lg:bottom-[76px] lg:right-6 z-40 h-12 px-3.5 rounded-2xl text-white font-bold text-xs inline-flex items-center gap-2 cursor-pointer active:scale-95 transition-transform shadow-lg"
+        className="no-print fixed bottom-[72px] right-3 lg:bottom-5 lg:right-5 z-40 h-12 px-4 rounded-2xl text-white font-bold text-xs inline-flex items-center gap-2 cursor-pointer active:scale-95 transition-transform shadow-lg"
         style={{
           background: 'linear-gradient(135deg, #7C3AED, #EC4899)',
           boxShadow: '0 10px 26px -6px rgba(124, 58, 237, 0.55)',

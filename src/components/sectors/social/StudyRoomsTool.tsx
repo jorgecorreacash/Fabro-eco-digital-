@@ -1,42 +1,49 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle2, Flame, Plus, Trophy, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  CheckCircle2,
+  Flame,
+  ImagePlus,
+  Loader2,
+  Plus,
+  Trophy,
+  Users,
+  X,
+} from 'lucide-react';
 import { useEcosystem } from '../../../context/EcosystemContext';
-import { DEFAULT_STUDY_ROOMS, vaultGet, vaultSet } from '../../../services/localVault';
-import type { StudyRoomItem } from '../../../types/ecosystem';
+import {
+  saveImageAttachmentToVault,
+  saveVideoAttachmentToVault,
+} from '../../../services/mediaVault';
+import type { SocialMediaAttachment, StudyRoomItem } from '../../../types/ecosystem';
+import { MediaLightboxModal, ResolvedMediaDisplay } from './ResolvedMediaDisplay';
 
 export const StudyRoomsTool: React.FC = () => {
-  const { profile, setActiveQuickAction } = useEcosystem();
-  const [rooms, setRooms] = useState<StudyRoomItem[]>(DEFAULT_STUDY_ROOMS);
-  const [hydrated, setHydrated] = useState(false);
+  const {
+    profile,
+    setActiveQuickAction,
+    studyRooms,
+    setStudyRoomsState,
+    addStudyRoomPost,
+  } = useEcosystem();
+
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [mediaDrafts, setMediaDrafts] = useState<Record<string, SocialMediaAttachment | null>>({});
+  const [uploadingRoomId, setUploadingRoomId] = useState<string | null>(null);
   const [newRoomName, setNewRoomName] = useState('');
   const [newChallenge, setNewChallenge] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    void vaultGet<StudyRoomItem[]>('study_rooms', DEFAULT_STUDY_ROOMS).then((stored) => {
-      if (!active) return;
-      setRooms(stored);
-      setHydrated(true);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    void vaultSet('study_rooms', rooms);
-  }, [rooms, hydrated]);
+  const [lightboxMedia, setLightboxMedia] = useState<{
+    items: SocialMediaAttachment[];
+    title: string;
+  } | null>(null);
 
   const toggleJoin = (id: string) => {
-    setRooms((prev) =>
+    setStudyRoomsState((prev) =>
       prev.map((r) => (r.id === id ? { ...r, joined: !r.joined } : r))
     );
   };
 
   const checkInDay = (id: string) => {
-    setRooms((prev) =>
+    setStudyRoomsState((prev) =>
       prev.map((r) => {
         if (r.id !== id) return r;
         const nextDays = Math.min(r.targetDays, r.myStreakDays + 1);
@@ -50,23 +57,31 @@ export const StudyRoomsTool: React.FC = () => {
     );
   };
 
-  const addRoomNote = (id: string) => {
-    const text = (noteDrafts[id] || '').trim();
-    if (!text) return;
-    setRooms((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              sharedNotes: [
-                { id: `rn-${Date.now()}`, author: profile.fabroId, text },
-                ...r.sharedNotes,
-              ],
-            }
-          : r
-      )
-    );
-    setNoteDrafts((prev) => ({ ...prev, [id]: '' }));
+  const handleRoomMediaPick = async (
+    roomId: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingRoomId(roomId);
+    try {
+      const saved = file.type.startsWith('video/')
+        ? await saveVideoAttachmentToVault(file)
+        : await saveImageAttachmentToVault(file);
+      setMediaDrafts((prev) => ({ ...prev, [roomId]: saved }));
+    } finally {
+      setUploadingRoomId(null);
+    }
+  };
+
+  const handleSendRoomPost = (roomId: string) => {
+    const text = (noteDrafts[roomId] || '').trim();
+    const media = mediaDrafts[roomId] || undefined;
+    if (!text && !media) return;
+    addStudyRoomPost(roomId, text, media);
+    setNoteDrafts((prev) => ({ ...prev, [roomId]: '' }));
+    setMediaDrafts((prev) => ({ ...prev, [roomId]: null }));
   };
 
   const createRoom = (e: React.FormEvent) => {
@@ -83,27 +98,27 @@ export const StudyRoomsTool: React.FC = () => {
       sharedNotes: [],
       ranking: [{ name: profile.displayName, days: 1 }],
     };
-    setRooms((prev) => [item, ...prev]);
+    setStudyRoomsState((prev) => [item, ...prev]);
     setNewRoomName('');
     setNewChallenge('');
   };
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border-2 border-[#7C3AED]/40 bg-gradient-to-r from-[#7C3AED]/10 via-transparent to-[#EC4899]/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="rounded-2xl border border-[#7C3AED]/40 bg-gradient-to-r from-[#7C3AED]/10 via-transparent to-[#EC4899]/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="font-display text-base font-bold flex items-center gap-2">
             <Users className="w-4 h-4 text-[#7C3AED]" />
-            Salas de Enfoque y Retos Públicos
+            Salas de Enfoque, Grupos y Retos Públicos
           </h3>
           <p className="text-xs fabro-muted mt-0.5">
-            Entrá con un clic a las 3 salas permanentes sin esperar a tener contactos ni registro previo.
+            Compartí apuntes, fotos y videos cortos directamente en cada grupo sin necesidad de registro previo.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setActiveQuickAction('pomodoro')}
-          className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border-2 border-[#2563EB] bg-[#2563EB] text-white px-4 py-2 text-xs font-bold cursor-pointer active:scale-95 shrink-0"
+          className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-[#2563EB] bg-[#2563EB] text-white px-4 py-2 text-xs font-bold cursor-pointer active:scale-95 shrink-0"
         >
           Iniciar Pomodoro grupal
         </button>
@@ -111,25 +126,25 @@ export const StudyRoomsTool: React.FC = () => {
 
       <form
         onSubmit={createRoom}
-        className="rounded-2xl border-2 border-[#7C3AED]/30 fabro-surface p-4 flex flex-col sm:flex-row gap-2 text-xs"
+        className="rounded-2xl border fabro-border fabro-surface p-4 flex flex-col sm:flex-row gap-2 text-xs"
       >
         <input
           type="text"
           value={newRoomName}
           onChange={(e) => setNewRoomName(e.target.value)}
           placeholder="Crear nueva sala o club de hábitos..."
-          className="min-h-[44px] flex-1 rounded-xl border-2 fabro-border fabro-surface-elevated px-3 py-2 fabro-input"
+          className="min-h-[42px] flex-1 rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 fabro-input"
         />
         <input
           type="text"
           value={newChallenge}
           onChange={(e) => setNewChallenge(e.target.value)}
           placeholder="Reto de 7 días (ej: 30 min lectura)"
-          className="min-h-[44px] flex-1 rounded-xl border-2 fabro-border fabro-surface-elevated px-3 py-2 fabro-input"
+          className="min-h-[42px] flex-1 rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 fabro-input"
         />
         <button
           type="submit"
-          className="min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xl border-2 border-[#7C3AED] bg-[#7C3AED] text-white px-4 py-2 font-bold cursor-pointer active:scale-95 whitespace-nowrap"
+          className="min-h-[42px] inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] text-white px-4 py-2 font-bold cursor-pointer active:scale-95 whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
           Crear sala
@@ -137,12 +152,13 @@ export const StudyRoomsTool: React.FC = () => {
       </form>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {rooms.map((room) => {
+        {studyRooms.map((room) => {
           const sorted = [...room.ranking].sort((a, b) => b.days - a.days);
+          const draftMedia = mediaDrafts[room.id];
           return (
             <div
               key={room.id}
-              className="rounded-2xl border-2 border-[#7C3AED]/30 fabro-surface p-5 space-y-4 shadow-[0_8px_24px_-12px_rgba(124,58,237,0.2)]"
+              className="rounded-2xl border fabro-border fabro-surface p-5 space-y-4 shadow-sm"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -153,7 +169,7 @@ export const StudyRoomsTool: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => toggleJoin(room.id)}
-                  className={`min-h-[44px] rounded-xl border-2 px-3.5 py-2 text-xs font-bold cursor-pointer active:scale-95 ${
+                  className={`min-h-[38px] rounded-xl border px-3.5 py-1.5 text-xs font-bold cursor-pointer active:scale-95 ${
                     room.joined
                       ? 'border-[#10B981] bg-[#10B981]/15 text-[#047857] dark:text-[#34D399]'
                       : 'border-[#7C3AED] bg-[#7C3AED] text-white'
@@ -163,15 +179,15 @@ export const StudyRoomsTool: React.FC = () => {
                 </button>
               </div>
 
-              <div className="rounded-xl border-2 fabro-border fabro-surface-elevated p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="font-bold flex items-center gap-1.5">
+              <div className="rounded-xl border fabro-border fabro-surface-elevated p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="font-bold flex items-center gap-1.5 tabular-nums">
                   <Flame className="w-4 h-4 text-[#EC4899]" />
                   Mi racha: {room.myStreakDays}/{room.targetDays} días
                 </span>
                 <button
                   type="button"
                   onClick={() => checkInDay(room.id)}
-                  className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border-2 border-[#7C3AED] bg-[#7C3AED] text-white px-3.5 py-1.5 text-xs font-bold cursor-pointer active:scale-95"
+                  className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] text-white px-3.5 py-1.5 text-xs font-bold cursor-pointer active:scale-95"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Registrar día +1
@@ -193,7 +209,7 @@ export const StudyRoomsTool: React.FC = () => {
                       <span className="truncate font-semibold">
                         #{idx + 1} {entry.name}
                       </span>
-                      <span className="font-mono font-bold text-[#7C3AED] dark:text-[#C084FC]">
+                      <span className="font-mono font-bold tabular-nums text-[#7C3AED] dark:text-[#C4B5FD]">
                         {entry.days}d
                       </span>
                     </div>
@@ -201,37 +217,87 @@ export const StudyRoomsTool: React.FC = () => {
                 </div>
               </div>
 
-              {/* Shared notes */}
+              {/* Multimedia Group Feed */}
               <div className="space-y-2 text-xs">
                 <p className="font-bold flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5 text-[#7C3AED]" />
-                  Notas rápidas del grupo
+                  Muro multimedia del grupo
                 </p>
-                <div className="flex gap-2">
+
+                {draftMedia && (
+                  <div className="relative rounded-xl border fabro-border p-1.5 fabro-surface-elevated">
+                    <ResolvedMediaDisplay item={draftMedia} compact className="h-28" />
+                    <button
+                      type="button"
+                      onClick={() => setMediaDrafts((prev) => ({ ...prev, [room.id]: null }))}
+                      aria-label="Quitar adjunto"
+                      className="absolute top-2.5 right-2.5 h-7 w-7 rounded-full bg-slate-950/80 text-white flex items-center justify-center cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex gap-1.5">
+                  <label
+                    title="Adjuntar foto o video al grupo"
+                    className="min-h-[40px] min-w-[40px] rounded-xl border fabro-border fabro-surface-elevated flex items-center justify-center cursor-pointer shrink-0 hover:border-[#7C3AED]"
+                  >
+                    {uploadingRoomId === room.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-[#7C3AED]" />
+                    ) : (
+                      <ImagePlus className="w-4 h-4 text-[#7C3AED]" />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      onChange={(e) => void handleRoomMediaPick(room.id, e)}
+                      className="hidden"
+                    />
+                  </label>
                   <input
                     type="text"
                     value={noteDrafts[room.id] || ''}
                     onChange={(e) =>
                       setNoteDrafts((prev) => ({ ...prev, [room.id]: e.target.value }))
                     }
-                    placeholder="Compartir tip o apunte..."
-                    className="min-h-[44px] flex-1 rounded-xl border-2 fabro-border fabro-surface-elevated px-3 py-1.5 text-xs fabro-input"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSendRoomPost(room.id);
+                      }
+                    }}
+                    placeholder="Compartir apunte, foto o video..."
+                    className="min-h-[40px] flex-1 min-w-0 rounded-xl border fabro-border fabro-surface-elevated px-3 py-1.5 text-xs fabro-input"
                   />
                   <button
                     type="button"
-                    onClick={() => addRoomNote(room.id)}
-                    className="min-h-[44px] rounded-xl border-2 border-[#EC4899]/50 bg-[#EC4899]/10 text-[#BE185D] dark:text-[#F472B6] px-3.5 py-1.5 text-xs font-bold cursor-pointer active:scale-95"
+                    onClick={() => handleSendRoomPost(room.id)}
+                    className="min-h-[40px] rounded-xl border border-[#EC4899]/50 bg-[#EC4899]/10 text-[#BE185D] dark:text-[#F472B6] px-3.5 py-1.5 text-xs font-bold cursor-pointer active:scale-95 shrink-0"
                   >
                     Enviar
                   </button>
                 </div>
-                <div className="space-y-1 max-h-28 overflow-y-auto">
+
+                <div className="space-y-2 max-h-56 overflow-y-auto">
                   {room.sharedNotes.map((n) => (
                     <div
                       key={n.id}
-                      className="rounded-lg border fabro-border fabro-surface-elevated px-3 py-1.5 text-[11px]"
+                      className="rounded-xl border fabro-border fabro-surface-elevated p-2.5 text-[11px] space-y-1.5"
                     >
-                      <strong className="font-mono">{n.author}:</strong> {n.text}
+                      <p>
+                        <strong className="font-mono">{n.author}:</strong> {n.text}
+                      </p>
+                      {n.media && (
+                        <ResolvedMediaDisplay
+                          item={n.media}
+                          compact
+                          className="h-36"
+                          onOpenLightbox={() =>
+                            setLightboxMedia({ items: [n.media!], title: room.name })
+                          }
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -240,6 +306,15 @@ export const StudyRoomsTool: React.FC = () => {
           );
         })}
       </div>
+
+      {lightboxMedia && (
+        <MediaLightboxModal
+          items={lightboxMedia.items}
+          initialIndex={0}
+          title={lightboxMedia.title}
+          onClose={() => setLightboxMedia(null)}
+        />
+      )}
     </div>
   );
 };

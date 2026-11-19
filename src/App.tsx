@@ -1,5 +1,7 @@
 import React from 'react';
 import { FabroAuthModal } from './components/auth/FabroAuthModal';
+import { FabroSplashScreen } from './components/brand/FabroSplashScreen';
+import { CalendarAlarmBanner } from './components/common/CalendarAlarmBanner';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { DashboardHome } from './components/home/DashboardHome';
 import { HoyCosmosScreen } from './components/hoy/HoyCosmosScreen';
@@ -14,6 +16,8 @@ import { Sector2Wellness } from './components/sectors/Sector2Wellness';
 import { Sector3Social } from './components/sectors/Sector3Social';
 import { Sector4AI } from './components/sectors/Sector4AI';
 import { Sector5ConnectConfig } from './components/sectors/Sector5ConnectConfig';
+import { EditSocialProfileModal } from './components/sectors/social/EditSocialProfileModal';
+import { SocialProfileModal } from './components/sectors/social/SocialProfileModal';
 import { SharedResourceReader } from './components/shared/SharedResourceReader';
 import { ToolsHubScreen } from './components/tools/ToolsHubScreen';
 import { EcosystemProvider, useEcosystem } from './context/EcosystemContext';
@@ -45,8 +49,11 @@ const EcosystemRouter: React.FC = () => {
       </HybridShell>
       <InboxQuickCaptureModal />
       <FabroAuthModal />
+      <SocialProfileModal />
+      <EditSocialProfileModal />
       <FloatingBackgroundChat />
       <FloatingMiniWindow />
+      <CalendarAlarmBanner />
       <DeploymentStatusBar hasMobileBottomNav />
     </>
   );
@@ -55,6 +62,7 @@ const EcosystemRouter: React.FC = () => {
 export default function App() {
   return (
     <ErrorBoundary>
+      <FabroSplashScreen durationMs={1200} />
       <EcosystemProvider>
         <EcosystemRouter />
       </EcosystemProvider>

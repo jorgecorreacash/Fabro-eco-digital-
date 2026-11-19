@@ -1,8 +1,9 @@
-import React from 'react';
-import { ArrowLeft, LayoutGrid, Pin } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { Pin } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
 import { SECTORS_CATALOG } from '../../data/ecosystemCatalog';
 import type { FiveSectorId, SubmenuId } from '../../types/ecosystem';
+import { SwipeableSubscreenContainer } from '../navigation/SwipeableSubscreenContainer';
 
 interface SectorLayoutProps {
   sectorId: FiveSectorId;
@@ -14,81 +15,35 @@ interface SectorLayoutProps {
 export const SectorLayout: React.FC<SectorLayoutProps> = ({
   sectorId,
   activeSubmenu,
-  badgeText,
   children,
 }) => {
-  const { goBack, navigateTo, isToolPinned, togglePinTool } = useEcosystem();
+  const { navigateTo, isToolPinned } = useEcosystem();
   const sectorMeta = SECTORS_CATALOG.find((s) => s.id === sectorId)!;
   const { palette } = sectorMeta;
-  const pinned = isToolPinned(sectorId, activeSubmenu);
+  const swipeEnabled =
+    sectorId === 'estudio' || sectorId === 'bienestar' || sectorId === 'social';
+
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  useEffect(() => {
+    const activeTabEl = tabRefs.current[activeSubmenu];
+    if (activeTabEl) {
+      activeTabEl.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest',
+      });
+    }
+  }, [activeSubmenu]);
 
   return (
     <div className="space-y-5">
-      {/* Structured 2-Band Sector Header & Orderly Submenu Bar */}
+      {/* Orderly Submenu Bar */}
       <section
         className="rounded-2xl border fabro-surface overflow-hidden"
         style={{ borderColor: `${palette.primary}45` }}
       >
-        <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="space-y-2 min-w-0">
-            <div className="flex flex-wrap items-center gap-2.5 text-xs">
-              <button
-                type="button"
-                onClick={goBack}
-                className="min-h-[42px] md:min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-1.5 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200"
-              >
-                <ArrowLeft className="w-4 h-4" strokeWidth={2} />
-                Volver
-              </button>
-              <span
-                className="font-mono text-xs font-bold uppercase tracking-wider tabular-nums"
-                style={{ color: palette.primary }}
-              >
-                Sector {sectorMeta.number}
-              </span>
-              {badgeText && (
-                <>
-                  <span aria-hidden="true" className="fabro-muted">
-                    ·
-                  </span>
-                  <span className="fabro-muted font-medium">{badgeText}</span>
-                </>
-              )}
-            </div>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-balance">
-              {sectorMeta.title}
-            </h1>
-            <p className="text-sm fabro-muted leading-relaxed max-w-3xl">
-              {sectorMeta.subtitle}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => togglePinTool(sectorId, activeSubmenu)}
-              className={`min-h-[42px] md:min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 md:py-2 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200 whitespace-nowrap ${
-                pinned
-                  ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                  : 'fabro-border fabro-surface-elevated hover:border-[var(--fabro-accent)]'
-              }`}
-            >
-              <Pin className={`w-4 h-4 ${pinned ? 'fill-current' : ''}`} strokeWidth={2} />
-              {pinned ? 'Fijado en Espacio' : 'Fijar en Espacio'}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigateTo('inicio', 'dashboard')}
-              className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-1.5 md:py-2 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200 whitespace-nowrap"
-            >
-              <LayoutGrid className="w-4 h-4 fabro-accent-text" />
-              Mi Espacio
-            </button>
-          </div>
-        </div>
-
-        {/* Orderly Submenu Strip */}
-        <div className="px-4 sm:px-5 py-2.5 border-t fabro-border fabro-surface-elevated">
+        <div className="px-4 sm:px-5 py-2.5 fabro-surface-elevated">
           <div
             role="tablist"
             aria-label={`Submenú de ${sectorMeta.title}`}
@@ -100,6 +55,9 @@ export const SectorLayout: React.FC<SectorLayoutProps> = ({
               return (
                 <button
                   key={sub.id}
+                  ref={(el) => {
+                    tabRefs.current[sub.id] = el;
+                  }}
                   type="button"
                   role="tab"
                   aria-selected={active}
@@ -131,7 +89,16 @@ export const SectorLayout: React.FC<SectorLayoutProps> = ({
         </div>
       </section>
 
-      {children}
+      <SwipeableSubscreenContainer
+        enabled={swipeEnabled}
+        items={sectorMeta.submenus.map((s) => ({ id: s.id, label: s.shortLabel }))}
+        activeId={activeSubmenu}
+        onSelect={(nextSubId) => navigateTo(sectorId, nextSubId as SubmenuId)}
+        accentColor={palette.primary}
+        galleryLabel={`Indicador deslizable de ${sectorMeta.title}`}
+      >
+        {children}
+      </SwipeableSubscreenContainer>
     </div>
   );
 };

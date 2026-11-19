@@ -1,48 +1,52 @@
 import React, { useState } from 'react';
 import {
-  BookMarked,
   Calendar,
+  CalendarDays,
   CheckSquare,
   FileText,
-  GitBranch,
+  Film,
   GraduationCap,
-  MessageSquare,
+  MessageSquareText,
   Microscope,
-  Share2,
   Square,
   Trash2,
 } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
 import type { StudySubmenuId } from '../../types/ecosystem';
-import { ShareResourceButton } from '../common/ShareResourceButton';
 import { SectorLayout } from './SectorLayout';
 import { AdvancedNotebooksStudio } from './study/AdvancedNotebooksStudio';
 import { ConceptMapTool } from './study/ConceptMapTool';
 import { FlashcardsSrsTool } from './study/FlashcardsSrsTool';
 import { GradeCalculatorTool } from './study/GradeCalculatorTool';
+import { PaintableCalendarPanel } from './study/PaintableCalendarPanel';
 import { PomodoroTool } from './study/PomodoroTool';
 import { QuizSimulatorTool } from './study/QuizSimulatorTool';
+import { StudyVideoLibraryPanel } from './study/StudyVideoLibraryPanel';
+import { StudyWallCommunitiesPanel } from './study/StudyWallCommunitiesPanel';
 import { VoiceNotesTool } from './study/VoiceNotesTool';
+import { WordStudyWorkspace } from './study/WordStudyWorkspace';
 
 export const Sector1Study: React.FC = () => {
   const {
     submenu,
     navigateTo,
-    sendQuickChatMessage,
-    setRightPanelOpen,
-    quickNotes,
-    advancedNotes,
     glossaryTerms,
     agendaTasks,
     toggleAgendaTask,
     pomodoroLogs,
-    profile,
+    studyVideos,
+    paintedCalendarEvents,
+    wallPosts,
+    studyCommunities,
     examplesCleared,
     clearSeedExamples,
   } = useEcosystem();
 
   const activeSub: StudySubmenuId =
     submenu === 'academico-panel' ||
+    submenu === 'videoteca-estudio' ||
+    submenu === 'calendario-pintable' ||
+    submenu === 'muro-estudio' ||
     submenu === 'materias-apuntes' ||
     submenu === 'biblioteca-glosario' ||
     submenu === 'mapas-flashcards' ||
@@ -51,156 +55,139 @@ export const Sector1Study: React.FC = () => {
       ? submenu
       : 'academico-panel';
 
-  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
-  const featuredNote = advancedNotes[0];
+  const [showPomodoroPanel, setShowPomodoroPanel] = useState(false);
 
-  const handleShareFabro = () => {
-    sendQuickChatMessage(
-      `Apunte compartido desde Sector 1: "${featuredNote?.title || 'Cuaderno de estudio'}"`
-    );
-    setRightPanelOpen(true);
-    setShareFeedback('Enviado al chat interno rápido de FABRO.');
-  };
+  const studyWallCount = wallPosts.filter(
+    (p) => p.origin === 'estudio' || p.origin === 'comunidad'
+  ).length;
+
+  const primaryStudyTabs: Array<{
+    id: StudySubmenuId;
+    label: string;
+    shortLabel: string;
+    count?: number;
+    icon: React.ComponentType<{ className?: string }>;
+  }> = [
+    {
+      id: 'academico-panel',
+      label: 'Hoja de Estudio (Word)',
+      shortLabel: 'Hoja Word',
+      icon: FileText,
+    },
+    {
+      id: 'videoteca-estudio',
+      label: 'Videoteca Educativa',
+      shortLabel: 'Videoteca',
+      count: studyVideos.length,
+      icon: Film,
+    },
+    {
+      id: 'calendario-pintable',
+      label: 'Calendario y Agenda',
+      shortLabel: 'Calendario',
+      count: paintedCalendarEvents.length,
+      icon: CalendarDays,
+    },
+    {
+      id: 'muro-estudio',
+      label: 'Muro de Estudio',
+      shortLabel: 'Muro Estudio',
+      count: studyWallCount + studyCommunities.length,
+      icon: MessageSquareText,
+    },
+  ];
 
   return (
     <SectorLayout
       sectorId="estudio"
       activeSubmenu={activeSub}
-      badgeText="Azul cobalto & Cian · Entorno Académico e Investigación"
+      badgeText="Hoja Word · Videoteca · Calendario Pintable · Muro Académico"
     >
-      {activeSub === 'academico-panel' && (
-        <div className="space-y-6">
-          {/* Swipeable Mobile Stat Strip */}
-          <div className="flex sm:grid sm:grid-cols-4 gap-3 overflow-x-auto no-scrollbar snap-x pb-1 sm:overflow-visible">
-            {[
-              { label: 'Apuntes guardados', value: String(advancedNotes.length) },
-              { label: 'Sesiones Pomodoro', value: String(pomodoroLogs.length) },
-              { label: 'Notas rápidas', value: String(quickNotes.length) },
-              { label: 'Tareas en agenda', value: String(agendaTasks.length) },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="min-w-[44vw] sm:min-w-0 snap-start rounded-2xl border-2 border-[#2563EB]/30 fabro-surface p-4 space-y-1"
-              >
-                <p className="text-xs fabro-muted font-medium">{stat.label}</p>
-                <p className="font-mono text-2xl font-extrabold tabular-nums text-[#2563EB] dark:text-[#38BDF8]">
-                  {stat.value}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <PomodoroTool />
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="lg:col-span-2 rounded-2xl border-2 fabro-surface p-5 sm:p-6 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-display text-lg font-bold">Mapa del Entorno Académico</h2>
-                <span className="text-xs fabro-muted">Almacenamiento local IndexedDB</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  {
-                    sub: 'materias-apuntes' as const,
-                    icon: FileText,
-                    title: 'Cuadernos Digitales y Apuntes PDF',
-                    desc: 'Editor enriquecido con resaltador, glosario lateral, audio y exportación PDF.',
-                  },
-                  {
-                    sub: 'mapas-flashcards' as const,
-                    icon: GitBranch,
-                    title: 'Mapas y Flashcards SRS',
-                    desc: 'Esquemas visuales exportables y tarjetas giratorias con repetición espaciada.',
-                  },
-                  {
-                    sub: 'examenes-calendario' as const,
-                    icon: GraduationCap,
-                    title: 'Promedios y Agenda Académica',
-                    desc: 'Calculadora de promoción, simulacros y calendario vinculado.',
-                  },
-                  {
-                    sub: 'biblioteca-glosario' as const,
-                    icon: BookMarked,
-                    title: 'Biblioteca y Glosario',
-                    desc: 'Documentos guardados offline y terminología por disciplina.',
-                  },
-                ].map((card) => {
-                  const Icon = card.icon;
-                  return (
-                    <button
-                      key={card.sub}
-                      type="button"
-                      onClick={() => navigateTo('estudio', card.sub)}
-                      className="min-h-[88px] text-left rounded-2xl border-2 border-[#06B6D4]/30 fabro-surface-elevated p-4 space-y-1.5 hover:border-[#2563EB] transition-all cursor-pointer active:scale-95"
-                    >
-                      <Icon className="w-5 h-5 text-[#2563EB] dark:text-[#38BDF8]" />
-                      <p className="text-sm font-bold">{card.title}</p>
-                      <p className="text-xs fabro-muted leading-relaxed">{card.desc}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border-2 fabro-surface p-5 sm:p-6 space-y-4">
-              <h2 className="font-display text-base font-bold flex items-center gap-2">
-                <Share2 className="w-4 h-4 text-[#06B6D4]" />
-                Compartir estudio sin registro
-              </h2>
-              <p className="text-xs fabro-muted leading-relaxed">
-                Mandá tus apuntes, simulacros o flashcards por WhatsApp: quien abra el link entra
-                directo a leer o practicar sin crear cuenta.
-              </p>
-              <div className="space-y-2.5">
-                {featuredNote ? (
-                  <ShareResourceButton
-                    payload={{
-                      v: 1,
-                      kind: 'note',
-                      title: featuredNote.title,
-                      subject: featuredNote.subject,
-                      body: featuredNote.contentText,
-                      mainIdea: featuredNote.mainIdea || undefined,
-                      summaryText: featuredNote.summaryText || undefined,
-                      tags: featuredNote.tags,
-                      author: profile.displayName,
-                    }}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => navigateTo('estudio', 'materias-apuntes')}
-                    className="w-full fabro-btn border-[#2563EB] bg-[#2563EB] text-white"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Abrir Cuadernos Digitales
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleShareFabro}
-                  className="w-full fabro-btn border-[#2563EB] bg-[#2563EB]/10 text-[#1D4ED8] dark:text-[#60A5FA]"
+      {/* Compact Primary Study Tabs */}
+      <nav
+        aria-label="Pestañas principales de Estudio"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-2"
+      >
+        {primaryStudyTabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeSub === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => navigateTo('estudio', tab.id)}
+              className={`min-h-[44px] rounded-xl border-2 px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] ${
+                isActive
+                  ? 'border-[#2563EB] bg-[#2563EB] text-white shadow-[0_8px_18px_-10px_rgba(37,99,235,0.8)]'
+                  : 'fabro-border fabro-surface hover:border-[#2563EB]'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2 min-w-0">
+                <Icon
+                  className={`w-4 h-4 shrink-0 ${
+                    isActive ? 'text-white' : 'text-[#2563EB] dark:text-[#60A5FA]'
+                  }`}
+                />
+                <span className="truncate hidden sm:inline">{tab.label}</span>
+                <span className="truncate sm:hidden">{tab.shortLabel}</span>
+              </span>
+              {typeof tab.count === 'number' && (
+                <span
+                  className={`rounded-md border px-1.5 py-0.5 text-[10px] font-mono tabular-nums shrink-0 ${
+                    isActive
+                      ? 'border-white/30 bg-white/15 text-white'
+                      : 'fabro-border fabro-surface-elevated fabro-muted'
+                  }`}
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  Enviar también al chat FABRO
-                </button>
-              </div>
-              {shareFeedback && <p className="text-xs fabro-gold-text font-semibold">{shareFeedback}</p>}
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      {activeSub === 'videoteca-estudio' && <StudyVideoLibraryPanel />}
+
+      {activeSub === 'calendario-pintable' && <PaintableCalendarPanel />}
+
+      {activeSub === 'muro-estudio' && <StudyWallCommunitiesPanel />}
+
+      {activeSub === 'academico-panel' && (
+        <div className="space-y-4">
+          <WordStudyWorkspace />
+
+          {/* Discreet expandable Pomodoro focus strip without cluttering the document flow */}
+          <div className="max-w-4xl mx-auto w-full">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs fabro-muted px-1">
+              <button
+                type="button"
+                onClick={() => setShowPomodoroPanel((v) => !v)}
+                className="min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface px-3.5 py-1.5 text-xs font-semibold cursor-pointer hover:border-[#2563EB]"
+              >
+                <GraduationCap className="w-4 h-4 text-[#2563EB] dark:text-[#60A5FA]" />
+                {showPomodoroPanel
+                  ? 'Ocultar temporizador Pomodoro'
+                  : `Temporizador Pomodoro (${pomodoroLogs.length} sesiones)`}
+              </button>
 
               {!examplesCleared && (
-                <div className="pt-2 border-t fabro-border flex items-center justify-between gap-2 text-[11px] fabro-muted">
-                  <span>Plantillas iniciales cargadas</span>
-                  <button
-                    type="button"
-                    onClick={() => void clearSeedExamples()}
-                    className="inline-flex items-center gap-1 hover:text-rose-600 cursor-pointer underline"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    Borrar ejemplos
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => void clearSeedExamples()}
+                  className="inline-flex items-center gap-1 hover:text-rose-600 cursor-pointer underline"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Borrar plantillas de ejemplo
+                </button>
               )}
             </div>
+
+            {showPomodoroPanel && (
+              <div className="mt-3">
+                <PomodoroTool />
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -2993,7 +2993,8 @@ service cloud.firestore {
     function isValidFabroCloudProfile(data, userId) {
       return data.keys().hasAll(['id', 'uid', 'updatedAt'])
         && data.keys().hasOnly([
-          'id', 'uid', 'displayName', 'username', 'fabroId', 'photoURL',
+          'id', 'uid', 'displayName', 'username', 'fabroId', 'photoURL', 'coverPhotoURL',
+          'bio', 'interests', 'currentActivity', 'publicNoteIds', 'publicRoutineIds', 'followingIds',
           'birthDate', 'isMinor', 'presenceStatus', 'dailyPhrase', 'icebreaker',
           'privacyMode', 'shareTastesPublicly', 'tastes', 'migratedGuestAt', 'updatedAt'
         ])
@@ -3004,6 +3005,13 @@ service cloud.firestore {
         && (!('username' in data) || isValidHandle(data.username))
         && (!('fabroId' in data) || isValidString(data.fabroId, 0, 40))
         && (!('photoURL' in data) || isValidString(data.photoURL, 0, 140000))
+        && (!('coverPhotoURL' in data) || isValidString(data.coverPhotoURL, 0, 180000))
+        && (!('bio' in data) || isValidString(data.bio, 0, 600))
+        && (!('interests' in data) || isValidStringList(data.interests, 20, 40))
+        && (!('currentActivity' in data) || isValidString(data.currentActivity, 0, 160))
+        && (!('publicNoteIds' in data) || isValidStringList(data.publicNoteIds, 50, 120))
+        && (!('publicRoutineIds' in data) || isValidStringList(data.publicRoutineIds, 30, 120))
+        && (!('followingIds' in data) || isValidStringList(data.followingIds, 200, 120))
         && (!('birthDate' in data) || isValidString(data.birthDate, 0, 20))
         && (!('isMinor' in data) || data.isMinor is bool)
         && (!('presenceStatus' in data) || (data.presenceStatus is string && data.presenceStatus in ['online', 'focus', 'invisible']))
@@ -3030,7 +3038,8 @@ service cloud.firestore {
         && incoming().id == existing().id
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly([
-          'displayName', 'username', 'fabroId', 'photoURL',
+          'displayName', 'username', 'fabroId', 'photoURL', 'coverPhotoURL',
+          'bio', 'interests', 'currentActivity', 'publicNoteIds', 'publicRoutineIds', 'followingIds',
           'birthDate', 'isMinor', 'presenceStatus', 'dailyPhrase', 'icebreaker',
           'privacyMode', 'shareTastesPublicly', 'tastes', 'migratedGuestAt', 'updatedAt'
         ]);
@@ -3090,7 +3099,7 @@ service cloud.firestore {
           'id', 'uid', 'inboxItems', 'organizerTasks', 'timeBlocks', 'dailyReview', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'id', 'uid', 'inboxItems', 'organizerTasks', 'timeBlocks', 'dailyReview', 'updatedAt'
+          'id', 'uid', 'inboxItems', 'organizerTasks', 'timeBlocks', 'dailyReview', 'calendarEvents', 'updatedAt'
         ])
         && data.id == 'state'
         && data.uid == userId
@@ -3099,6 +3108,7 @@ service cloud.firestore {
         && (data.organizerTasks is list && data.organizerTasks.size() <= 200)
         && (data.timeBlocks is list && data.timeBlocks.size() <= 150)
         && (data.dailyReview is map)
+        && (!('calendarEvents' in data) || (data.calendarEvents is list && data.calendarEvents.size() <= 200))
         && data.updatedAt is timestamp;
     }
 
@@ -3116,7 +3126,7 @@ service cloud.firestore {
         && incoming().uid == existing().uid
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly([
-          'inboxItems', 'organizerTasks', 'timeBlocks', 'dailyReview', 'updatedAt'
+          'inboxItems', 'organizerTasks', 'timeBlocks', 'dailyReview', 'calendarEvents', 'updatedAt'
         ]);
       allow delete: if itemId == 'state' && isSignedInOwner(userId);
     }
@@ -3126,7 +3136,10 @@ service cloud.firestore {
           'id', 'uid', 'moodLogs', 'guidedReflections', 'balancedPlanner', 'glossaryTerms', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'id', 'uid', 'moodLogs', 'guidedReflections', 'balancedPlanner', 'glossaryTerms', 'updatedAt'
+          'id', 'uid', 'moodLogs', 'guidedReflections', 'balancedPlanner', 'glossaryTerms',
+          'physicalProfile', 'aiDietPlans', 'aiWorkoutPlans', 'aiHabitPlans', 'aiStoicSessions',
+          'studyVideos', 'wellnessVideos', 'studyCommunities',
+          'updatedAt'
         ])
         && data.id == 'state'
         && data.uid == userId
@@ -3135,6 +3148,14 @@ service cloud.firestore {
         && (data.guidedReflections is list && data.guidedReflections.size() <= 20)
         && (data.balancedPlanner is list && data.balancedPlanner.size() <= 30)
         && (data.glossaryTerms is list && data.glossaryTerms.size() <= 120)
+        && (!('physicalProfile' in data) || data.physicalProfile is map)
+        && (!('aiDietPlans' in data) || (data.aiDietPlans is list && data.aiDietPlans.size() <= 20))
+        && (!('aiWorkoutPlans' in data) || (data.aiWorkoutPlans is list && data.aiWorkoutPlans.size() <= 20))
+        && (!('aiHabitPlans' in data) || (data.aiHabitPlans is list && data.aiHabitPlans.size() <= 20))
+        && (!('aiStoicSessions' in data) || (data.aiStoicSessions is list && data.aiStoicSessions.size() <= 30))
+        && (!('studyVideos' in data) || (data.studyVideos is list && data.studyVideos.size() <= 100))
+        && (!('wellnessVideos' in data) || (data.wellnessVideos is list && data.wellnessVideos.size() <= 100))
+        && (!('studyCommunities' in data) || (data.studyCommunities is list && data.studyCommunities.size() <= 40))
         && data.updatedAt is timestamp;
     }
 
@@ -3152,7 +3173,10 @@ service cloud.firestore {
         && incoming().uid == existing().uid
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly([
-          'moodLogs', 'guidedReflections', 'balancedPlanner', 'glossaryTerms', 'updatedAt'
+          'moodLogs', 'guidedReflections', 'balancedPlanner', 'glossaryTerms',
+          'physicalProfile', 'aiDietPlans', 'aiWorkoutPlans', 'aiHabitPlans', 'aiStoicSessions',
+          'studyVideos', 'wellnessVideos', 'studyCommunities',
+          'updatedAt'
         ]);
       allow delete: if itemId == 'state' && isSignedInOwner(userId);
     }
@@ -3191,16 +3215,28 @@ service cloud.firestore {
           'createdAtLabel', 'createdAtMs', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'id', 'authorUid', 'author', 'fabroId', 'text', 'likes',
+          'id', 'authorUid', 'author', 'authorAvatar', 'fabroId', 'text', 'likes',
+          'origin', 'categoryTag', 'communityId', 'communityName', 'videoEmbed',
+          'reactions', 'comments', 'media', 'sharedResource',
           'createdAtLabel', 'createdAtMs', 'poll', 'createdAt', 'updatedAt'
         ])
         && data.id == postId
         && isValidId(data.id)
         && isValidId(data.authorUid)
         && isValidString(data.author, 1, 100)
+        && (!('authorAvatar' in data) || isValidString(data.authorAvatar, 0, 140000))
         && isValidString(data.fabroId, 0, 50)
         && isValidString(data.text, 1, 2000)
         && (data.likes is number && data.likes >= 0 && data.likes <= 1000000)
+        && (!('origin' in data) || (data.origin is string && data.origin in ['general', 'estudio', 'bienestar', 'comunidad']))
+        && (!('categoryTag' in data) || isValidString(data.categoryTag, 0, 80))
+        && (!('communityId' in data) || isValidString(data.communityId, 0, 128))
+        && (!('communityName' in data) || isValidString(data.communityName, 0, 120))
+        && (!('videoEmbed' in data) || data.videoEmbed is map)
+        && (!('reactions' in data) || data.reactions is map)
+        && (!('comments' in data) || (data.comments is list && data.comments.size() <= 100))
+        && (!('media' in data) || (data.media is list && data.media.size() <= 4))
+        && (!('sharedResource' in data) || data.sharedResource is map)
         && isValidString(data.createdAtLabel, 1, 40)
         && (data.createdAtMs is number && data.createdAtMs > 0)
         && (!('poll' in data) || (
@@ -3235,9 +3271,11 @@ service cloud.firestore {
         && (
           (
             existing().authorUid == request.auth.uid &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['text', 'poll', 'updatedAt'])
+            incoming().diff(existing()).affectedKeys().hasOnly(['text', 'poll', 'media', 'updatedAt'])
           ) ||
           incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'reactions', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'updatedAt']) ||
           incoming().diff(existing()).affectedKeys().hasOnly(['poll', 'updatedAt'])
         );
       allow delete: if isValidId(postId) && isSignedIn() && (existing().authorUid == request.auth.uid || isAdmin());

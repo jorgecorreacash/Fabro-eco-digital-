@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import {
-  FileText,
-  Heart,
   Mic,
   Pause,
   PictureInPicture2,
@@ -9,7 +7,6 @@ import {
   Radio,
   RotateCcw,
   Send,
-  Timer,
   X,
 } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
@@ -89,62 +86,10 @@ export const QuickActionsBar: React.FC = () => {
     window.setTimeout(() => setPttFeedback(null), 2500);
   };
 
+  if (!activeQuickAction) return null;
+
   return (
     <>
-      {/* Floating Mobile-First Quick Actions Bar */}
-      <div
-        role="toolbar"
-        aria-label="Barra de acciones rápidas"
-        className="no-print fixed bottom-[64px] right-2.5 lg:bottom-4 lg:right-5 z-40 flex items-center gap-1.5 rounded-2xl border fabro-surface p-1.5"
-        style={{ boxShadow: '0 8px 24px rgba(15, 23, 42, 0.14)' }}
-      >
-        <button
-          type="button"
-          onClick={() => setActiveQuickAction('note')}
-          title="Nueva nota rápida"
-          aria-label="Nueva nota rápida"
-          className="min-h-[42px] min-w-[42px] md:min-h-[38px] px-3 py-1.5 rounded-xl border border-[#2563EB]/60 bg-[#2563EB]/10 text-[#1D4ED8] dark:text-[#60A5FA] inline-flex items-center justify-center gap-1.5 text-sm font-medium cursor-pointer active:scale-95 transition-all whitespace-nowrap"
-        >
-          <FileText className="w-4 h-4 shrink-0" />
-          <span className="hidden md:inline">Nota rápida</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveQuickAction('mood')}
-          title="Registrar emoción o hábito"
-          aria-label="Registrar emoción o hábito"
-          className="min-h-[42px] min-w-[42px] md:min-h-[38px] px-3 py-1.5 rounded-xl border border-[#10B981]/60 bg-[#10B981]/10 text-[#047857] dark:text-[#34D399] inline-flex items-center justify-center gap-1.5 text-sm font-medium cursor-pointer active:scale-95 transition-all whitespace-nowrap"
-        >
-          <Heart className="w-4 h-4 shrink-0" />
-          <span className="hidden md:inline">Emoción</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveQuickAction('ptt')}
-          title="Mensaje Push-to-Talk"
-          aria-label="Mensaje Push-to-Talk"
-          className="min-h-[42px] min-w-[42px] md:min-h-[38px] px-3 py-1.5 rounded-xl border border-[#7C3AED]/60 bg-[#7C3AED]/10 text-[#6D28D9] dark:text-[#A78BFA] inline-flex items-center justify-center gap-1.5 text-sm font-medium cursor-pointer active:scale-95 transition-all whitespace-nowrap"
-        >
-          <Mic className="w-4 h-4 shrink-0" />
-          <span className="hidden md:inline">PTT</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveQuickAction('pomodoro')}
-          title="Temporizador Pomodoro"
-          aria-label="Temporizador Pomodoro"
-          className="min-h-[42px] min-w-[42px] md:min-h-[38px] px-3 py-1.5 rounded-xl border border-[#06B6D4]/60 bg-[#06B6D4]/10 text-[#0E7490] dark:text-[#22D3EE] inline-flex items-center justify-center gap-1.5 text-sm font-medium cursor-pointer active:scale-95 transition-all whitespace-nowrap"
-        >
-          <Timer className="w-4 h-4 shrink-0" />
-          <span className="hidden md:inline font-mono tabular-nums">
-            {pomoRunning ? formatTimer(pomoSecondsLeft) : 'Pomodoro'}
-          </span>
-        </button>
-      </div>
-
       {/* Bottom Sheet / Quick Action Modal */}
       {activeQuickAction && (
         <div
