@@ -876,3 +876,18 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Hide externally injected third-party hosting badges/watermarks (e.g. Powered by Netlify) outside #root */
+body > [id*="netlify" i],
+body > [class*="netlify" i],
+body > a[href*="netlify.com" i],
+body > iframe[src*="netlify" i],
+body > [data-netlify-badge],
+#__netlify-drawer,
+netlify-drawer {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
