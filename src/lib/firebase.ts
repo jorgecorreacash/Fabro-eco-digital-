@@ -1,5 +1,11 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
+import {
+  browserLocalPersistence,
+  getAuth,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  setPersistence,
+} from 'firebase/auth';
 import {
   doc,
   getDocFromServer,
@@ -10,11 +16,9 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import firebaseConfig from '../../firebase-applet-config.json';
+import firebaseConfig, { firestoreDatabaseId } from '../firebaseConfig.js';
 
 const app = initializeApp(firebaseConfig);
-
-const firestoreDatabaseId = (firebaseConfig as { firestoreDatabaseId?: string }).firestoreDatabaseId;
 
 let dbInstance: Firestore;
 try {
@@ -39,8 +43,13 @@ try {
 
 export const db = dbInstance;
 export const auth = getAuth(app);
+void setPersistence(auth, browserLocalPersistence).catch(() => {
+  // Fallback handled by Firebase SDK if IndexedDB persistence is restricted
+});
+
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 export const driveGoogleProvider = new GoogleAuthProvider();
 driveGoogleProvider.addScope('https://www.googleapis.com/auth/drive.file');
 driveGoogleProvider.setCustomParameters({ prompt: 'consent' });

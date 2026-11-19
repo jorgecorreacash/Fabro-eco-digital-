@@ -1,8 +1,6 @@
 {
   "name": "FABRO",
-  "description": "Plataforma educativa inteligente con tutor de inteligencia artificial, gestión académica, apuntes avanzados, biblioteca inteligente, exámenes y modo sin conexión.",
+  "description": "Ecosistema digital integral Offline-First organizado en cinco sectores: Estudio e Investigación, Bienestar y Salud, Red Social, Centro de IA BYOK y Configuración Connect.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": []
 }

@@ -1313,6 +1313,139 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "fromUserId", "fromName", "toUserId", "toName", "message", "hasMinorParticipant", "status", "createdAt", "updatedAt"]
+    },
+    "FabroCloudProfile": {
+      "title": "FabroCloudProfile",
+      "description": "Hybrid synced user profile under users/{userId}/profile/main (never stores BYOK keys).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "enum": ["main"] },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "username": { "type": "string", "minLength": 3, "maxLength": 30, "pattern": "^[a-z0-9_.-]+$" },
+        "fabroId": { "type": "string", "maxLength": 40 },
+        "photoURL": { "type": "string", "maxLength": 140000 },
+        "birthDate": { "type": "string", "maxLength": 20 },
+        "isMinor": { "type": "boolean" },
+        "presenceStatus": { "type": "string", "enum": ["online", "focus", "invisible"] },
+        "dailyPhrase": { "type": "string", "maxLength": 400 },
+        "icebreaker": { "type": "string", "maxLength": 300 },
+        "privacyMode": { "type": "string", "enum": ["todos", "grupo", "invisible"] },
+        "shareTastesPublicly": { "type": "boolean" },
+        "tastes": { "type": "object" },
+        "migratedGuestAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uid", "updatedAt"]
+    },
+    "FabroCloudNote": {
+      "title": "FabroCloudNote",
+      "description": "Synced digital notebook note under users/{userId}/notes/{noteId}.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "subject": { "type": "string", "maxLength": 100 },
+        "folder": { "type": "string", "maxLength": 100 },
+        "tags": { "type": "array" },
+        "favorite": { "type": "boolean" },
+        "mainIdea": { "type": "string", "maxLength": 2000 },
+        "summaryText": { "type": "string", "maxLength": 4000 },
+        "contentHtml": { "type": "string", "maxLength": 200000 },
+        "contentText": { "type": "string", "maxLength": 200000 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "syncedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uid", "title", "subject", "folder", "tags", "favorite", "syncedAt"]
+    },
+    "FabroOrganizerState": {
+      "title": "FabroOrganizerState",
+      "description": "Synced Integral Organizer snapshot (inbox, Eisenhower tasks, time blocks, daily review).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "enum": ["state"] },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "inboxItems": { "type": "array" },
+        "organizerTasks": { "type": "array" },
+        "timeBlocks": { "type": "array" },
+        "dailyReview": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uid", "inboxItems", "organizerTasks", "timeBlocks", "dailyReview", "updatedAt"]
+    },
+    "FabroWellnessState": {
+      "title": "FabroWellnessState",
+      "description": "Synced wellness logs, guided reflections, balanced planner, and glossary.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "enum": ["state"] },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "moodLogs": { "type": "array" },
+        "guidedReflections": { "type": "array" },
+        "balancedPlanner": { "type": "array" },
+        "glossaryTerms": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uid", "moodLogs", "guidedReflections", "balancedPlanner", "glossaryTerms", "updatedAt"]
+    },
+    "PublicHandle": {
+      "title": "PublicHandle",
+      "description": "Unique username reservation registry mapping handle -> uid.",
+      "type": "object",
+      "properties": {
+        "handle": { "type": "string", "minLength": 3, "maxLength": 30, "pattern": "^[a-z0-9_.-]+$" },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["handle", "uid", "updatedAt"]
+    },
+    "PublicWallPost": {
+      "title": "PublicWallPost",
+      "description": "Public FABRO community wall post and optional quick poll.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "author": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "fabroId": { "type": "string", "maxLength": 50 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "likes": { "type": "number" },
+        "createdAtLabel": { "type": "string", "maxLength": 40 },
+        "createdAtMs": { "type": "number" },
+        "poll": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorUid", "author", "fabroId", "text", "likes", "createdAtLabel", "createdAtMs", "createdAt", "updatedAt"]
+    },
+    "CloudChatRoom": {
+      "title": "CloudChatRoom",
+      "description": "Cloud chat room metadata container.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "updatedAt"]
+    },
+    "CloudChatMessage": {
+      "title": "CloudChatMessage",
+      "description": "Synced chat message inside chats/{chatId}/messages/{msgId}.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "chatId": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "sender": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "time": { "type": "string", "maxLength": 20 },
+        "sticker": { "type": "string", "maxLength": 16 },
+        "createdAtMs": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "chatId", "senderUid", "sender", "text", "time", "createdAtMs", "createdAt"]
     }
   },
   "firestore": {
@@ -1547,6 +1680,38 @@
     "/contactRequests/{requestId}": {
       "schema": { "$ref": "#/entities/ContactRequest" },
       "description": "Adult-only community contact connection requests."
+    },
+    "/users/{userId}/profile/{docId}": {
+      "schema": { "$ref": "#/entities/FabroCloudProfile" },
+      "description": "Hybrid synced FABRO ID profile document (main)."
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/FabroCloudNote" },
+      "description": "User-owned digital notebook notes synced with Firestore."
+    },
+    "/users/{userId}/organizer/{itemId}": {
+      "schema": { "$ref": "#/entities/FabroOrganizerState" },
+      "description": "User-owned Integral Organizer state (inbox, Eisenhower tasks, time blocks, daily review)."
+    },
+    "/users/{userId}/wellness/{itemId}": {
+      "schema": { "$ref": "#/entities/FabroWellnessState" },
+      "description": "User-owned wellness logs, reflections, and glossary."
+    },
+    "/publicHandles/{handle}": {
+      "schema": { "$ref": "#/entities/PublicHandle" },
+      "description": "Unique @username reservation lookup without exposing user PII."
+    },
+    "/public_posts/{postId}": {
+      "schema": { "$ref": "#/entities/PublicWallPost" },
+      "description": "Public community wall posts and quick polls."
+    },
+    "/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/CloudChatRoom" },
+      "description": "Cloud chat thread container."
+    },
+    "/chats/{chatId}/messages/{msgId}": {
+      "schema": { "$ref": "#/entities/CloudChatMessage" },
+      "description": "Real-time cloud chat messages inside a thread."
     }
   }
 }

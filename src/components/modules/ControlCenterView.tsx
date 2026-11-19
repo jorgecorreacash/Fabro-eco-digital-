@@ -46,7 +46,6 @@ import {
   Trash2,
   UserCheck,
   Users,
-  Video,
   WifiOff,
   Wrench,
   X,
@@ -290,14 +289,6 @@ const ALL_TOOLS_CATALOG: ToolCatalogItem[] = [
     description: 'Conversaciones directas con audios Push-to-Talk, adjuntos y resguardo estricto de cuentas menores de edad.',
     keywords: 'mensajes chat privado ptt audio contactos',
     icon: MessageSquare,
-  },
-  {
-    id: 'aula',
-    label: 'Salas Virtuales en Vivo',
-    sector: 'Red Social',
-    description: 'Espacios colaborativos con pizarra digital compartida, enlaces de videollamada, documentos y chat de sala.',
-    keywords: 'aulas salas vivo pizarra videollamada compartir',
-    icon: Video,
   },
   {
     id: 'perfil',
@@ -1537,7 +1528,7 @@ export const ControlCenterView: React.FC<ControlCenterViewProps> = ({
                   Estudio e Investigación
                 </h4>
                 <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
-                  Materias, apuntes exportables a PDF, biblioteca, investigación con fuentes reales, simulacros de examen y aulas en vivo.
+                  Materias, apuntes exportables a PDF, biblioteca, investigación con fuentes reales y simulacros de examen.
                 </p>
               </div>
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs font-mono tabular-nums text-slate-500 dark:text-slate-400 pt-1">

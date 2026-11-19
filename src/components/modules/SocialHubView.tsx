@@ -22,7 +22,6 @@ import {
   Send,
   ShieldAlert,
   Users,
-  Video,
   Volume2,
   VolumeX,
   X,
@@ -724,7 +723,7 @@ export const SocialHubView: React.FC = () => {
             Mensajería 1:1 verificada para adultos, grupos de estudio y comunidades, notas Push-to-Talk, muro con reacciones, código QR FABRO ID y globo persistente desde cualquier sector.
           </p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-            {onlinePeers.length} en línea · {groups.length} grupos · {directThreads.length} chats · {classrooms.length} aulas · ID:{' '}
+            {onlinePeers.length} en línea · {groups.length} grupos · {directThreads.length} chats · ID:{' '}
             <span className="font-mono font-semibold text-slate-700 dark:text-[#FAF6EE]">{myFabroId}</span>
           </p>
         </div>
@@ -765,14 +764,6 @@ export const SocialHubView: React.FC = () => {
             <LayoutGrid className="w-3.5 h-3.5" />
             Muro / Encuestas
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveSection('aula')}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer whitespace-nowrap"
-          >
-            <Video className="w-3.5 h-3.5" />
-            Aulas en vivo
-          </button>
         </div>
       </section>
 
@@ -780,7 +771,7 @@ export const SocialHubView: React.FC = () => {
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-200 flex items-center gap-2.5">
           <ShieldAlert className="w-4 h-4 shrink-0" />
           <span>
-            <strong>Protección para menores activa (-18):</strong> Los chats privados 1:1 y el directorio abierto de adultos están deshabilitados por seguridad. Podés comunicarte normalmente en Grupos y Aulas educativas moderadas.
+            <strong>Protección para menores activa (-18):</strong> Los chats privados 1:1 y el directorio abierto de adultos están deshabilitados por seguridad. Podés comunicarte normalmente en Grupos educativos moderados.
           </span>
         </div>
       )}

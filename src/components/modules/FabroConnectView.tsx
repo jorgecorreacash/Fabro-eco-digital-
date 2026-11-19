@@ -60,7 +60,7 @@ const PROVIDER_VISUALS: Record<
 };
 
 const SECTOR_LABELS: Array<{ id: FabroSectorId; name: string; desc: string }> = [
-  { id: 'estudio', name: '1. Estudio', desc: 'Apuntes, resúmenes, exámenes, investigación y aulas' },
+  { id: 'estudio', name: '1. Estudio', desc: 'Apuntes, resúmenes, exámenes e investigación' },
   { id: 'bienestar', name: '2. Bienestar y Salud', desc: 'Consejero personal, nutrición diaria, rutinas y reflexión' },
   { id: 'social', name: '3. Red Social FABRO', desc: 'Borradores, traducción de mensajes y moderación asistida' },
   { id: 'configuracion', name: '5. Configuración y Connect', desc: 'Diagnóstico técnico, respaldos y ayuda contextual' },

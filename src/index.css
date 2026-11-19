@@ -1,599 +1,816 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="estandar"], [data-theme="estandar"] *, [data-theme="futuro-turquesa-verde"], [data-theme="futuro-turquesa-verde"] *, [data-theme="futuro-cobalto-neon"], [data-theme="futuro-cobalto-neon"] *, [data-theme="gotico"], [data-theme="gotico"] *, [data-theme="aura"], [data-theme="aura"] *, [data-theme="oro"], [data-theme="oro"] *, [data-theme="metal"], [data-theme="metal"] *, [data-theme="azul-noche-dorado"], [data-theme="azul-noche-dorado"] *, [data-theme="esmeralda-profundo"], [data-theme="esmeralda-profundo"] *, [data-theme="violeta-obsidian"], [data-theme="violeta-obsidian"] *, [data-theme="grafito-ambar"], [data-theme="grafito-ambar"] *, [data-theme="aurora-boreal"], [data-theme="aurora-boreal"] *, [data-theme="medianoche-rubi"], [data-theme="medianoche-rubi"] *));
 
 @layer base {
-  :root {
+  /* Tema Estándar (Visión Original FABRO: Azul Noche Intenso, Violeta Vibrante, Blanco Cálido y Oro) */
+  :root,
+  html[data-theme="estandar"] {
     --font-display: 'Outfit', system-ui, sans-serif;
     --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
-    --fabro-bg: #FAF7F0;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #F3EFE6;
-    --fabro-border: rgba(30, 58, 138, 0.14);
-    --fabro-accent: #4F46E5;
-    --fabro-accent-soft: rgba(79, 70, 229, 0.11);
-    --fabro-accent-text: #3730A3;
-    --fabro-gold: #B45309;
-    --fabro-gold-soft: rgba(212, 175, 55, 0.15);
-    --fabro-gold-text: #92400E;
-    --fabro-warm: #1E1B4B;
-    --fabro-bubble-out: #EEF2FF;
-    --fabro-bubble-out-text: #1E1B4B;
-    --fabro-bubble-in: #FFFFFF;
-    --fabro-bubble-in-text: #0F172A;
-    --fabro-chat-bg: #EFECE4;
-  }
 
-  .dark {
-    --fabro-bg: #070B17;
-    --fabro-surface: #0D1426;
-    --fabro-surface-2: #0A1020;
-    --fabro-border: rgba(139, 92, 246, 0.24);
+    --fabro-bg: #070C1A;
+    --fabro-surface: #0F172A;
+    --fabro-surface-2: #1B2842;
+    --fabro-border: #3B4E75;
+    --fabro-text: #F8FAFC;
+    --fabro-text-muted: #A5B4CF;
     --fabro-accent: #8B5CF6;
-    --fabro-accent-soft: rgba(139, 92, 246, 0.15);
-    --fabro-accent-text: #DDD6FE;
-    --fabro-gold: #E5B842;
-    --fabro-gold-soft: rgba(229, 184, 66, 0.14);
-    --fabro-gold-text: #F7D97E;
-    --fabro-warm: #FAF6EE;
-    --fabro-bubble-out: #2E1F5E;
-    --fabro-bubble-out-text: #FAF6EE;
-    --fabro-bubble-in: #131D36;
-    --fabro-bubble-in-text: #F4EFE6;
-    --fabro-chat-bg: #080D1C;
+    --fabro-accent-hover: #7C3AED;
+    --fabro-accent-soft: rgba(139, 92, 246, 0.25);
+    --fabro-accent-text: #D8B4FE;
+    --fabro-gold: #F59E0B;
+    --fabro-gold-soft: rgba(245, 158, 11, 0.22);
+    --fabro-gold-text: #FDE047;
+    --fabro-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.65), 0 0 0 1px rgba(139, 92, 246, 0.18);
   }
 
-  /* Template: Ecológico */
-  html[data-template="ecologico"] {
-    --fabro-bg: #F3F7F2;
+  /* Futuro Azul y Blanco */
+  html[data-theme="futuro-azul-blanco"] {
+    --font-display: 'Outfit', system-ui, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    --fabro-bg: #EAF5FF;
     --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #EBF2EA;
-    --fabro-border: rgba(16, 185, 129, 0.25);
+    --fabro-surface-2: #DCF0FC;
+    --fabro-border: #7CC4EE;
+    --fabro-text: #061A2B;
+    --fabro-text-muted: #2B4E6B;
+    --fabro-accent: #0284C7;
+    --fabro-accent-hover: #0369A1;
+    --fabro-accent-soft: #CFEBFD;
+    --fabro-accent-text: #075985;
+    --fabro-gold: #059669;
+    --fabro-gold-soft: #BDF4DC;
+    --fabro-gold-text: #047857;
+    --fabro-shadow: 0 6px 20px -4px rgba(2, 132, 199, 0.18);
+  }
+
+  /* Futuro Turquesa y Verde */
+  html[data-theme="futuro-turquesa-verde"] {
+    --fabro-bg: #021017;
+    --fabro-surface: #061C26;
+    --fabro-surface-2: #0B2E3D;
+    --fabro-border: #1A6880;
+    --fabro-text: #F0FDFA;
+    --fabro-text-muted: #93D1DE;
+    --fabro-accent: #06D6F2;
+    --fabro-accent-hover: #00B4D8;
+    --fabro-accent-soft: rgba(6, 214, 242, 0.22);
+    --fabro-accent-text: #67F3FF;
+    --fabro-gold: #10B981;
+    --fabro-gold-soft: rgba(16, 185, 129, 0.24);
+    --fabro-gold-text: #4ADE80;
+    --fabro-shadow: 0 8px 24px -4px rgba(6, 214, 242, 0.18);
+  }
+
+  /* Futuro Blanco y Verde */
+  html[data-theme="futuro-blanco-verde"] {
+    --fabro-bg: #ECFBF4;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #DAF5E8;
+    --fabro-border: #74D8B0;
+    --fabro-text: #062118;
+    --fabro-text-muted: #2E5D4D;
     --fabro-accent: #059669;
-    --fabro-accent-soft: rgba(5, 150, 105, 0.12);
-    --fabro-accent-text: #047857;
-    --fabro-bubble-out: #DCFCE7;
-    --fabro-bubble-out-text: #064E3B;
-    --fabro-chat-bg: #E6EFE6;
-  }
-  html.dark[data-template="ecologico"] {
-    --fabro-bg: #07130D;
-    --fabro-surface: #0D2016;
-    --fabro-surface-2: #0A1911;
-    --fabro-border: rgba(52, 211, 153, 0.22);
-    --fabro-accent: #34D399;
-    --fabro-accent-soft: rgba(52, 211, 153, 0.15);
-    --fabro-accent-text: #6EE7B7;
-    --fabro-bubble-out: #064E3B;
-    --fabro-bubble-out-text: #ECFDF5;
-    --fabro-bubble-in: #12291D;
-    --fabro-chat-bg: #081710;
+    --fabro-accent-hover: #047857;
+    --fabro-accent-soft: #C3F7DF;
+    --fabro-accent-text: #065F46;
+    --fabro-gold: #0284C7;
+    --fabro-gold-soft: #D1EEFE;
+    --fabro-gold-text: #0369A1;
+    --fabro-shadow: 0 6px 20px -4px rgba(5, 150, 105, 0.16);
   }
 
-  /* Template: Gótico */
-  html[data-template="gotico"] {
-    --fabro-bg: #F5F1EE;
-    --fabro-surface: #FFFDFB;
-    --fabro-surface-2: #EDE6E2;
-    --fabro-border: rgba(159, 18, 57, 0.22);
-    --fabro-accent: #9F1239;
-    --fabro-accent-soft: rgba(159, 18, 57, 0.11);
-    --fabro-accent-text: #881337;
-    --fabro-bubble-out: #FFE4E6;
-    --fabro-bubble-out-text: #4C0519;
-    --fabro-chat-bg: #EDE4E3;
+  /* Futuro Azul Profundo */
+  html[data-theme="futuro-cobalto-neon"] {
+    --fabro-bg: #030A18;
+    --fabro-surface: #0A1933;
+    --fabro-surface-2: #122A52;
+    --fabro-border: #26569C;
+    --fabro-text: #F8FAFC;
+    --fabro-text-muted: #99BEF0;
+    --fabro-accent: #0EA5E9;
+    --fabro-accent-hover: #0284C7;
+    --fabro-accent-soft: rgba(14, 165, 233, 0.25);
+    --fabro-accent-text: #7DD3FC;
+    --fabro-gold: #10B981;
+    --fabro-gold-soft: rgba(16, 185, 129, 0.22);
+    --fabro-gold-text: #5EEAD4;
+    --fabro-shadow: 0 8px 24px -4px rgba(14, 165, 233, 0.22);
   }
-  html.dark[data-template="gotico"] {
-    --fabro-bg: #0B070C;
-    --fabro-surface: #150E17;
-    --fabro-surface-2: #100A12;
-    --fabro-border: rgba(251, 113, 133, 0.22);
-    --fabro-accent: #FB7185;
-    --fabro-accent-soft: rgba(251, 113, 133, 0.15);
+
+  /* Ecológico */
+  html[data-theme="ecologico"] {
+    --fabro-bg: #ECF5EB;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #DCECD9;
+    --fabro-border: #84C78D;
+    --fabro-text: #0B2113;
+    --fabro-text-muted: #355941;
+    --fabro-accent: #059669;
+    --fabro-accent-hover: #047857;
+    --fabro-accent-soft: #C8F7DB;
+    --fabro-accent-text: #065F46;
+    --fabro-gold: #65A30D;
+    --fabro-gold-soft: #E5FBBD;
+    --fabro-gold-text: #3F6212;
+    --fabro-shadow: 0 5px 18px -4px rgba(5, 150, 105, 0.15);
+  }
+
+  /* Gótico */
+  html[data-theme="gotico"] {
+    --fabro-bg: #08040A;
+    --fabro-surface: #140A17;
+    --fabro-surface-2: #241229;
+    --fabro-border: #632853;
+    --fabro-text: #FAF2EA;
+    --fabro-text-muted: #CFAEC0;
+    --fabro-accent: #F43F5E;
+    --fabro-accent-hover: #E11D48;
+    --fabro-accent-soft: rgba(244, 63, 94, 0.24);
     --fabro-accent-text: #FDA4AF;
-    --fabro-bubble-out: #4C0519;
-    --fabro-bubble-out-text: #FFF1F2;
-    --fabro-bubble-in: #1F1522;
-    --fabro-chat-bg: #0E0810;
+    --fabro-gold: #EAB308;
+    --fabro-gold-soft: rgba(234, 179, 8, 0.20);
+    --fabro-gold-text: #FDE047;
+    --fabro-shadow: 0 8px 24px -4px rgba(244, 63, 94, 0.18);
   }
 
-  /* Template: Aura */
-  html[data-template="aura"] {
-    --fabro-bg: #F4F7FF;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #EAF0FF;
-    --fabro-border: rgba(79, 70, 229, 0.22);
-    --fabro-accent: #4F46E5;
-    --fabro-accent-soft: rgba(79, 70, 229, 0.12);
-    --fabro-accent-text: #4338CA;
-    --fabro-bubble-out: #E0E7FF;
-    --fabro-bubble-out-text: #1E1B4B;
-    --fabro-chat-bg: #E8EEFC;
-  }
-  html.dark[data-template="aura"] {
-    --fabro-bg: #090D1A;
-    --fabro-surface: #11182E;
-    --fabro-surface-2: #0D1324;
-    --fabro-border: rgba(129, 140, 248, 0.25);
-    --fabro-accent: #818CF8;
-    --fabro-accent-soft: rgba(129, 140, 248, 0.15);
-    --fabro-accent-text: #A5B4FC;
-    --fabro-bubble-out: #312E81;
-    --fabro-bubble-out-text: #EEF2FF;
-    --fabro-bubble-in: #18223D;
-    --fabro-chat-bg: #0B1020;
+  /* Aura */
+  html[data-theme="aura"] {
+    --fabro-bg: #070B1A;
+    --fabro-surface: #101730;
+    --fabro-surface-2: #1A254B;
+    --fabro-border: #3E5394;
+    --fabro-text: #F4F7FF;
+    --fabro-text-muted: #A4B5E3;
+    --fabro-accent: #6366F1;
+    --fabro-accent-hover: #4F46E5;
+    --fabro-accent-soft: rgba(99, 102, 241, 0.25);
+    --fabro-accent-text: #C7D2FE;
+    --fabro-gold: #38BDF8;
+    --fabro-gold-soft: rgba(56, 189, 248, 0.22);
+    --fabro-gold-text: #7DD3FC;
+    --fabro-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.24);
   }
 
-  /* Template: Floral */
-  html[data-template="floral"] {
-    --fabro-bg: #FDF7F8;
+  /* Floral */
+  html[data-theme="floral"] {
+    --fabro-bg: #FDF2F5;
     --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #FAEBEE;
-    --fabro-border: rgba(190, 24, 93, 0.2);
-    --fabro-accent: #BE185D;
-    --fabro-accent-soft: rgba(190, 24, 93, 0.11);
+    --fabro-surface-2: #FCE4EC;
+    --fabro-border: #EA9AB6;
+    --fabro-text: #290E19;
+    --fabro-text-muted: #6A3D50;
+    --fabro-accent: #DB2777;
+    --fabro-accent-hover: #BE185D;
+    --fabro-accent-soft: #FCE0EF;
     --fabro-accent-text: #9D174D;
-    --fabro-bubble-out: #FCE7F3;
-    --fabro-bubble-out-text: #500724;
-    --fabro-chat-bg: #F8E8EE;
-  }
-  html.dark[data-template="floral"] {
-    --fabro-bg: #150B11;
-    --fabro-surface: #22121B;
-    --fabro-surface-2: #1B0E16;
-    --fabro-border: rgba(244, 114, 182, 0.24);
-    --fabro-accent: #F472B6;
-    --fabro-accent-soft: rgba(244, 114, 182, 0.15);
-    --fabro-accent-text: #F9A8D4;
-    --fabro-bubble-out: #701A43;
-    --fabro-bubble-out-text: #FDF2F8;
-    --fabro-bubble-in: #2B1723;
-    --fabro-chat-bg: #170C13;
+    --fabro-gold: #059669;
+    --fabro-gold-soft: #C8F7DC;
+    --fabro-gold-text: #047857;
+    --fabro-shadow: 0 5px 18px -4px rgba(219, 39, 119, 0.15);
   }
 
-  /* Template: Metal */
-  html[data-template="metal"] {
-    --fabro-bg: #F1F5F9;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #E2E8F0;
-    --fabro-border: rgba(100, 116, 139, 0.3);
-    --fabro-accent: #334155;
-    --fabro-accent-soft: rgba(71, 85, 105, 0.12);
-    --fabro-accent-text: #1E293B;
-    --fabro-bubble-out: #E2E8F0;
-    --fabro-bubble-out-text: #0F172A;
-    --fabro-chat-bg: #E5EAF0;
-  }
-  html.dark[data-template="metal"] {
-    --fabro-bg: #0A0E14;
-    --fabro-surface: #141B24;
-    --fabro-surface-2: #0F141C;
-    --fabro-border: rgba(148, 163, 184, 0.24);
-    --fabro-accent: #CBD5E1;
-    --fabro-accent-soft: rgba(148, 163, 184, 0.16);
-    --fabro-accent-text: #E2E8F0;
-    --fabro-bubble-out: #334155;
-    --fabro-bubble-out-text: #F8FAFC;
-    --fabro-bubble-in: #1B2430;
-    --fabro-chat-bg: #0C1118;
-  }
-
-  /* Template: Oro */
-  html[data-template="oro"] {
-    --fabro-bg: #FCF8F0;
-    --fabro-surface: #FFFDF8;
-    --fabro-surface-2: #F5ECD9;
-    --fabro-border: rgba(180, 83, 9, 0.25);
-    --fabro-accent: #B45309;
-    --fabro-accent-soft: rgba(217, 119, 6, 0.12);
-    --fabro-accent-text: #92400E;
-    --fabro-bubble-out: #FEF3C7;
-    --fabro-bubble-out-text: #451A03;
-    --fabro-chat-bg: #F3EAD6;
-  }
-  html.dark[data-template="oro"] {
-    --fabro-bg: #120D05;
-    --fabro-surface: #1D1509;
-    --fabro-surface-2: #171007;
-    --fabro-border: rgba(245, 158, 11, 0.26);
+  /* Oro */
+  html[data-theme="oro"] {
+    --fabro-bg: #0F0A03;
+    --fabro-surface: #1B1306;
+    --fabro-surface-2: #2C200B;
+    --fabro-border: #73541D;
+    --fabro-text: #FEF9EC;
+    --fabro-text-muted: #D8C190;
     --fabro-accent: #F59E0B;
-    --fabro-accent-soft: rgba(245, 158, 11, 0.15);
-    --fabro-accent-text: #FCD34D;
-    --fabro-bubble-out: #78350F;
-    --fabro-bubble-out-text: #FFFBEB;
-    --fabro-bubble-in: #281D0D;
-    --fabro-chat-bg: #140E06;
+    --fabro-accent-hover: #D97706;
+    --fabro-accent-soft: rgba(245, 158, 11, 0.24);
+    --fabro-accent-text: #FDE047;
+    --fabro-gold: #FBBF24;
+    --fabro-gold-soft: rgba(251, 191, 36, 0.22);
+    --fabro-gold-text: #FEF08A;
+    --fabro-shadow: 0 8px 24px -4px rgba(245, 158, 11, 0.20);
   }
 
-  html, body {
+  /* Metal */
+  html[data-theme="metal"] {
+    --fabro-bg: #080C12;
+    --fabro-surface: #121924;
+    --fabro-surface-2: #1D2838;
+    --fabro-border: #435773;
+    --fabro-text: #F1F5F9;
+    --fabro-text-muted: #9DB1C9;
+    --fabro-accent: #38BDF8;
+    --fabro-accent-hover: #0EA5E9;
+    --fabro-accent-soft: rgba(56, 189, 248, 0.20);
+    --fabro-accent-text: #BAE6FD;
+    --fabro-gold: #94A3B8;
+    --fabro-gold-soft: rgba(148, 163, 184, 0.22);
+    --fabro-gold-text: #E2E8F0;
+    --fabro-shadow: 0 8px 24px -4px rgba(56, 189, 248, 0.16);
+  }
+
+  /* Tema Claro Profesional */
+  html[data-theme="minimalista-claro"] {
+    --font-display: 'Outfit', system-ui, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    --fabro-bg: #F3F7FC;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #E8F0FA;
+    --fabro-border: #9EB9DC;
+    --fabro-text: #0F172A;
+    --fabro-text-muted: #42536B;
+    --fabro-accent: #2563EB;
+    --fabro-accent-hover: #1D4ED8;
+    --fabro-accent-soft: #DBEAFE;
+    --fabro-accent-text: #1D4ED8;
+    --fabro-gold: #D97706;
+    --fabro-gold-soft: #FEF3C7;
+    --fabro-gold-text: #B45309;
+    --fabro-shadow: 0 5px 18px -4px rgba(37, 99, 235, 0.14);
+  }
+
+  /* Tema 2: Oscuro Noche */
+  html[data-theme="azul-noche-dorado"] {
+    --fabro-bg: #070D1B;
+    --fabro-surface: #0F172A;
+    --fabro-surface-2: #1B2842;
+    --fabro-border: #334B73;
+    --fabro-text: #F8FAFC;
+    --fabro-text-muted: #9DB2CE;
+    --fabro-accent: #3B82F6;
+    --fabro-accent-hover: #2563EB;
+    --fabro-accent-soft: rgba(59, 130, 246, 0.24);
+    --fabro-accent-text: #93C5FD;
+    --fabro-gold: #F59E0B;
+    --fabro-gold-soft: rgba(245, 158, 11, 0.22);
+    --fabro-gold-text: #FCD34D;
+    --fabro-shadow: 0 8px 24px -4px rgba(59, 130, 246, 0.20);
+  }
+
+  /* Tema 3: Esmeralda */
+  html[data-theme="esmeralda-profundo"] {
+    --fabro-bg: #04120F;
+    --fabro-surface: #0A1F1A;
+    --fabro-surface-2: #12332B;
+    --fabro-border: #256153;
+    --fabro-text: #F8FAFC;
+    --fabro-text-muted: #98C2B7;
+    --fabro-accent: #10B981;
+    --fabro-accent-hover: #059669;
+    --fabro-accent-soft: rgba(16, 185, 129, 0.24);
+    --fabro-accent-text: #6EE7B7;
+    --fabro-gold: #F59E0B;
+    --fabro-gold-soft: rgba(245, 158, 11, 0.22);
+    --fabro-gold-text: #FCD34D;
+    --fabro-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.20);
+  }
+
+  /* Tema 4: Atardecer Coral */
+  html[data-theme="atardecer-coral"] {
+    --fabro-bg: #FFF5EE;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #FFE8DB;
+    --fabro-border: #F2A88B;
+    --fabro-text: #1F1210;
+    --fabro-text-muted: #6B4B45;
+    --fabro-accent: #E11D48;
+    --fabro-accent-hover: #BE123C;
+    --fabro-accent-soft: #FFE0E6;
+    --fabro-accent-text: #BE123C;
+    --fabro-gold: #EA580C;
+    --fabro-gold-soft: #FFEDD5;
+    --fabro-gold-text: #C2410C;
+    --fabro-shadow: 0 6px 20px -4px rgba(225, 29, 72, 0.16);
+  }
+
+  /* Tema 5: Marino Nórdico */
+  html[data-theme="marino-nordico"] {
+    --fabro-bg: #EBF5FA;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #DCEEF7;
+    --fabro-border: #82BAD9;
+    --fabro-text: #0C1E2B;
+    --fabro-text-muted: #395B72;
+    --fabro-accent: #0D9488;
+    --fabro-accent-hover: #0F766E;
+    --fabro-accent-soft: #C8FBF0;
+    --fabro-accent-text: #0F766E;
+    --fabro-gold: #0284C7;
+    --fabro-gold-soft: #D6F0FE;
+    --fabro-gold-text: #0369A1;
+    --fabro-shadow: 0 6px 20px -4px rgba(13, 148, 136, 0.16);
+  }
+
+  /* Tema 6: Violeta Obsidiana */
+  html[data-theme="violeta-obsidian"] {
+    --fabro-bg: #0D0919;
+    --fabro-surface: #161029;
+    --fabro-surface-2: #21193D;
+    --fabro-border: #46357D;
+    --fabro-text: #F8F7FC;
+    --fabro-text-muted: #B6ABD8;
+    --fabro-accent: #8B5CF6;
+    --fabro-accent-hover: #7C3AED;
+    --fabro-accent-soft: rgba(139, 92, 246, 0.25);
+    --fabro-accent-text: #DDD6FE;
+    --fabro-gold: #EC4899;
+    --fabro-gold-soft: rgba(236, 72, 153, 0.22);
+    --fabro-gold-text: #F9A8D4;
+    --fabro-shadow: 0 8px 24px -4px rgba(139, 92, 246, 0.22);
+  }
+
+  /* Tema 7: Grafito Ámbar */
+  html[data-theme="grafito-ambar"] {
+    --fabro-bg: #111114;
+    --fabro-surface: #1B1B20;
+    --fabro-surface-2: #25252C;
+    --fabro-border: #474759;
+    --fabro-text: #FAFAFA;
+    --fabro-text-muted: #ADADB8;
+    --fabro-accent: #F59E0B;
+    --fabro-accent-hover: #D97706;
+    --fabro-accent-soft: rgba(245, 158, 11, 0.22);
+    --fabro-accent-text: #FDE047;
+    --fabro-gold: #38BDF8;
+    --fabro-gold-soft: rgba(56, 189, 248, 0.20);
+    --fabro-gold-text: #7DD3FC;
+    --fabro-shadow: 0 8px 24px -4px rgba(245, 158, 11, 0.18);
+  }
+
+  /* Tema 8: Aurora Boreal (Oscuro Polar) */
+  html[data-theme="aurora-boreal"] {
+    --fabro-bg: #031019;
+    --fabro-surface: #081D2B;
+    --fabro-surface-2: #102F44;
+    --fabro-border: #255D7E;
+    --fabro-text: #F0FDFA;
+    --fabro-text-muted: #93C4D8;
+    --fabro-accent: #06D6F2;
+    --fabro-accent-hover: #0891B2;
+    --fabro-accent-soft: rgba(6, 214, 242, 0.22);
+    --fabro-accent-text: #67F3FF;
+    --fabro-gold: #A855F7;
+    --fabro-gold-soft: rgba(168, 85, 247, 0.22);
+    --fabro-gold-text: #E9D5FF;
+    --fabro-shadow: 0 8px 24px -4px rgba(6, 214, 242, 0.20);
+  }
+
+  /* Tema 9: Lavanda Serena (Claro Suave) */
+  html[data-theme="lavanda-serena"] {
+    --fabro-bg: #F3EEFF;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #E8DFFF;
+    --fabro-border: #B39FF8;
+    --fabro-text: #1E1338;
+    --fabro-text-muted: #524378;
+    --fabro-accent: #7C3AED;
+    --fabro-accent-hover: #6D28D9;
+    --fabro-accent-soft: #E8DCFF;
+    --fabro-accent-text: #5B21B6;
+    --fabro-gold: #DB2777;
+    --fabro-gold-soft: #FCE0EF;
+    --fabro-gold-text: #BE185D;
+    --fabro-shadow: 0 6px 20px -4px rgba(124, 58, 237, 0.16);
+  }
+
+  /* Tema 10: Terracota Solar (Claro Editorial) */
+  html[data-theme="terracota-sol"] {
+    --fabro-bg: #FBF8F3;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #F7EFE4;
+    --fabro-border: #E7D2BC;
+    --fabro-text: #241810;
+    --fabro-text-muted: #6E5544;
+    --fabro-accent: #C2410C;
+    --fabro-accent-hover: #9A3412;
+    --fabro-accent-soft: #FFEDD5;
+    --fabro-accent-text: #9A3412;
+    --fabro-gold: #B45309;
+    --fabro-gold-soft: #FEF3C7;
+    --fabro-gold-text: #92400E;
+    --fabro-shadow: 0 2px 10px 0 rgba(194, 65, 12, 0.06);
+  }
+
+  /* Tema 11: Medianoche Rubí (Oscuro Alto Contraste) */
+  html[data-theme="medianoche-rubi"] {
+    --fabro-bg: #12090D;
+    --fabro-surface: #1D1016;
+    --fabro-surface-2: #2B1821;
+    --fabro-border: #492836;
+    --fabro-text: #FFF5F7;
+    --fabro-text-muted: #CCA3B3;
+    --fabro-accent: #F43F5E;
+    --fabro-accent-hover: #E11D48;
+    --fabro-accent-soft: rgba(244, 63, 94, 0.18);
+    --fabro-accent-text: #FDA4AF;
+    --fabro-gold: #FBBF24;
+    --fabro-gold-soft: rgba(251, 191, 36, 0.16);
+    --fabro-gold-text: #FCD34D;
+    --fabro-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.45);
+  }
+
+  /* Tema 12: Bosque Musgo (Claro Botánico) */
+  html[data-theme="bosque-musgo"] {
+    --fabro-bg: #F3F8F4;
+    --fabro-surface: #FFFFFF;
+    --fabro-surface-2: #E4F0E7;
+    --fabro-border: #BED8C5;
+    --fabro-text: #0F2317;
+    --fabro-text-muted: #456350;
+    --fabro-accent: #15803D;
+    --fabro-accent-hover: #166534;
+    --fabro-accent-soft: #DCFCE7;
+    --fabro-accent-text: #166534;
+    --fabro-gold: #B45309;
+    --fabro-gold-soft: #FEF3C7;
+    --fabro-gold-text: #92400E;
+    --fabro-shadow: 0 2px 10px 0 rgba(21, 128, 61, 0.06);
+  }
+
+  html,
+  body {
     overflow-x: hidden;
   }
 
   body {
     font-family: var(--font-sans);
     background-color: var(--fabro-bg);
+    color: var(--fabro-text);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
+    transition: background-color 180ms ease, color 180ms ease;
   }
 
-  h1, h2, h3, h4, .font-display {
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
     font-family: var(--font-display);
   }
 
-  .font-mono, code, pre {
+  .font-mono,
+  code,
+  pre {
     font-family: var(--font-mono);
   }
 }
 
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-}
+@layer components {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
 
-.fabro-shell-bg {
-  background-color: var(--fabro-bg);
-}
+  .fabro-bg {
+    background-color: var(--fabro-bg);
+    color: var(--fabro-text);
+  }
 
-.fabro-shell-surface {
-  background-color: var(--fabro-surface);
-  border-color: var(--fabro-border);
-}
+  .fabro-surface {
+    background-color: var(--fabro-surface);
+    border-color: color-mix(in srgb, var(--fabro-accent) 44%, var(--fabro-border));
+    color: var(--fabro-text);
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 32%, rgba(255, 255, 255, 0.16)),
+      var(--fabro-shadow);
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+  }
 
-.fabro-shell-surface-2 {
-  background-color: var(--fabro-surface-2);
-  border-color: var(--fabro-border);
-}
+  .fabro-surface-elevated {
+    background-color: var(--fabro-surface-2);
+    border-color: color-mix(in srgb, var(--fabro-accent) 36%, var(--fabro-border));
+    color: var(--fabro-text);
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 20%, rgba(255, 255, 255, 0.1)),
+      0 2px 10px -4px color-mix(in srgb, var(--fabro-accent) 18%, transparent);
+  }
 
-.fabro-glass {
-  background-color: color-mix(in srgb, var(--fabro-surface) 84%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-color: var(--fabro-border);
-}
+  .fabro-glass {
+    background-color: color-mix(in srgb, var(--fabro-surface) 92%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-color: color-mix(in srgb, var(--fabro-accent) 40%, var(--fabro-border));
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 26%, rgba(255, 255, 255, 0.14)),
+      0 6px 20px -6px color-mix(in srgb, var(--fabro-accent) 28%, transparent);
+  }
 
-.fabro-accent-pill {
-  background-color: var(--fabro-accent-soft);
-  color: var(--fabro-accent-text);
-}
+  .fabro-muted {
+    color: var(--fabro-text-muted);
+  }
 
-.fabro-gold-accent {
-  color: var(--fabro-gold-text);
-}
+  .fabro-border {
+    border-color: color-mix(in srgb, var(--fabro-accent) 34%, var(--fabro-border));
+  }
 
-.fabro-gold-border {
-  border-color: color-mix(in srgb, var(--fabro-gold) 38%, transparent);
-}
+  .fabro-accent-bg {
+    background: linear-gradient(
+      135deg,
+      var(--fabro-accent) 0%,
+      color-mix(in srgb, var(--fabro-accent) 70%, var(--fabro-gold)) 100%
+    );
+    color: #FFFFFF;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.30),
+      0 6px 18px -4px color-mix(in srgb, var(--fabro-accent) 56%, transparent);
+  }
 
-.fabro-hero-ambient {
-  background-image:
-    radial-gradient(60% 90% at 10% 0%, rgba(139, 92, 246, 0.13), transparent 65%),
-    radial-gradient(50% 80% at 95% 15%, rgba(229, 184, 66, 0.11), transparent 65%);
-}
+  .fabro-accent-bg:hover:not(:disabled) {
+    filter: brightness(1.09) saturate(1.12);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.40),
+      0 10px 26px -4px color-mix(in srgb, var(--fabro-accent) 72%, transparent);
+  }
 
-.fabro-chat-canvas {
-  background-color: var(--fabro-chat-bg);
-  background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
-  background-size: 20px 20px;
-}
+  .fabro-accent-soft {
+    background-color: var(--fabro-accent-soft);
+    color: var(--fabro-accent-text);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fabro-accent) 30%, transparent);
+  }
 
-.fabro-bubble-out {
-  background-color: var(--fabro-bubble-out);
-  color: var(--fabro-bubble-out-text);
-  border-radius: 1rem 0.25rem 1rem 1rem;
-}
+  .fabro-accent-text {
+    color: var(--fabro-accent-text);
+  }
 
-.fabro-bubble-in {
-  background-color: var(--fabro-bubble-in);
-  color: var(--fabro-bubble-in-text);
-  border-radius: 0.25rem 1rem 1rem 1rem;
-}
+  .fabro-accent-border {
+    border-color: color-mix(in srgb, var(--fabro-accent) 88%, transparent);
+  }
 
-/* Rich text editor prose styles */
-.fabro-editor {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
+  .fabro-gold-text {
+    color: var(--fabro-gold-text);
+  }
 
-.fabro-editor:empty:before {
-  content: attr(data-placeholder);
-  color: rgb(148 163 184 / 0.7);
-  pointer-events: none;
-}
+  .fabro-gold-soft {
+    background-color: var(--fabro-gold-soft);
+    color: var(--fabro-gold-text);
+  }
 
-.fabro-editor h1 {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
-}
+  .fabro-input:focus {
+    outline: none;
+    border-color: var(--fabro-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--fabro-accent) 32%, transparent);
+  }
 
-.fabro-editor h2 {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-top: 1rem;
-  margin-bottom: 0.4rem;
-}
+  /* Sector accent hook (overridden dynamically per active sector) */
+  :root {
+    --fabro-sector-accent: var(--fabro-accent);
+  }
 
-.fabro-editor h3 {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 600;
-  margin-top: 0.75rem;
-  margin-bottom: 0.35rem;
-}
+  /* Global Interactive Button Effects (Compact Proportions, Elevation, Sector Rim Glow & Diagonal Sheen) */
+  button[class*="border"]:not(.fixed):not(.absolute):not(:disabled) {
+    position: relative;
+    overflow: hidden;
+    transition:
+      transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 200ms ease,
+      border-color 200ms ease,
+      background-color 200ms ease,
+      filter 200ms ease;
+  }
 
-.fabro-editor ul {
-  list-style-type: disc;
-  padding-left: 1.5rem;
-  margin: 0.5rem 0;
-}
+  button[class*="border"]:not(.fixed):not(.absolute):not(:disabled)::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 16%,
+      rgba(255, 255, 255, 0.28) 48%,
+      transparent 80%
+    );
+    transform: translateX(-130%);
+    transition: transform 460ms cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+  }
 
-.fabro-editor ol {
-  list-style-type: decimal;
-  padding-left: 1.5rem;
-  margin: 0.5rem 0;
-}
+  @media (hover: hover) {
+    button[class*="border"]:not(.fixed):not(.absolute):not(:disabled):hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--fabro-sector-accent) 78%, var(--fabro-border));
+      box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.24),
+        0 8px 20px -6px color-mix(in srgb, var(--fabro-sector-accent) 44%, transparent);
+    }
 
-.fabro-editor a {
-  color: #0284c7;
-  text-decoration: underline;
-}
+    button[class*="border"]:not(.fixed):not(.absolute):not(:disabled):hover::after {
+      transform: translateX(130%);
+    }
+  }
 
-.dark .fabro-editor a {
-  color: #38bdf8;
-}
+  button[class*="border"]:not(.fixed):not(.absolute):not(:disabled):active {
+    transform: translateY(0) scale(0.95);
+  }
 
-.fabro-editor table {
-  display: block;
-  max-width: 100%;
-  overflow-x: auto;
-  border-collapse: collapse;
-  margin: 0.75rem 0;
-}
+  /* Tactile Compact Action Buttons (36-40px desktop, 42px comfortable mobile) */
+  .fabro-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 42px;
+    padding: 0.4375rem 0.875rem;
+    border-width: 1px;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+      0 4px 14px -5px color-mix(in srgb, var(--fabro-sector-accent) 36%, transparent);
+    transition:
+      transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 200ms ease,
+      background-color 200ms ease,
+      border-color 200ms ease,
+      filter 200ms ease;
+  }
 
-.fabro-editor th,
-.fabro-editor td {
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  padding: 0.45rem 0.65rem;
-  text-align: left;
-  font-size: 0.875rem;
-}
+  @media (min-width: 768px) {
+    .fabro-btn {
+      min-height: 38px;
+      padding: 0.4375rem 0.875rem;
+    }
+  }
 
-.fabro-editor img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 0.5rem;
-  margin: 0.75rem 0;
-}
+  .fabro-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.32),
+      0 10px 22px -6px color-mix(in srgb, var(--fabro-sector-accent) 52%, transparent);
+  }
 
-.fabro-editor blockquote {
-  margin: 1rem 0;
-  padding: 0.75rem 1.25rem;
-  border-radius: 0.5rem;
-  background-color: rgba(148, 163, 184, 0.08);
-  font-style: italic;
-  color: inherit;
-}
+  .fabro-btn:active:not(:disabled) {
+    transform: scale(0.95);
+  }
 
-.fabro-editor hr {
-  border: none;
-  border-top: 1px solid rgba(148, 163, 184, 0.35);
-  margin: 1.75rem auto;
-  width: 40%;
-}
+  .fabro-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
-/* Wikipedia-style encyclopedic image figures inside Notes & Reading Mode */
-.fabro-wiki-figure {
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 0.75rem;
-  background-color: rgba(248, 250, 252, 0.9);
-  padding: 0.65rem;
-  margin: 0.85rem 0;
-  max-width: 340px;
-}
+  /* Widget Tiles & Swipeable Screen Transitions + Colorful Loaders */
+  .fabro-widget-tile {
+    border-color: color-mix(in srgb, var(--fabro-accent) 46%, var(--fabro-border));
+    transition:
+      transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 180ms ease,
+      border-color 180ms ease;
+  }
 
-.dark .fabro-wiki-figure {
-  background-color: rgba(15, 23, 42, 0.7);
-  border-color: rgba(51, 65, 85, 0.75);
-}
+  .fabro-widget-tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--fabro-accent);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.24),
+      0 12px 28px -6px color-mix(in srgb, var(--fabro-accent) 46%, transparent);
+  }
 
-.fabro-wiki-figure img {
-  width: 100%;
-  height: auto;
-  border-radius: 0.45rem;
-  margin: 0 !important;
-  cursor: zoom-in;
-}
-
-.fabro-wiki-figure figcaption {
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-  line-height: 1.45;
-  color: rgb(71 85 105);
-}
-
-.dark .fabro-wiki-figure figcaption {
-  color: rgb(203 213 225);
-}
-
-@media (min-width: 640px) {
-  .fabro-wiki-figure.fabro-wiki-right {
-    float: right;
-    margin: 0.25rem 0 1rem 1.25rem;
-    width: 280px;
+  .fabro-widget-tile:active {
+    transform: scale(0.96);
   }
 }
 
-/* Interactive Checklists inside Notes editor & prints */
-.fabro-editor .fabro-checklist {
-  margin: 0.75rem 0;
-  padding: 0.65rem 0.85rem;
-  border-radius: 0.65rem;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background-color: rgba(148, 163, 184, 0.06);
+@keyframes fabroRainbowSweep {
+  0% {
+    background-position: 0% 50%;
+    transform: translateX(-35%);
+  }
+  50% {
+    background-position: 100% 50%;
+    transform: translateX(20%);
+  }
+  100% {
+    background-position: 0% 50%;
+    transform: translateX(-35%);
+  }
 }
 
-.fabro-editor .fabro-checklist-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  padding: 0.3rem 0;
-  cursor: pointer;
+@keyframes fabroLogoShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 220% 50%;
+  }
 }
 
-.fabro-editor .fabro-checklist-item input[type="checkbox"] {
-  margin-top: 0.25rem;
-  width: 1rem;
-  height: 1rem;
-  accent-color: #0284c7;
-  cursor: pointer;
-  flex-shrink: 0;
+@keyframes fabroScreenEnter {
+  0% {
+    opacity: 0.35;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.fabro-editor .fabro-checklist-item[data-checked="true"] > span {
-  text-decoration: line-through;
-  opacity: 0.65;
+@keyframes fabroShimmerColor {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-/* Markdown output formatting in FABRO AI */
-.fabro-markdown {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  max-width: 100%;
+.fabro-logo-text {
+  background: linear-gradient(
+    110deg,
+    var(--fabro-gold) 0%,
+    color-mix(in srgb, var(--fabro-gold) 55%, #ffffff) 22%,
+    var(--fabro-accent) 48%,
+    color-mix(in srgb, var(--fabro-accent) 55%, #ffffff) 68%,
+    var(--fabro-gold) 100%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: fabroLogoShimmer 4.8s linear infinite;
+  filter: drop-shadow(0 1px 6px color-mix(in srgb, var(--fabro-accent) 26%, transparent));
 }
 
-.fabro-markdown h1,
-.fabro-markdown h2,
-.fabro-markdown h3 {
-  font-family: var(--font-display);
-  font-weight: 600;
-  margin-top: 1rem;
-  margin-bottom: 0.4rem;
+.fabro-colorful-loader {
+  background: linear-gradient(90deg, #2563EB, #06B6D4, #10B981, #F59E0B, #EC4899, #7C3AED, #2563EB);
+  background-size: 240% 100%;
+  animation: fabroRainbowSweep 1.3s ease-in-out infinite;
 }
 
-.fabro-markdown h1 { font-size: 1.25rem; }
-.fabro-markdown h2 { font-size: 1.1rem; }
-.fabro-markdown h3 { font-size: 0.98rem; }
-
-.fabro-markdown p {
-  margin-bottom: 0.65rem;
-  line-height: 1.65;
+.fabro-colorful-shimmer {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--fabro-surface-2) 95%, #2563EB) 0%,
+    color-mix(in srgb, var(--fabro-surface-2) 82%, #7C3AED) 35%,
+    color-mix(in srgb, var(--fabro-surface-2) 82%, #10B981) 65%,
+    color-mix(in srgb, var(--fabro-surface-2) 95%, #06B6D4) 100%
+  );
+  background-size: 220% 100%;
+  animation: fabroShimmerColor 1.4s linear infinite;
 }
 
-.fabro-markdown ul,
-.fabro-markdown ol {
-  padding-left: 1.35rem;
-  margin-bottom: 0.65rem;
+.fabro-screen-enter {
+  animation: fabroScreenEnter 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.fabro-markdown ul { list-style-type: disc; }
-.fabro-markdown ol { list-style-type: decimal; }
-
-.fabro-markdown table {
-  display: block;
-  max-width: 100%;
-  overflow-x: auto;
-  border-collapse: collapse;
-  margin: 0.75rem 0;
-  font-size: 0.875rem;
-}
-
-.fabro-markdown th,
-.fabro-markdown td {
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  padding: 0.5rem 0.65rem;
-  text-align: left;
-}
-
-.fabro-markdown th {
-  background-color: rgba(148, 163, 184, 0.1);
-  font-weight: 600;
-}
-
-.fabro-markdown pre {
-  background-color: rgba(15, 23, 42, 0.08);
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  overflow-x: auto;
-  max-width: 100%;
-  margin: 0.65rem 0;
-  font-size: 0.825rem;
-}
-
-.dark .fabro-markdown pre {
-  background-color: rgba(2, 6, 23, 0.65);
-}
-
-.fabro-markdown code {
-  font-size: 0.85em;
-  padding: 0.1rem 0.3rem;
-  border-radius: 0.25rem;
-  background-color: rgba(148, 163, 184, 0.14);
-}
-
-.fabro-markdown pre code {
-  padding: 0;
-  background: transparent;
-}
-
-@media print {
-  @page {
-    size: A4;
-    margin: 16mm;
+@layer components {
+  /* Futuristic Precision Instrument Surface (adapts cleanly across all themes) */
+  .fabro-futuristic-panel {
+    background:
+      radial-gradient(
+        circle at 92% 8%,
+        color-mix(in srgb, var(--fabro-accent) 24%, transparent) 0%,
+        transparent 48%
+      ),
+      radial-gradient(
+        circle at 12% 92%,
+        color-mix(in srgb, var(--fabro-gold) 18%, transparent) 0%,
+        transparent 45%
+      ),
+      var(--fabro-surface);
+    border-color: color-mix(in srgb, var(--fabro-accent) 60%, var(--fabro-border));
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 52%, rgba(255, 255, 255, 0.28)),
+      0 12px 30px -8px color-mix(in srgb, var(--fabro-accent) 36%, transparent);
   }
 
-  html,
-  body {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    overflow: visible !important;
+  .fabro-futuristic-grid {
+    background-image:
+      linear-gradient(
+        to right,
+        color-mix(in srgb, var(--fabro-accent) 16%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--fabro-accent) 16%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 28px 28px;
   }
+}
 
-  aside,
-  header,
-  nav,
-  .no-print {
-    display: none !important;
-  }
+/* Hide scrollbars on horizontal mobile pill tabs & swipeable card rails */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
-  main {
-    max-width: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-
-  .fabro-print-sheet {
-    border: none !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
-    color: #0f172a !important;
-    padding: 0 !important;
-  }
-
-  .fabro-print-sheet * {
-    color: #0f172a !important;
-  }
-
-  .fabro-print-sheet table {
-    display: table !important;
-    width: 100% !important;
-    overflow: visible !important;
-  }
-
-  .fabro-print-sheet img {
-    max-width: 100% !important;
-    height: auto !important;
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  .fabro-print-sheet h1,
-  .fabro-print-sheet h2,
-  .fabro-print-sheet h3,
-  .fabro-print-sheet tr {
-    break-inside: avoid;
-    page-break-inside: avoid;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

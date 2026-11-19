@@ -46,7 +46,6 @@ import {
   Timer,
   UserCheck,
   Users,
-  Video,
   Wifi,
   WifiOff,
   Wrench,
@@ -61,7 +60,7 @@ import type { NavSectionId } from '../../types/fabro';
 import { FabroLogo } from '../brand/FabroLogo';
 import { GlobalAudioMiniPlayer } from '../common/GlobalAudioMiniPlayer';
 import { ThemeTemplatePicker } from '../common/ThemeTemplatePicker';
-import { OfflineIndicator, PWAInstallButton } from '../pwa/PWAControls';
+import { PWAInstallButton } from '../pwa/PWAControls';
 import { SocialFloatingBubble } from '../social/SocialFloatingBubble';
 import { HabitTimerHeaderWidget } from '../widgets/HabitTimerHeaderWidget';
 import { RemindersWidget } from '../widgets/RemindersWidget';
@@ -93,7 +92,7 @@ export const NAV_ITEMS: Array<{
   adminOnly?: boolean;
 }> = [
   { id: 'inicio', label: 'Inicio · Centro de Control', shortLabel: 'Inicio', category: 'general', keywords: 'inicio home centro control sectores resumen agenda favoritos', icon: Home },
-  { id: 'estudio-panel', label: '1. Estudio e Investigación', shortLabel: 'Estudio', category: 'general', keywords: 'estudio educacion apuntes materias ia fuentes academia examenes aula virtual investigacion', icon: GraduationCap },
+  { id: 'estudio-panel', label: '1. Estudio e Investigación', shortLabel: 'Estudio', category: 'general', keywords: 'estudio educacion apuntes materias ia fuentes academia examenes investigacion', icon: GraduationCap },
   { id: 'bienestar-panel', label: '2. Bienestar y Salud', shortLabel: 'Bienestar', category: 'general', keywords: 'bienestar salud natural ultimo dia habitos ejercicios calorias horoscopo suerte', icon: Leaf },
   { id: 'social-panel', label: '3. Red Social FABRO', shortLabel: 'Social', category: 'general', keywords: 'red social globo whatsapp telegram ptt qr fabro id mensajes grupos muro', icon: MessageSquare },
   { id: 'ia-panel', label: '4. Inteligencia Artificial', shortLabel: 'IA', category: 'general', keywords: 'ia inteligencia artificial openai chatgpt gemini claude deepseek qwen multimodelo', icon: Sparkles },
@@ -127,7 +126,6 @@ export const NAV_ITEMS: Array<{
 
   { id: 'comunidad', label: 'Muro, Grupos y Comunidades', shortLabel: 'Comunidad', category: 'social', keywords: 'muro publicaciones reacciones grupos debates encuestas', icon: Users },
   { id: 'mensajes', label: 'Mensajería Privada 1:1', shortLabel: 'Mensajes', category: 'social', keywords: 'chat privado adultos audios archivos', icon: MessageSquare },
-  { id: 'aula', label: 'Aula Virtual', shortLabel: 'Aula', category: 'social', keywords: 'clases vivo salas pizarra', icon: Video },
   { id: 'perfil', label: 'Mi Perfil, Fotos y Comunidad', shortLabel: 'Perfil', category: 'social', keywords: 'perfil publico privado fotos frase comunidad compartir', icon: UserCheck },
 
   { id: 'tools', label: 'FABRO TOOLS', shortLabel: 'Tools', category: 'herramientas', keywords: 'calculadora cientifica estadistica unidades monedas qr corrector', icon: Wrench },
@@ -1335,7 +1333,6 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
           }}
         />
         <GlobalAudioMiniPlayer />
-        <OfflineIndicator />
       </div>
     </div>
   );

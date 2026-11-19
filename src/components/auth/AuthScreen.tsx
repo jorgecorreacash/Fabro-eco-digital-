@@ -160,7 +160,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   Estudio e Investigación
                 </h2>
                 <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-                  Materias, apuntes digitales exportables a PDF/Word, biblioteca, investigación con fuentes reales, aulas virtuales, exámenes y fichas.
+                  Materias, apuntes digitales exportables a PDF/Word, biblioteca, investigación con fuentes reales, exámenes y fichas.
                 </p>
               </div>
             </div>

@@ -27,6 +27,14 @@ service cloud.firestore {
       return isVerifiedUser() && request.auth.uid == userId;
     }
 
+    function isSignedInOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidHandle(handle) {
+      return handle is string && handle.size() >= 3 && handle.size() <= 30 && handle.matches('^[a-z0-9_.-]+$');
+    }
+
     function isValidId(id) {
       return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -1098,12 +1106,12 @@ service cloud.firestore {
     }
 
     match /publicProfiles/{userId} {
-      allow get: if isValidId(userId) && isVerifiedUser();
-      allow list: if isVerifiedUser()
+      allow get: if isValidId(userId) && isSignedIn();
+      allow list: if isSignedIn()
         && resource.data.isMinor == false
         && resource.data.searchableInDirectory == true;
       allow create: if isValidId(userId)
-        && isOwner(userId)
+        && isSignedInOwner(userId)
         && isValidPublicProfile(incoming(), userId)
         && incoming().verificationStatus == 'no_solicitado'
         && incoming().reputationPoints == 0
@@ -1115,7 +1123,7 @@ service cloud.firestore {
         && incoming().updatedAt == request.time
         && (
           (
-            isOwner(userId) &&
+            isSignedInOwner(userId) &&
             incoming().diff(existing()).affectedKeys().hasOnly([
               'displayName', 'username', 'customFabroId', 'photoURL', 'galleryPhotos', 'sharedPhrase',
               'favoriteBooks', 'favoriteMovies', 'favoriteMusic',
@@ -1135,7 +1143,7 @@ service cloud.firestore {
             ])
           )
         );
-      allow delete: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow delete: if isValidId(userId) && (isSignedInOwner(userId) || isAdmin());
     }
 
     function isValidInstructorVerification(data, verificationId) {
@@ -2967,6 +2975,333 @@ service cloud.firestore {
         existing().toUserId == request.auth.uid ||
         isAdmin()
       );
+    }
+
+    // ------------------------------------------------------------------
+    // FABRO HYBRID OFFLINE-FIRST SYNC, HANDLES, PUBLIC WALL & CLOUD CHAT
+    // ------------------------------------------------------------------
+    function isValidFabroTastes(tastes) {
+      return tastes is map
+        && tastes.keys().hasOnly(['music', 'movies', 'books', 'food', 'drinks'])
+        && (!('music' in tastes) || isValidString(tastes.music, 0, 150))
+        && (!('movies' in tastes) || isValidString(tastes.movies, 0, 150))
+        && (!('books' in tastes) || isValidString(tastes.books, 0, 150))
+        && (!('food' in tastes) || isValidString(tastes.food, 0, 150))
+        && (!('drinks' in tastes) || isValidString(tastes.drinks, 0, 150));
+    }
+
+    function isValidFabroCloudProfile(data, userId) {
+      return data.keys().hasAll(['id', 'uid', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'uid', 'displayName', 'username', 'fabroId', 'photoURL',
+          'birthDate', 'isMinor', 'presenceStatus', 'dailyPhrase', 'icebreaker',
+          'privacyMode', 'shareTastesPublicly', 'tastes', 'migratedGuestAt', 'updatedAt'
+        ])
+        && data.id == 'main'
+        && data.uid == userId
+        && isValidId(data.uid)
+        && (!('displayName' in data) || isValidString(data.displayName, 1, 100))
+        && (!('username' in data) || isValidHandle(data.username))
+        && (!('fabroId' in data) || isValidString(data.fabroId, 0, 40))
+        && (!('photoURL' in data) || isValidString(data.photoURL, 0, 140000))
+        && (!('birthDate' in data) || isValidString(data.birthDate, 0, 20))
+        && (!('isMinor' in data) || data.isMinor is bool)
+        && (!('presenceStatus' in data) || (data.presenceStatus is string && data.presenceStatus in ['online', 'focus', 'invisible']))
+        && (!('dailyPhrase' in data) || isValidString(data.dailyPhrase, 0, 400))
+        && (!('icebreaker' in data) || isValidString(data.icebreaker, 0, 300))
+        && (!('privacyMode' in data) || (data.privacyMode is string && data.privacyMode in ['todos', 'grupo', 'invisible']))
+        && (!('shareTastesPublicly' in data) || data.shareTastesPublicly is bool)
+        && (!('tastes' in data) || isValidFabroTastes(data.tastes))
+        && (!('migratedGuestAt' in data) || isValidString(data.migratedGuestAt, 0, 64))
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/profile/{docId} {
+      allow get: if docId == 'main' && isSignedInOwner(userId);
+      allow list: if isSignedInOwner(userId) && resource.data.uid == request.auth.uid;
+      allow create: if docId == 'main'
+        && isSignedInOwner(userId)
+        && isValidFabroCloudProfile(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if docId == 'main'
+        && isSignedInOwner(userId)
+        && isValidFabroCloudProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().id == existing().id
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'username', 'fabroId', 'photoURL',
+          'birthDate', 'isMinor', 'presenceStatus', 'dailyPhrase', 'icebreaker',
+          'privacyMode', 'shareTastesPublicly', 'tastes', 'migratedGuestAt', 'updatedAt'
+        ]);
+      allow delete: if docId == 'main' && isSignedInOwner(userId);
+    }
+
+    function isValidFabroCloudNote(data, noteId, userId) {
+      return data.keys().hasAll([
+          'id', 'uid', 'title', 'subject', 'folder', 'tags', 'favorite', 'syncedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'uid', 'title', 'subject', 'folder', 'tags', 'favorite',
+          'mainIdea', 'summaryText', 'contentHtml', 'contentText',
+          'createdAt', 'updatedAt', 'syncedAt'
+        ])
+        && data.id == noteId
+        && isValidId(data.id)
+        && data.uid == userId
+        && isValidId(data.uid)
+        && isValidString(data.title, 1, 200)
+        && isValidString(data.subject, 0, 100)
+        && isValidString(data.folder, 0, 100)
+        && isValidStringList(data.tags, 15, 60)
+        && (data.favorite is bool)
+        && (!('mainIdea' in data) || isValidString(data.mainIdea, 0, 2000))
+        && (!('summaryText' in data) || isValidString(data.summaryText, 0, 4000))
+        && (!('contentHtml' in data) || isValidString(data.contentHtml, 0, 200000))
+        && (!('contentText' in data) || isValidString(data.contentText, 0, 200000))
+        && (!('createdAt' in data) || isValidString(data.createdAt, 0, 64))
+        && (!('updatedAt' in data) || isValidString(data.updatedAt, 0, 64))
+        && data.syncedAt is timestamp;
+    }
+
+    match /users/{userId}/notes/{noteId} {
+      allow get: if isValidId(noteId) && isSignedInOwner(userId);
+      allow list: if isSignedInOwner(userId) && resource.data.uid == request.auth.uid;
+      allow create: if isValidId(noteId)
+        && isSignedInOwner(userId)
+        && isValidFabroCloudNote(incoming(), noteId, userId)
+        && incoming().syncedAt == request.time;
+      allow update: if isValidId(noteId)
+        && isSignedInOwner(userId)
+        && isValidFabroCloudNote(incoming(), noteId, userId)
+        && incoming().id == existing().id
+        && incoming().uid == existing().uid
+        && incoming().syncedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'subject', 'folder', 'tags', 'favorite',
+          'mainIdea', 'summaryText', 'contentHtml', 'contentText',
+          'updatedAt', 'syncedAt'
+        ]);
+      allow delete: if isValidId(noteId) && isSignedInOwner(userId);
+    }
+
+    function isValidFabroOrganizerState(data, userId) {
+      return data.keys().hasAll([
+          'id', 'uid', 'inboxItems', 'organizerTasks', 'timeBlocks', 'dailyReview', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'uid', 'inboxItems', 'organizerTasks', 'timeBlocks', 'dailyReview', 'updatedAt'
+        ])
+        && data.id == 'state'
+        && data.uid == userId
+        && isValidId(data.uid)
+        && (data.inboxItems is list && data.inboxItems.size() <= 100)
+        && (data.organizerTasks is list && data.organizerTasks.size() <= 200)
+        && (data.timeBlocks is list && data.timeBlocks.size() <= 150)
+        && (data.dailyReview is map)
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/organizer/{itemId} {
+      allow get: if itemId == 'state' && isSignedInOwner(userId);
+      allow list: if isSignedInOwner(userId) && resource.data.uid == request.auth.uid;
+      allow create: if itemId == 'state'
+        && isSignedInOwner(userId)
+        && isValidFabroOrganizerState(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if itemId == 'state'
+        && isSignedInOwner(userId)
+        && isValidFabroOrganizerState(incoming(), userId)
+        && incoming().id == existing().id
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'inboxItems', 'organizerTasks', 'timeBlocks', 'dailyReview', 'updatedAt'
+        ]);
+      allow delete: if itemId == 'state' && isSignedInOwner(userId);
+    }
+
+    function isValidFabroWellnessState(data, userId) {
+      return data.keys().hasAll([
+          'id', 'uid', 'moodLogs', 'guidedReflections', 'balancedPlanner', 'glossaryTerms', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'uid', 'moodLogs', 'guidedReflections', 'balancedPlanner', 'glossaryTerms', 'updatedAt'
+        ])
+        && data.id == 'state'
+        && data.uid == userId
+        && isValidId(data.uid)
+        && (data.moodLogs is list && data.moodLogs.size() <= 60)
+        && (data.guidedReflections is list && data.guidedReflections.size() <= 20)
+        && (data.balancedPlanner is list && data.balancedPlanner.size() <= 30)
+        && (data.glossaryTerms is list && data.glossaryTerms.size() <= 120)
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/wellness/{itemId} {
+      allow get: if itemId == 'state' && isSignedInOwner(userId);
+      allow list: if isSignedInOwner(userId) && resource.data.uid == request.auth.uid;
+      allow create: if itemId == 'state'
+        && isSignedInOwner(userId)
+        && isValidFabroWellnessState(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if itemId == 'state'
+        && isSignedInOwner(userId)
+        && isValidFabroWellnessState(incoming(), userId)
+        && incoming().id == existing().id
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'moodLogs', 'guidedReflections', 'balancedPlanner', 'glossaryTerms', 'updatedAt'
+        ]);
+      allow delete: if itemId == 'state' && isSignedInOwner(userId);
+    }
+
+    function isValidPublicHandleDoc(data, handle) {
+      return data.keys().hasAll(['handle', 'uid', 'updatedAt'])
+        && data.keys().hasOnly(['handle', 'uid', 'updatedAt'])
+        && data.handle == handle
+        && isValidHandle(data.handle)
+        && data.uid == request.auth.uid
+        && isValidId(data.uid)
+        && data.updatedAt is timestamp;
+    }
+
+    match /publicHandles/{handle} {
+      allow get: if isValidHandle(handle);
+      allow list: if false;
+      allow create: if isValidHandle(handle)
+        && isSignedIn()
+        && isValidPublicHandleDoc(incoming(), handle)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidHandle(handle)
+        && isSignedIn()
+        && existing().uid == request.auth.uid
+        && isValidPublicHandleDoc(incoming(), handle)
+        && incoming().uid == existing().uid
+        && incoming().handle == existing().handle
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt']);
+      allow delete: if isValidHandle(handle) && isSignedIn() && existing().uid == request.auth.uid;
+    }
+
+    function isValidPublicWallPost(data, postId) {
+      return data.keys().hasAll([
+          'id', 'authorUid', 'author', 'fabroId', 'text', 'likes',
+          'createdAtLabel', 'createdAtMs', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'authorUid', 'author', 'fabroId', 'text', 'likes',
+          'createdAtLabel', 'createdAtMs', 'poll', 'createdAt', 'updatedAt'
+        ])
+        && data.id == postId
+        && isValidId(data.id)
+        && isValidId(data.authorUid)
+        && isValidString(data.author, 1, 100)
+        && isValidString(data.fabroId, 0, 50)
+        && isValidString(data.text, 1, 2000)
+        && (data.likes is number && data.likes >= 0 && data.likes <= 1000000)
+        && isValidString(data.createdAtLabel, 1, 40)
+        && (data.createdAtMs is number && data.createdAtMs > 0)
+        && (!('poll' in data) || (
+          data.poll is map &&
+          data.poll.keys().hasAll(['question', 'options']) &&
+          data.poll.options is list &&
+          data.poll.options.size() >= 2 &&
+          data.poll.options.size() <= 4
+        ))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /public_posts/{postId} {
+      allow get: if isValidId(postId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.likes >= 0;
+      allow create: if isValidId(postId)
+        && isSignedIn()
+        && isValidPublicWallPost(incoming(), postId)
+        && incoming().authorUid == request.auth.uid
+        && incoming().likes == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(postId)
+        && isSignedIn()
+        && isValidPublicWallPost(incoming(), postId)
+        && incoming().id == existing().id
+        && incoming().authorUid == existing().authorUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().createdAtMs == existing().createdAtMs
+        && incoming().updatedAt == request.time
+        && (
+          (
+            existing().authorUid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['text', 'poll', 'updatedAt'])
+          ) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['poll', 'updatedAt'])
+        );
+      allow delete: if isValidId(postId) && isSignedIn() && (existing().authorUid == request.auth.uid || isAdmin());
+    }
+
+    function isValidCloudChatRoom(data, chatId) {
+      return data.keys().hasAll(['id', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'updatedAt'])
+        && data.id == chatId
+        && isValidId(data.id)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCloudChatMessage(data, chatId, msgId) {
+      return data.keys().hasAll([
+          'id', 'chatId', 'senderUid', 'sender', 'text', 'time', 'createdAtMs', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'chatId', 'senderUid', 'sender', 'text', 'time', 'sticker', 'createdAtMs', 'createdAt'
+        ])
+        && data.id == msgId
+        && isValidId(data.id)
+        && data.chatId == chatId
+        && isValidId(data.chatId)
+        && data.senderUid == request.auth.uid
+        && isValidId(data.senderUid)
+        && isValidString(data.sender, 1, 100)
+        && isValidString(data.text, 1, 4000)
+        && isValidString(data.time, 0, 20)
+        && (!('sticker' in data) || isValidString(data.sticker, 1, 16))
+        && (data.createdAtMs is number && data.createdAtMs > 0)
+        && data.createdAt is timestamp;
+    }
+
+    match /chats/{chatId} {
+      allow get: if isValidId(chatId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.id is string;
+      allow create: if isValidId(chatId)
+        && isSignedIn()
+        && isValidCloudChatRoom(incoming(), chatId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(chatId)
+        && isSignedIn()
+        && isValidCloudChatRoom(incoming(), chatId)
+        && incoming().id == existing().id
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt']);
+      allow delete: if isValidId(chatId) && isAdmin();
+
+      match /messages/{msgId} {
+        allow get: if isValidId(chatId) && isValidId(msgId) && isSignedIn();
+        allow list: if isSignedIn() && resource.data.chatId is string;
+        allow create: if isValidId(chatId)
+          && isValidId(msgId)
+          && isSignedIn()
+          && exists(/databases/$(database)/documents/chats/$(chatId))
+          && isValidCloudChatMessage(incoming(), chatId, msgId)
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isValidId(chatId)
+          && isValidId(msgId)
+          && isSignedIn()
+          && (existing().senderUid == request.auth.uid || isAdmin());
+      }
     }
   }
 }

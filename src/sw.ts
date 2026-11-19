@@ -12,11 +12,14 @@ import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategi
 
 interface SwWindowClient {
   id: string;
+  url?: string;
+  focus?: () => Promise<SwWindowClient>;
   postMessage: (message: unknown) => void;
 }
 
 interface SwClients {
   claim: () => Promise<void>;
+  openWindow?: (url: string) => Promise<SwWindowClient | null>;
   matchAll: (options?: { type?: string; includeUncontrolled?: boolean }) => Promise<SwWindowClient[]>;
 }
 
@@ -29,14 +32,31 @@ interface SwMessageEvent extends SwExtendableEvent {
   source?: { postMessage?: (message: unknown) => void } | null;
 }
 
+interface SwNotificationEvent extends SwExtendableEvent {
+  notification: Notification & { data?: Record<string, unknown> };
+  action?: string;
+}
+
+interface SwPushEvent extends SwExtendableEvent {
+  data?: {
+    json: () => unknown;
+    text: () => string;
+  } | null;
+}
+
+interface SwRegistration {
+  showNotification: (title: string, options?: NotificationOptions & { vibrate?: number[]; renotify?: boolean }) => Promise<void>;
+}
+
 interface SwGlobalScope {
   __WB_MANIFEST: Array<PrecacheEntry | string>;
   location: Location;
   skipWaiting: () => Promise<void>;
   clients: SwClients;
+  registration: SwRegistration;
   addEventListener: (
     type: string,
-    listener: (event: SwExtendableEvent & SwMessageEvent) => void
+    listener: (event: SwExtendableEvent & SwMessageEvent & SwNotificationEvent & SwPushEvent) => void
   ) => void;
 }
 
@@ -46,8 +66,7 @@ const STUDY_ASSETS_CACHE = 'fabro-study-assets-v1';
 const APP_PAGES_CACHE = 'fabro-pages-cache-v1';
 const STATIC_CHUNKS_CACHE = 'fabro-static-runtime-v1';
 
-// Take control immediately on install/update
-void self.skipWaiting();
+// Claim clients once activated; updates wait until user confirms SKIP_WAITING (or activate immediately on first install)
 clientsClaim();
 
 // Precache static build assets injected by VitePWA (literal self.__WB_MANIFEST required by workbox-build)
@@ -266,5 +285,93 @@ self.addEventListener('message', (event) => {
         }
       })
     );
+    return;
   }
+
+  if (data.type === 'SHOW_FABRO_NOTIFICATION') {
+    const title = typeof data.title === 'string' ? data.title : '🍀 FABRO 🍀';
+    const body = typeof data.body === 'string' ? data.body : 'Tenés un aviso pendiente en FABRO.';
+    const sector = typeof data.sector === 'string' ? data.sector : 'inicio';
+    const submenu = typeof data.submenu === 'string' ? data.submenu : 'dashboard';
+    const tag = typeof data.tag === 'string' ? data.tag : `fabro-${Date.now()}`;
+    const vibrate = Array.isArray(data.vibrate) ? (data.vibrate as number[]) : [180, 80, 180];
+
+    event.waitUntil(
+      self.registration.showNotification(title, {
+        body,
+        icon: '/pwa-192x192.png',
+        badge: '/pwa-192x192.png',
+        tag,
+        renotify: true,
+        vibrate,
+        data: {
+          sector,
+          submenu,
+          url: `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}`,
+        },
+      })
+    );
+  }
+});
+
+self.addEventListener('push', (event) => {
+  let payload: Record<string, unknown> = {};
+  try {
+    if (event.data) {
+      payload = event.data.json() as Record<string, unknown>;
+    }
+  } catch {
+    payload = { body: event.data?.text() || 'Nuevo aviso en FABRO.' };
+  }
+
+  const title = typeof payload.title === 'string' ? payload.title : '🍀 FABRO 🍀';
+  const body = typeof payload.body === 'string' ? payload.body : 'Nuevo aviso en segundo plano.';
+  const sector = typeof payload.sector === 'string' ? payload.sector : 'inicio';
+  const submenu = typeof payload.submenu === 'string' ? payload.submenu : 'dashboard';
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+      tag: typeof payload.tag === 'string' ? payload.tag : 'fabro-push',
+      renotify: true,
+      vibrate: [200, 90, 200],
+      data: {
+        sector,
+        submenu,
+        url: `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}`,
+      },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const notifData = (event.notification.data || {}) as Record<string, unknown>;
+  const sector = typeof notifData.sector === 'string' ? notifData.sector : 'inicio';
+  const submenu = typeof notifData.submenu === 'string' ? notifData.submenu : 'dashboard';
+  const targetUrl =
+    typeof notifData.url === 'string'
+      ? notifData.url
+      : `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}`;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windowClients) => {
+      for (const client of windowClients) {
+        if (client.focus) {
+          await client.focus();
+        }
+        client.postMessage({
+          type: 'FABRO_NOTIFICATION_NAVIGATE',
+          sector,
+          submenu,
+        });
+        return;
+      }
+      if (self.clients.openWindow) {
+        await self.clients.openWindow(targetUrl);
+      }
+    })
+  );
 });

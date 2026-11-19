@@ -19,7 +19,6 @@ import {
   Palette,
   Search,
   Sparkles,
-  Video,
   Wrench,
   Youtube,
   BarChart3,
@@ -51,7 +50,6 @@ import { ProgressView } from './ProgressView';
 import { SourcesBrowserView } from './SourcesBrowserView';
 import { SubjectsView } from './SubjectsView';
 import { VideoLearningView } from './VideoLearningView';
-import { VirtualClassroomView } from './VirtualClassroomView';
 
 type StudyCategoryId = 'resumen' | 'organizacion' | 'clases' | 'multi_ia' | 'investigacion' | 'practica';
 
@@ -68,7 +66,6 @@ const STUDY_MODULES: Array<{
   { id: 'libros', label: 'Escribir Libros', desc: 'Capítulos y manuscrito editorial', group: 'organizacion', icon: Feather },
   { id: 'calendario', label: 'Calendario Académico', desc: 'Planificador de exámenes, entregas y cursada', group: 'organizacion', icon: Calendar },
 
-  { id: 'aula', label: 'Clases Virtuales', desc: 'Aulas, pizarra digital, tareas, asistencia y chat', group: 'clases', icon: Video },
   { id: 'academy', label: 'Cursos y Especialidades', desc: 'Cursos gratuitos o arancelados por carrera', group: 'clases', icon: Award },
   { id: 'perfil', label: 'Perfiles y Comunidad', desc: 'Fotos, frases compartidas y perfiles de la comunidad', group: 'clases', icon: GraduationCap },
   { id: 'video', label: 'Videoteca IA', desc: 'Clases grabadas de YouTube y resúmenes', group: 'clases', icon: Youtube },
@@ -96,7 +93,7 @@ const STUDY_MODULES: Array<{
 const CATEGORY_TABS: Array<{ id: StudyCategoryId; label: string }> = [
   { id: 'resumen', label: 'Mapa de Estudio' },
   { id: 'organizacion', label: 'Cuadernos, Materias y Agenda' },
-  { id: 'clases', label: 'Clases Virtuales y Comunidad' },
+  { id: 'clases', label: 'Cursos y Comunidad' },
   { id: 'multi_ia', label: 'Multi-IA y Explorer' },
   { id: 'investigacion', label: 'Investigación y Fuentes' },
   { id: 'practica', label: 'Exámenes, Docs y Mapas' },
@@ -124,7 +121,6 @@ export const EstudioHubView: React.FC = () => {
       case 'biblioteca': return <LibraryView />;
       case 'libros': return <BookWriterView />;
       case 'calendario': return <CalendarView />;
-      case 'aula': return <VirtualClassroomView />;
       case 'perfil': return <ProfileDirectoryView />;
       case 'fabro-ai': return <FabroAIView />;
       case 'hub': return <FabroHubView />;
