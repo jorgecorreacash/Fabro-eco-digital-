@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
+  ExternalLink,
   Eye,
   EyeOff,
   Loader2,
@@ -13,7 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
-import { isInstalledDeviceApp } from '../../lib/firebase';
+import { isEmbeddedIframe, isInstalledDeviceApp } from '../../lib/firebase';
 import {
   checkUsernameAvailability,
   computeIsMinorFromBirthDate,
@@ -60,6 +61,7 @@ export const FabroAuthModal: React.FC = () => {
     authModalDefaultTab,
     closeAuthModal,
     signInWithGoogle,
+    signInWithGoogleRedirect,
     signInWithEmail,
     signUpWithEmail,
     sendPasswordReset,
@@ -136,6 +138,24 @@ export const FabroAuthModal: React.FC = () => {
       setErrorCode(res.code || null);
     }
   };
+
+  const handleGoogleRedirectFallback = async () => {
+    setSubmitting(true);
+    setErrorMsg(null);
+    setErrorCode(null);
+    const res = await signInWithGoogleRedirect();
+    if (!res.ok) {
+      setSubmitting(false);
+      setErrorMsg(res.error || 'No se pudo redirigir al acceso de Google.');
+      setErrorCode(res.code || null);
+    }
+  };
+
+  const isPopupError =
+    errorCode === 'auth/popup-closed-by-user' ||
+    errorCode === 'auth/popup-blocked' ||
+    errorCode === 'auth/cancelled-popup-request';
+  const inIframe = isEmbeddedIframe();
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,14 +345,38 @@ export const FabroAuthModal: React.FC = () => {
         )}
 
         {errorMsg && (
-          <div className="rounded-xl border-2 border-rose-500/50 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300 space-y-2">
+          <div className="rounded-xl border-2 border-rose-500/50 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300 space-y-2.5">
             <p className="font-bold flex items-start gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{errorMsg}</span>
             </p>
+            {isPopupError && (
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                {inIframe ? (
+                  <a
+                    href={typeof window !== 'undefined' ? window.location.href : '/'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg bg-[#0284C7] text-white px-3 py-1.5 text-[11px] font-bold hover:bg-[#0369A1]"
+                  >
+                    <span>Abrir FABRO en pestaña nueva</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => void handleGoogleRedirectFallback()}
+                    className="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg bg-[#0284C7] text-white px-3 py-1.5 text-[11px] font-bold hover:bg-[#0369A1] cursor-pointer disabled:opacity-60"
+                  >
+                    <span>Ingresar por redirección de Google</span>
+                  </button>
+                )}
+              </div>
+            )}
             {errorCode === 'auth/operation-not-allowed' && (
               <p className="text-[11px] leading-relaxed">
-                Tip técnico: En Firebase Console &gt; Authentication &gt; Sign-in method activá el proveedor «Correo electrónico/contraseña», o usá «Continuar con Google» arriba.
+                Tip técnico: En Firebase Console &gt; Authentication &gt; Sign-in method activá el proveedor «Correo electrónico/contraseña», o usá «Iniciar sesión con Google» arriba.
               </p>
             )}
           </div>

@@ -1,12 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
+  browserPopupRedirectResolver,
   createUserWithEmailAndPassword,
   deleteUser,
+  getRedirectResult,
   linkWithPopup,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updatePassword,
   updateProfile as updateFirebaseProfile,
@@ -20,10 +23,13 @@ import {
 } from '../data/ecosystemCatalog';
 import {
   auth,
-  AUTH_WEB_SESSION_KEY,
+  clearWebSessionActive,
   enforceDeviceSessionPersistence,
   googleProvider,
+  hasWebSessionActive,
+  isEmbeddedIframe,
   isInstalledDeviceApp,
+  markWebSessionActive,
 } from '../lib/firebase';
 import {
   emitAndroidBubbleEvent,
@@ -491,6 +497,7 @@ interface EcosystemContextValue {
   openAuthModal: (reason?: string, defaultTab?: 'login' | 'register') => void;
   closeAuthModal: () => void;
   signInWithGoogle: () => Promise<{ ok: boolean; error?: string; code?: string }>;
+  signInWithGoogleRedirect: () => Promise<{ ok: boolean; error?: string; code?: string }>;
   signInWithEmail: (
     email: string,
     password: string
@@ -951,14 +958,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setThemeState(savedTheme);
       // Never leak a previously signed-in user's name/identity before authentication is confirmed.
       // In regular web browsers without an active tab session, always reset any cached account profile.
-      let hasActiveWebSession = false;
-      try {
-        hasActiveWebSession =
-          typeof window !== 'undefined' &&
-          window.sessionStorage.getItem(AUTH_WEB_SESSION_KEY) === '1';
-      } catch {
-        hasActiveWebSession = false;
-      }
+      const hasActiveWebSession = hasWebSessionActive();
       const savedLooksLikeAccount = Boolean(
         savedProfile?.authUid ||
           savedProfile?.fabroIdConfigured ||
@@ -3339,10 +3339,33 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return { code, message: 'La contraseña debe tener al menos 6 caracteres.' };
     }
     if (code === 'auth/popup-closed-by-user') {
-      return { code, message: 'Cerraste la ventana de Google antes de completar el ingreso.' };
+      return {
+        code,
+        message: isEmbeddedIframe()
+          ? 'El navegador o la vista previa bloqueó o cerró la ventana de Google antes de completar el ingreso. Probá reintentar o abrir FABRO en una pestaña nueva.'
+          : 'La ventana de Google se cerró antes de completar el ingreso. Si no la cerraste manualmente, probá el ingreso por redirección de Google.',
+      };
+    }
+    if (code === 'auth/cancelled-popup-request') {
+      return {
+        code,
+        message: 'Ya había una ventana de Google abierta. Esperá un segundo e intentá nuevamente.',
+      };
     }
     if (code === 'auth/popup-blocked') {
-      return { code, message: 'El navegador bloqueó la ventana emergente de Google. Permití popups para FABRO.' };
+      return {
+        code,
+        message: isEmbeddedIframe()
+          ? 'El navegador bloqueó la ventana emergente de Google. Permití popups o abrí FABRO en una pestaña nueva.'
+          : 'El navegador bloqueó la ventana emergente de Google. Permití popups o usá el ingreso por redirección.',
+      };
+    }
+    if (code === 'auth/unauthorized-domain') {
+      return {
+        code,
+        message:
+          'Este dominio no está autorizado aún en Firebase Authentication (Settings > Authorized domains).',
+      };
     }
     if (code === 'auth/requires-recent-login') {
       return {
@@ -3392,6 +3415,20 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     []
   );
 
+  const googleSignInInFlightRef = useRef<boolean>(false);
+
+  // Resolve any pending Google redirect sign-in on startup (used by top-level/mobile fallback)
+  useEffect(() => {
+    void getRedirectResult(auth, browserPopupRedirectResolver)
+      .then((res) => {
+        if (res?.user) {
+          markWebSessionActive();
+          setAuthModalOpen(false);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
   // Listen to Firebase Auth state and connect Firestore ONLY when authenticated
   useEffect(() => {
     let workspaceUnsub: (() => void) | null = null;
@@ -3412,22 +3449,14 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       // Security rule: sessions remain open ONLY in the installed device app (PWA/native).
       // In a regular web browser, any leftover persisted session without an active tab marker is signed out immediately.
-      if (!isInstalledDeviceApp()) {
-        let hasActiveTabSession = false;
-        try {
-          hasActiveTabSession = window.sessionStorage.getItem(AUTH_WEB_SESSION_KEY) === '1';
-        } catch {
-          hasActiveTabSession = false;
-        }
-        if (!hasActiveTabSession) {
-          setAuthUser(null);
-          setAuthLoading(false);
-          setSyncStatus('guest-local');
-          setNeedsProfileSetup(false);
-          resetProfileToGuest();
-          void signOut(auth).catch(() => undefined);
-          return;
-        }
+      if (!isInstalledDeviceApp() && !hasWebSessionActive()) {
+        setAuthUser(null);
+        setAuthLoading(false);
+        setSyncStatus('guest-local');
+        setNeedsProfileSetup(false);
+        resetProfileToGuest();
+        void signOut(auth).catch(() => undefined);
+        return;
       }
 
       setAuthLoading(false);
@@ -3791,52 +3820,79 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [authUser, openAuthModal]);
 
   const signInWithGoogle = useCallback(async () => {
+    if (googleSignInInFlightRef.current) {
+      return {
+        ok: false,
+        code: 'auth/cancelled-popup-request',
+        error: 'Ya se está abriendo la ventana de Google. Revisá si quedó detrás o esperá un segundo.',
+      };
+    }
+    googleSignInInFlightRef.current = true;
+    // IMPORTANT: Keep everything before signInWithPopup 100% SYNCHRONOUS so the browser preserves
+    // the user-click gesture token and does not block/close the OAuth popup.
+    markWebSessionActive();
     try {
-      await enforceDeviceSessionPersistence();
-      if (!isInstalledDeviceApp()) {
-        try {
-          window.sessionStorage.setItem(AUTH_WEB_SESSION_KEY, '1');
-        } catch {
-          // ignore storage restriction
-        }
+      const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+      if (cred?.user) {
+        markWebSessionActive();
       }
-      await signInWithPopup(auth, googleProvider);
       closeAuthModal();
       return { ok: true };
     } catch (err) {
-      if (!auth.currentUser) {
-        try {
-          window.sessionStorage.removeItem(AUTH_WEB_SESSION_KEY);
-        } catch {
-          // ignore
+      const code = (err as { code?: string })?.code || '';
+      // Workaround for Chrome/COOP race where signInWithPopup rejects with popup-closed-by-user
+      // even though the OAuth sign-in actually completed moments later.
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        await new Promise((resolve) => window.setTimeout(resolve, 450));
+        if (auth.currentUser) {
+          markWebSessionActive();
+          closeAuthModal();
+          return { ok: true };
         }
+      }
+      if (!auth.currentUser) {
+        clearWebSessionActive();
+      }
+      const mapped = mapFirebaseAuthError(err);
+      return { ok: false, error: mapped.message, code: mapped.code };
+    } finally {
+      googleSignInInFlightRef.current = false;
+    }
+  }, [closeAuthModal, mapFirebaseAuthError]);
+
+  const signInWithGoogleRedirect = useCallback(async () => {
+    if (isEmbeddedIframe()) {
+      return {
+        ok: false,
+        code: 'auth/iframe-redirect-unsupported',
+        error:
+          'Google no permite redirecciones dentro de una vista embebida. Usá el botón «Abrir FABRO en pestaña nueva» para iniciar sesión sin bloqueos.',
+      };
+    }
+    markWebSessionActive();
+    try {
+      await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
+      return { ok: true };
+    } catch (err) {
+      if (!auth.currentUser) {
+        clearWebSessionActive();
       }
       const mapped = mapFirebaseAuthError(err);
       return { ok: false, error: mapped.message, code: mapped.code };
     }
-  }, [closeAuthModal, mapFirebaseAuthError]);
+  }, [mapFirebaseAuthError]);
 
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
       try {
         await enforceDeviceSessionPersistence();
-        if (!isInstalledDeviceApp()) {
-          try {
-            window.sessionStorage.setItem(AUTH_WEB_SESSION_KEY, '1');
-          } catch {
-            // ignore
-          }
-        }
+        markWebSessionActive();
         await signInWithEmailAndPassword(auth, email.trim(), password);
         closeAuthModal();
         return { ok: true };
       } catch (err) {
         if (!auth.currentUser) {
-          try {
-            window.sessionStorage.removeItem(AUTH_WEB_SESSION_KEY);
-          } catch {
-            // ignore
-          }
+          clearWebSessionActive();
         }
         const mapped = mapFirebaseAuthError(err);
         return { ok: false, error: mapped.message, code: mapped.code };
@@ -3866,13 +3922,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       try {
         await enforceDeviceSessionPersistence();
-        if (!isInstalledDeviceApp()) {
-          try {
-            window.sessionStorage.setItem(AUTH_WEB_SESSION_KEY, '1');
-          } catch {
-            // ignore
-          }
-        }
+        markWebSessionActive();
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         await updateFirebaseProfile(cred.user, { displayName: cleanName });
         const isMinor = computeIsMinorFromBirthDate(birthDate);
@@ -3895,11 +3945,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { ok: true };
       } catch (err) {
         if (!auth.currentUser) {
-          try {
-            window.sessionStorage.removeItem(AUTH_WEB_SESSION_KEY);
-          } catch {
-            // ignore
-          }
+          clearWebSessionActive();
         }
         const mapped = mapFirebaseAuthError(err);
         return { ok: false, error: mapped.message, code: mapped.code };
@@ -3922,11 +3968,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   const signOutAccount = useCallback(async () => {
-    try {
-      window.sessionStorage.removeItem(AUTH_WEB_SESSION_KEY);
-    } catch {
-      // ignore
-    }
+    clearWebSessionActive();
     await signOut(auth);
     setAuthUser(null);
     setSyncStatus('guest-local');
@@ -4005,7 +4047,11 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return { ok: false, error: 'Iniciá sesión primero para vincular Google.' };
     }
     try {
-      const result = await linkWithPopup(auth.currentUser, googleProvider);
+      const result = await linkWithPopup(
+        auth.currentUser,
+        googleProvider,
+        browserPopupRedirectResolver
+      );
       setAuthUser((prev) =>
         prev ? { ...prev, providers: result.user.providerData.map((p) => p.providerId) } : prev
       );
@@ -5273,6 +5319,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         openAuthModal,
         closeAuthModal,
         signInWithGoogle,
+        signInWithGoogleRedirect,
         signInWithEmail,
         signUpWithEmail,
         sendPasswordReset,

@@ -15,6 +15,12 @@ async function startServer() {
   const app = express();
   app.use(express.json({ limit: '2mb' }));
 
+  // Preserve window.opener across cross-origin OAuth popups (Firebase Google Sign-In)
+  app.use((_req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    next();
+  });
+
   // Minimal health & latency probe endpoint (no preloaded AI providers or quotas)
   app.get('/api/health', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');

@@ -76,6 +76,7 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
     navigateTo,
     openAuthModal,
     signInWithGoogle,
+    signInWithGoogleRedirect,
     needsProfileSetup,
   } = useEcosystem();
   const { myRestriction, openParticipationModal } = useAdmin();
@@ -87,14 +88,17 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
   const [uploadingQuick, setUploadingQuick] = useState<'avatar' | 'cover' | null>(null);
   const [googleSigningIn, setGoogleSigningIn] = useState(false);
   const [googleAuthError, setGoogleAuthError] = useState<string | null>(null);
+  const [googleAuthCode, setGoogleAuthCode] = useState<string | null>(null);
 
   const handleDirectGoogleSignIn = async () => {
     setGoogleSigningIn(true);
     setGoogleAuthError(null);
+    setGoogleAuthCode(null);
     const res = await signInWithGoogle();
     setGoogleSigningIn(false);
     if (!res.ok && res.error) {
       setGoogleAuthError(res.error);
+      setGoogleAuthCode(res.code || null);
     }
   };
 
@@ -438,9 +442,33 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
           </div>
 
           {googleAuthError && (
-            <p className="mt-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
-              {googleAuthError}
-            </p>
+            <div className="mt-2.5 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300 space-y-2">
+              <p className="font-semibold">{googleAuthError}</p>
+              {(googleAuthCode === 'auth/popup-closed-by-user' ||
+                googleAuthCode === 'auth/popup-blocked' ||
+                googleAuthCode === 'auth/cancelled-popup-request') && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {typeof window !== 'undefined' && window.self !== window.top ? (
+                    <a
+                      href={window.location.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[34px] inline-flex items-center gap-1.5 rounded-lg bg-[#0284C7] text-white px-3 py-1.5 text-[11px] font-bold hover:bg-[#0369A1]"
+                    >
+                      Abrir FABRO en pestaña nueva
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void signInWithGoogleRedirect()}
+                      className="min-h-[34px] inline-flex items-center gap-1.5 rounded-lg bg-[#0284C7] text-white px-3 py-1.5 text-[11px] font-bold hover:bg-[#0369A1] cursor-pointer"
+                    >
+                      Ingresar por redirección de Google
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {!authUser && (

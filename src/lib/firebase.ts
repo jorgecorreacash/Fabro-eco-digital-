@@ -46,6 +46,46 @@ export const db = dbInstance;
 export const auth = getAuth(app);
 
 export const AUTH_WEB_SESSION_KEY = 'fabro_active_web_session_v1';
+let inMemoryWebSessionActive = false;
+
+export function isEmbeddedIframe(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+export function markWebSessionActive(): void {
+  inMemoryWebSessionActive = true;
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(AUTH_WEB_SESSION_KEY, '1');
+  } catch {
+    // ignore partitioned/restricted storage in iframes
+  }
+}
+
+export function clearWebSessionActive(): void {
+  inMemoryWebSessionActive = false;
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(AUTH_WEB_SESSION_KEY);
+  } catch {
+    // ignore storage restriction
+  }
+}
+
+export function hasWebSessionActive(): boolean {
+  if (inMemoryWebSessionActive) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.sessionStorage.getItem(AUTH_WEB_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Returns true ONLY when FABRO is running as an installed app on the user's device
@@ -70,14 +110,18 @@ export function isInstalledDeviceApp(): boolean {
   return standaloneDisplay || iosStandalone || androidTwa || desktopWrapper;
 }
 
-export async function enforceDeviceSessionPersistence(): Promise<'local' | 'session'> {
+let persistencePromise: Promise<'local' | 'session'> | null = null;
+
+export function enforceDeviceSessionPersistence(): Promise<'local' | 'session'> {
+  if (persistencePromise) return persistencePromise;
   const installed = isInstalledDeviceApp();
-  try {
-    await setPersistence(auth, installed ? browserLocalPersistence : browserSessionPersistence);
-  } catch {
-    // Fallback handled by Firebase SDK if storage is restricted
-  }
-  return installed ? 'local' : 'session';
+  persistencePromise = setPersistence(
+    auth,
+    installed ? browserLocalPersistence : browserSessionPersistence
+  )
+    .then(() => (installed ? ('local' as const) : ('session' as const)))
+    .catch(() => (installed ? ('local' as const) : ('session' as const)));
+  return persistencePromise;
 }
 
 void enforceDeviceSessionPersistence();
