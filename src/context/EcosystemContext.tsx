@@ -18,7 +18,13 @@ import {
   PRIMARY_SCREENS_ORDER,
   SECTORS_CATALOG,
 } from '../data/ecosystemCatalog';
-import { auth, googleProvider } from '../lib/firebase';
+import {
+  auth,
+  AUTH_WEB_SESSION_KEY,
+  enforceDeviceSessionPersistence,
+  googleProvider,
+  isInstalledDeviceApp,
+} from '../lib/firebase';
 import {
   emitAndroidBubbleEvent,
   isDocumentPiPSupported,
@@ -32,6 +38,7 @@ import {
 } from '../services/backgroundNotifications';
 import {
   computeIsMinorFromBirthDate,
+  deletePublicPost,
   deleteSingleNoteFromCloud,
   deleteUserCloudAccountData,
   loadUserProfileDoc,
@@ -286,6 +293,7 @@ interface EcosystemContextValue {
   unreadNotifications: number;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  pushInAppNotification: (title: string, detail: string, target: NavDestination) => void;
   byokKeys: ByokProviderKey[];
   saveByokKey: (keyItem: ByokProviderKey, rawSecret?: string) => void;
   removeByokKey: (id: string) => void;
@@ -558,7 +566,7 @@ const EcosystemContext = createContext<EcosystemContextValue | null>(null);
 export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeId>('estandar');
   const [sector, setSector] = useState<SectorId>('social');
-  const [submenu, setSubmenu] = useState<SubmenuId>('fabro-id');
+  const [submenu, setSubmenu] = useState<SubmenuId>('perfil-social');
   const [history, setHistory] = useState<NavDestination[]>([]);
   const [profile, setProfile] = useState<LocalUserProfile>(DEFAULT_LOCAL_PROFILE);
   const [favorites, setFavorites] = useState<string[]>(DEFAULT_FAVORITES);
@@ -890,23 +898,52 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       if (!active) return;
       setThemeState(savedTheme);
-      setProfile({
-        ...DEFAULT_LOCAL_PROFILE,
-        ...savedProfile,
-        tastes: { ...DEFAULT_LOCAL_PROFILE.tastes, ...(savedProfile?.tastes || {}) },
-        interests: Array.isArray(savedProfile?.interests)
-          ? savedProfile.interests
-          : DEFAULT_LOCAL_PROFILE.interests,
-        publicNoteIds: Array.isArray(savedProfile?.publicNoteIds)
-          ? savedProfile.publicNoteIds
-          : DEFAULT_LOCAL_PROFILE.publicNoteIds,
-        publicRoutineIds: Array.isArray(savedProfile?.publicRoutineIds)
-          ? savedProfile.publicRoutineIds
-          : DEFAULT_LOCAL_PROFILE.publicRoutineIds,
-        followingIds: Array.isArray(savedProfile?.followingIds)
-          ? savedProfile.followingIds
-          : DEFAULT_LOCAL_PROFILE.followingIds,
-      });
+      // Never leak a previously signed-in user's name/identity before authentication is confirmed.
+      // In regular web browsers without an active tab session, always reset any cached account profile.
+      let hasActiveWebSession = false;
+      try {
+        hasActiveWebSession =
+          typeof window !== 'undefined' &&
+          window.sessionStorage.getItem(AUTH_WEB_SESSION_KEY) === '1';
+      } catch {
+        hasActiveWebSession = false;
+      }
+      const savedLooksLikeAccount = Boolean(
+        savedProfile?.authUid ||
+          savedProfile?.fabroIdConfigured ||
+          savedProfile?.photoURL ||
+          (savedProfile?.username && savedProfile.username !== DEFAULT_LOCAL_PROFILE.username) ||
+          (savedProfile?.displayName &&
+            savedProfile.displayName !== DEFAULT_LOCAL_PROFILE.displayName)
+      );
+      const canHydrateSavedProfile =
+        !savedLooksLikeAccount ||
+        (Boolean(auth.currentUser) && (isInstalledDeviceApp() || hasActiveWebSession));
+
+      if (canHydrateSavedProfile) {
+        setProfile({
+          ...DEFAULT_LOCAL_PROFILE,
+          ...savedProfile,
+          tastes: { ...DEFAULT_LOCAL_PROFILE.tastes, ...(savedProfile?.tastes || {}) },
+          interests: Array.isArray(savedProfile?.interests)
+            ? savedProfile.interests
+            : DEFAULT_LOCAL_PROFILE.interests,
+          publicNoteIds: Array.isArray(savedProfile?.publicNoteIds)
+            ? savedProfile.publicNoteIds
+            : DEFAULT_LOCAL_PROFILE.publicNoteIds,
+          publicRoutineIds: Array.isArray(savedProfile?.publicRoutineIds)
+            ? savedProfile.publicRoutineIds
+            : DEFAULT_LOCAL_PROFILE.publicRoutineIds,
+          followingIds: Array.isArray(savedProfile?.followingIds)
+            ? savedProfile.followingIds
+            : DEFAULT_LOCAL_PROFILE.followingIds,
+        });
+      } else {
+        setProfile(DEFAULT_LOCAL_PROFILE);
+        if (!isInstalledDeviceApp() && !hasActiveWebSession) {
+          void vaultSet('profile', DEFAULT_LOCAL_PROFILE);
+        }
+      }
       setFavorites(savedFavs);
       setPinnedTools(savedPinnedTools);
       setWorkspaceColumnsState(savedWorkspaceCols === 2 ? 2 : 3);
@@ -1085,8 +1122,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
     setSector('social');
-    setSubmenu('fabro-id');
+    setSubmenu('perfil-social');
   }, [history, triggerTransitionEffect]);
+
+  const resetProfileToGuest = useCallback(() => {
+    setProfile(DEFAULT_LOCAL_PROFILE);
+    void vaultSet('profile', DEFAULT_LOCAL_PROFILE);
+  }, []);
 
   const updateProfile = useCallback((patch: Partial<LocalUserProfile>) => {
     setProfile((prev) => {
@@ -1095,7 +1137,12 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         ...patch,
         tastes: patch.tastes ? { ...prev.tastes, ...patch.tastes } : prev.tastes,
       };
-      void vaultSet('profile', next);
+      // Persist authenticated identity locally ONLY when running as the installed device app.
+      // In regular web browsers, authenticated profile stays in memory + Firestore so it never leaks after exit.
+      const isAccountProfile = Boolean(next.authUid || next.fabroIdConfigured);
+      if (!isAccountProfile || isInstalledDeviceApp()) {
+        void vaultSet('profile', next);
+      }
       return next;
     });
   }, []);
@@ -2907,7 +2954,27 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setAuthUser(null);
         setAuthLoading(false);
         setSyncStatus('guest-local');
+        resetProfileToGuest();
         return;
+      }
+
+      // Security rule: sessions remain open ONLY in the installed device app (PWA/native).
+      // In a regular web browser, any leftover persisted session without an active tab marker is signed out immediately.
+      if (!isInstalledDeviceApp()) {
+        let hasActiveTabSession = false;
+        try {
+          hasActiveTabSession = window.sessionStorage.getItem(AUTH_WEB_SESSION_KEY) === '1';
+        } catch {
+          hasActiveTabSession = false;
+        }
+        if (!hasActiveTabSession) {
+          setAuthUser(null);
+          setAuthLoading(false);
+          setSyncStatus('guest-local');
+          resetProfileToGuest();
+          void signOut(auth).catch(() => undefined);
+          return;
+        }
       }
 
       setAuthLoading(false);
@@ -3290,10 +3357,25 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const signInWithGoogle = useCallback(async () => {
     try {
+      await enforceDeviceSessionPersistence();
+      if (!isInstalledDeviceApp()) {
+        try {
+          window.sessionStorage.setItem(AUTH_WEB_SESSION_KEY, '1');
+        } catch {
+          // ignore storage restriction
+        }
+      }
       await signInWithPopup(auth, googleProvider);
       closeAuthModal();
       return { ok: true };
     } catch (err) {
+      if (!auth.currentUser) {
+        try {
+          window.sessionStorage.removeItem(AUTH_WEB_SESSION_KEY);
+        } catch {
+          // ignore
+        }
+      }
       const mapped = mapFirebaseAuthError(err);
       return { ok: false, error: mapped.message, code: mapped.code };
     }
@@ -3302,10 +3384,25 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
       try {
+        await enforceDeviceSessionPersistence();
+        if (!isInstalledDeviceApp()) {
+          try {
+            window.sessionStorage.setItem(AUTH_WEB_SESSION_KEY, '1');
+          } catch {
+            // ignore
+          }
+        }
         await signInWithEmailAndPassword(auth, email.trim(), password);
         closeAuthModal();
         return { ok: true };
       } catch (err) {
+        if (!auth.currentUser) {
+          try {
+            window.sessionStorage.removeItem(AUTH_WEB_SESSION_KEY);
+          } catch {
+            // ignore
+          }
+        }
         const mapped = mapFirebaseAuthError(err);
         return { ok: false, error: mapped.message, code: mapped.code };
       }
@@ -3333,6 +3430,14 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { ok: false, error: 'Elegí un @usuario FABRO ID de al menos 3 caracteres.' };
       }
       try {
+        await enforceDeviceSessionPersistence();
+        if (!isInstalledDeviceApp()) {
+          try {
+            window.sessionStorage.setItem(AUTH_WEB_SESSION_KEY, '1');
+          } catch {
+            // ignore
+          }
+        }
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         await updateFirebaseProfile(cred.user, { displayName: cleanName });
         const isMinor = computeIsMinorFromBirthDate(birthDate);
@@ -3354,6 +3459,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         closeAuthModal();
         return { ok: true };
       } catch (err) {
+        if (!auth.currentUser) {
+          try {
+            window.sessionStorage.removeItem(AUTH_WEB_SESSION_KEY);
+          } catch {
+            // ignore
+          }
+        }
         const mapped = mapFirebaseAuthError(err);
         return { ok: false, error: mapped.message, code: mapped.code };
       }
@@ -3375,13 +3487,16 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   const signOutAccount = useCallback(async () => {
+    try {
+      window.sessionStorage.removeItem(AUTH_WEB_SESSION_KEY);
+    } catch {
+      // ignore
+    }
     await signOut(auth);
     setAuthUser(null);
     setSyncStatus('guest-local');
-    updateProfile({
-      authUid: undefined,
-    });
-  }, [updateProfile]);
+    resetProfileToGuest();
+  }, [resetProfileToGuest]);
 
   const updateAccountAliasAndPhoto = useCallback(
     async (patch: { displayName?: string; username?: string; photoURL?: string }) => {
@@ -3591,13 +3706,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [authUser, network.isOnline]
   );
 
-  const deleteWallPost = useCallback((postId: string) => {
-    setWallPosts((prev) => {
-      const next = prev.filter((p) => p.id !== postId);
-      void vaultSetIdbOnly('wall_posts', next);
-      return next;
-    });
-  }, []);
+  const deleteWallPost = useCallback(
+    (postId: string) => {
+      setWallPosts((prev) => {
+        const next = prev.filter((p) => p.id !== postId);
+        void vaultSetIdbOnly('wall_posts', next);
+        return next;
+      });
+      if (authUser && network.isOnline) {
+        void deletePublicPost(postId).catch(() => undefined);
+      }
+    },
+    [authUser, network.isOnline]
+  );
 
   const reactToWallPost = useCallback(
     (postId: string, reaction: SocialReactionKey) => {
@@ -3838,7 +3959,9 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         tastes: patch.tastes ? { ...profile.tastes, ...patch.tastes } : profile.tastes,
       };
       setProfile(nextProfile);
-      await vaultSet('profile', nextProfile);
+      if (!authUser || isInstalledDeviceApp()) {
+        await vaultSet('profile', nextProfile);
+      }
 
       if (authUser && navigator.onLine) {
         try {
@@ -3865,7 +3988,9 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const exists = list.includes(profileId);
         const nextList = exists ? list.filter((id) => id !== profileId) : [...list, profileId];
         const next: LocalUserProfile = { ...prev, followingIds: nextList };
-        void vaultSet('profile', next);
+        if (!next.authUid || isInstalledDeviceApp()) {
+          void vaultSet('profile', next);
+        }
         void syncExtendedProfileIfSignedIn(next).catch(() => undefined);
         return next;
       });
@@ -3880,7 +4005,9 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const exists = list.includes(noteId);
         const nextList = exists ? list.filter((id) => id !== noteId) : [...list, noteId];
         const next: LocalUserProfile = { ...prev, publicNoteIds: nextList };
-        void vaultSet('profile', next);
+        if (!next.authUid || isInstalledDeviceApp()) {
+          void vaultSet('profile', next);
+        }
         void syncExtendedProfileIfSignedIn(next).catch(() => undefined);
         return next;
       });
@@ -3895,7 +4022,9 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const exists = list.includes(routineId);
         const nextList = exists ? list.filter((id) => id !== routineId) : [...list, routineId];
         const next: LocalUserProfile = { ...prev, publicRoutineIds: nextList };
-        void vaultSet('profile', next);
+        if (!next.authUid || isInstalledDeviceApp()) {
+          void vaultSet('profile', next);
+        }
         void syncExtendedProfileIfSignedIn(next).catch(() => undefined);
         return next;
       });
@@ -4479,6 +4608,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         unreadNotifications,
         markNotificationRead,
         markAllNotificationsRead,
+        pushInAppNotification,
         byokKeys,
         saveByokKey,
         removeByokKey,

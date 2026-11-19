@@ -13,6 +13,7 @@ import {
   Heart,
   Image as ImageIcon,
   ImagePlus,
+  Lightbulb,
   Lock,
   MessageCircle,
   Music,
@@ -25,6 +26,7 @@ import {
   Users,
   Utensils,
 } from 'lucide-react';
+import { useAdmin } from '../../../context/AdminContext';
 import { useEcosystem } from '../../../context/EcosystemContext';
 import { DEFAULT_MOBILITY_ROUTINE } from '../../../services/localVault';
 import { processAvatarImage, processCoverImage } from '../../../services/mediaVault';
@@ -71,6 +73,7 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
     navigateTo,
     openAuthModal,
   } = useEcosystem();
+  const { myRestriction, openParticipationModal } = useAdmin();
 
   const [activeTab, setActiveTab] = useState<ProfileInnerTab>(initialTab);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
@@ -330,6 +333,23 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
               >
                 <Copy className="w-3.5 h-3.5" />
                 Enlace
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onCloseModal?.();
+                  openParticipationModal(
+                    myRestriction && myRestriction.accountStatus !== 'activo'
+                      ? 'reports-appeals'
+                      : 'ideas'
+                  );
+                }}
+                className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3 py-1.5 text-xs font-semibold cursor-pointer active:scale-95"
+              >
+                <Lightbulb className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                {myRestriction && myRestriction.accountStatus !== 'activo'
+                  ? 'Apelaciones'
+                  : 'Ideas y sectores'}
               </button>
               <button
                 type="button"

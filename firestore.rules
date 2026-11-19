@@ -68,15 +68,54 @@ service cloud.firestore {
       );
     }
 
-    function isSuperAdmin() {
+    function isPrimarySuperAdmin() {
       return isVerifiedUser() && request.auth.token.email == 'jorgecorreasp@gmail.com';
     }
 
-    function isAdmin() {
-      return isSuperAdmin() || (
-        isVerifiedUser() &&
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+    function isSuperAdmin() {
+      let p = /databases/$(database)/documents/admins/$(request.auth.uid);
+      return isPrimarySuperAdmin() || (isVerifiedUser() && exists(p) && get(p).data.role == 'superadministrador');
+    }
+
+    function isActiveStaff() {
+      let p = /databases/$(database)/documents/admins/$(request.auth.uid);
+      return isPrimarySuperAdmin() || (isVerifiedUser() && exists(p) && get(p).data.active == true);
+    }
+
+    function isCulturalModeratorOnly() {
+      let p = /databases/$(database)/documents/admins/$(request.auth.uid);
+      return !isPrimarySuperAdmin() && isVerifiedUser() && exists(p) && get(p).data.role == 'moderador_cultural';
+    }
+
+    function hasStaffPermission(perm) {
+      let p = /databases/$(database)/documents/admins/$(request.auth.uid);
+      return isPrimarySuperAdmin() || (
+        isVerifiedUser() && exists(p) && (
+          get(p).data.role == 'superadministrador' ||
+          perm in get(p).data.customPermissions
+        )
       );
+    }
+
+    function isAdmin() {
+      let p = /databases/$(database)/documents/admins/$(request.auth.uid);
+      return isPrimarySuperAdmin() || (
+        isVerifiedUser() && exists(p) &&
+        get(p).data.role in ['superadministrador', 'administrador_general']
+      );
+    }
+
+    function isUserBlockedByRestriction(restrictionName) {
+      let p = /databases/$(database)/documents/userRestrictions/$(request.auth.uid);
+      return exists(p) && (
+        get(p).data.accountStatus in ['suspendido', 'desactivado', 'eliminado'] ||
+        restrictionName in get(p).data.restrictions
+      );
+    }
+
+    function isCulturalWallPostData(data) {
+      return ('communityId' in data && data.communityId in ['cultura-only', 'cultura-both']) ||
+        ('categoryTag' in data && data.categoryTag is string && data.categoryTag.matches('^cultura:.*'));
     }
 
     function isValidInstructorCategory(val) {
@@ -1107,9 +1146,11 @@ service cloud.firestore {
 
     match /publicProfiles/{userId} {
       allow get: if isValidId(userId) && isSignedIn();
-      allow list: if isSignedIn()
-        && resource.data.isMinor == false
-        && resource.data.searchableInDirectory == true;
+      allow list: if (
+        isSignedIn() &&
+        resource.data.isMinor == false &&
+        resource.data.searchableInDirectory == true
+      ) || hasStaffPermission('consultar_usuarios');
       allow create: if isValidId(userId)
         && isSignedInOwner(userId)
         && isValidPublicProfile(incoming(), userId)
@@ -2022,19 +2063,34 @@ service cloud.firestore {
         ])
         && data.keys().hasOnly([
           'id', 'reporterId', 'reporterName', 'targetType', 'targetId',
-          'targetSummary', 'reason', 'details', 'status', 'resolutionNote',
+          'targetAuthorUid', 'targetAuthorName', 'targetSummary', 'sector',
+          'reason', 'details', 'evidenceNote', 'status', 'assignedModeratorUid',
+          'assignedModeratorEmail', 'resolutionAction', 'resolutionNote',
           'reviewedBy', 'createdAt', 'updatedAt'
         ])
         && data.id == reportId
         && isValidId(data.id)
         && isValidId(data.reporterId)
         && isValidString(data.reporterName, 1, 120)
-        && (data.targetType is string && data.targetType in ['usuario', 'curso', 'grupo', 'publicacion', 'mensaje', 'biblioteca'])
+        && (data.targetType is string && data.targetType in [
+          'usuario', 'curso', 'grupo', 'publicacion', 'comentario',
+          'contenido_cultural', 'perfil', 'mensaje', 'biblioteca'
+        ])
         && isValidString(data.targetId, 1, 128)
-        && isValidString(data.targetSummary, 0, 300)
+        && (!('targetAuthorUid' in data) || isValidString(data.targetAuthorUid, 0, 128))
+        && (!('targetAuthorName' in data) || isValidString(data.targetAuthorName, 0, 120))
+        && isValidString(data.targetSummary, 0, 400)
+        && (!('sector' in data) || isValidString(data.sector, 0, 60))
         && isValidString(data.reason, 2, 160)
         && isValidString(data.details, 0, 3000)
-        && (data.status is string && data.status in ['pendiente', 'en_revision', 'resuelta', 'desestimada'])
+        && (!('evidenceNote' in data) || isValidString(data.evidenceNote, 0, 1500))
+        && (data.status is string && data.status in [
+          'pendiente', 'en_revision', 'requiere_informacion',
+          'resuelta', 'desestimada', 'derivada_admin'
+        ])
+        && (!('assignedModeratorUid' in data) || isValidString(data.assignedModeratorUid, 0, 128))
+        && (!('assignedModeratorEmail' in data) || isValidString(data.assignedModeratorEmail, 0, 200))
+        && (!('resolutionAction' in data) || isValidString(data.resolutionAction, 0, 120))
         && isValidString(data.resolutionNote, 0, 2000)
         && isValidString(data.reviewedBy, 0, 200)
         && data.createdAt is timestamp
@@ -2043,27 +2099,28 @@ service cloud.firestore {
 
     match /moderationReports/{reportId} {
       allow get: if isValidId(reportId) && (
-        (isVerifiedUser() && existing().reporterId == request.auth.uid) || isAdmin()
+        (isSignedIn() && existing().reporterId == request.auth.uid) ||
+        (hasStaffPermission('revisar_denuncias') && (!isCulturalModeratorOnly() || existing().sector == 'cultura'))
       );
-      allow list: if (isVerifiedUser() && resource.data.reporterId == request.auth.uid) || isSuperAdmin();
+      allow list: if (isSignedIn() && resource.data.reporterId == request.auth.uid) ||
+        (hasStaffPermission('revisar_denuncias') && (!isCulturalModeratorOnly() || resource.data.sector == 'cultura'));
       allow create: if isValidId(reportId)
-        && isVerifiedUser()
+        && isSignedIn()
         && isValidModerationReport(incoming(), reportId)
         && incoming().reporterId == request.auth.uid
         && incoming().status == 'pendiente'
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
       allow update: if isValidId(reportId)
-        && isAdmin()
+        && hasStaffPermission('revisar_denuncias')
+        && (!isCulturalModeratorOnly() || existing().sector == 'cultura')
         && isValidModerationReport(incoming(), reportId)
-        && incoming().id == existing().id
-        && incoming().reporterId == existing().reporterId
-        && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly([
-          'status', 'resolutionNote', 'reviewedBy', 'updatedAt'
+          'status', 'assignedModeratorUid', 'assignedModeratorEmail',
+          'resolutionAction', 'resolutionNote', 'reviewedBy', 'updatedAt'
         ]);
-      allow delete: if isValidId(reportId) && isAdmin();
+      allow delete: if isValidId(reportId) && isSuperAdmin();
     }
 
     function isValidUserSanction(data, sanctionId) {
@@ -2072,17 +2129,33 @@ service cloud.firestore {
           'appealText', 'issuedBy', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'id', 'userId', 'userName', 'sanctionType', 'reason', 'status',
-          'appealText', 'issuedBy', 'createdAt', 'updatedAt'
+          'id', 'userId', 'userName', 'sanctionType', 'sector', 'restrictions',
+          'expiresAtIso', 'reason', 'status', 'appealText', 'appealStatus',
+          'appealResolution', 'appealReviewedBy', 'issuedByUid', 'issuedBy',
+          'createdAt', 'updatedAt'
         ])
         && data.id == sanctionId
         && isValidId(data.id)
         && isValidId(data.userId)
         && isValidString(data.userName, 1, 120)
-        && (data.sanctionType is string && data.sanctionType in ['advertencia', 'suspension', 'revocacion_docente', 'reactivacion'])
+        && (data.sanctionType is string && data.sanctionType in [
+          'advertencia', 'restriccion', 'suspension', 'suspension_temporal',
+          'desactivacion', 'eliminacion_datos', 'revocacion_docente', 'reactivacion'
+        ])
+        && (!('sector' in data) || isValidString(data.sector, 0, 60))
+        && (!('restrictions' in data) || isValidStringList(data.restrictions, 10, 60))
+        && (!('expiresAtIso' in data) || isValidString(data.expiresAtIso, 0, 40))
         && isValidString(data.reason, 2, 2000)
-        && (data.status is string && data.status in ['activa', 'pendiente_apelacion', 'apelacion_aceptada', 'levantada'])
+        && (data.status is string && data.status in [
+          'activa', 'pendiente_apelacion', 'apelacion_aceptada', 'apelacion_rechazada', 'levantada'
+        ])
         && isValidString(data.appealText, 0, 3000)
+        && (!('appealStatus' in data) || (data.appealStatus is string && data.appealStatus in [
+          'sin_apelacion', 'pendiente', 'en_revision', 'aceptada', 'rechazada'
+        ]))
+        && (!('appealResolution' in data) || isValidString(data.appealResolution, 0, 2000))
+        && (!('appealReviewedBy' in data) || isValidString(data.appealReviewedBy, 0, 200))
+        && (!('issuedByUid' in data) || isValidString(data.issuedByUid, 0, 128))
         && isValidString(data.issuedBy, 1, 200)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
@@ -2090,42 +2163,53 @@ service cloud.firestore {
 
     match /userSanctions/{sanctionId} {
       allow get: if isValidId(sanctionId) && (
-        (isVerifiedUser() && existing().userId == request.auth.uid) || isAdmin()
+        (isSignedIn() && existing().userId == request.auth.uid) ||
+        hasStaffPermission('consultar_usuarios') ||
+        (isCulturalModeratorOnly() && existing().sector == 'cultura')
       );
-      allow list: if (isVerifiedUser() && resource.data.userId == request.auth.uid) || isSuperAdmin();
+      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) ||
+        hasStaffPermission('consultar_usuarios') ||
+        (isCulturalModeratorOnly() && resource.data.sector == 'cultura');
       allow create: if isValidId(sanctionId)
-        && isAdmin()
         && isValidUserSanction(incoming(), sanctionId)
+        && incoming().userId != request.auth.uid
         && incoming().createdAt == request.time
-        && incoming().updatedAt == request.time;
+        && incoming().updatedAt == request.time
+        && (
+          (hasStaffPermission('advertir_usuarios') && (!isCulturalModeratorOnly() || incoming().sector == 'cultura') && incoming().sanctionType in ['advertencia', 'restriccion']) ||
+          (hasStaffPermission('suspender_usuarios') && !isCulturalModeratorOnly() && incoming().sanctionType in ['suspension', 'suspension_temporal', 'desactivacion', 'eliminacion_datos']) ||
+          (hasStaffPermission('reactivar_usuarios') && !isCulturalModeratorOnly() && incoming().sanctionType == 'reactivacion')
+        );
       allow update: if isValidId(sanctionId)
         && isValidUserSanction(incoming(), sanctionId)
-        && incoming().id == existing().id
-        && incoming().userId == existing().userId
-        && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && (
           (
-            isVerifiedUser() &&
+            isSignedIn() &&
             existing().userId == request.auth.uid &&
             incoming().status == 'pendiente_apelacion' &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['appealText', 'status', 'updatedAt'])
+            incoming().diff(existing()).affectedKeys().hasOnly(['appealText', 'appealStatus', 'status', 'updatedAt'])
           ) ||
           (
-            isAdmin() &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reason', 'updatedAt'])
+            hasStaffPermission('reactivar_usuarios') &&
+            existing().userId != request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status', 'reason', 'appealStatus', 'appealResolution', 'appealReviewedBy', 'updatedAt'
+            ])
           )
         );
       allow delete: if isValidId(sanctionId) && isSuperAdmin();
     }
 
     match /adminAuditLogs/{logId} {
-      allow get: if isValidId(logId) && isAdmin();
-      allow list: if isSuperAdmin();
+      allow get, list: if hasStaffPermission('consultar_auditorias');
       allow create: if isValidId(logId)
-        && isAdmin()
+        && isActiveStaff()
         && incoming().keys().hasAll(['id', 'adminId', 'adminEmail', 'action', 'targetType', 'targetId', 'details', 'createdAt'])
-        && incoming().keys().hasOnly(['id', 'adminId', 'adminEmail', 'action', 'targetType', 'targetId', 'details', 'createdAt'])
+        && incoming().keys().hasOnly([
+          'id', 'adminId', 'adminEmail', 'adminRole', 'action', 'targetType', 'targetId',
+          'targetLabel', 'reason', 'result', 'permissionUsed', 'sector', 'details', 'createdAt'
+        ])
         && incoming().id == logId
         && incoming().adminId == request.auth.uid
         && isValidString(incoming().adminEmail, 3, 200)
@@ -2137,10 +2221,306 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    function isValidAdminStaffDoc(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'email', 'displayName', 'role', 'customPermissions',
+          'allowedSectors', 'active', 'assignedByUid', 'assignedByEmail',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'role', 'customPermissions',
+          'allowedSectors', 'active', 'assignedByUid', 'assignedByEmail',
+          'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.uid == userId
+        && isValidId(data.uid)
+        && isValidString(data.email, 3, 200)
+        && isValidString(data.displayName, 1, 120)
+        && (data.role is string && data.role in [
+          'superadministrador', 'administrador_general', 'moderador_general',
+          'moderador_cultural', 'administrador_academico', 'organizador'
+        ])
+        && isValidStringList(data.customPermissions, 25, 60)
+        && isValidStringList(data.allowedSectors, 25, 60)
+        && (data.active is bool)
+        && data.assignedByUid == request.auth.uid
+        && isValidString(data.assignedByEmail, 3, 200)
+        && (!('notes' in data) || isValidString(data.notes, 0, 600))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function canDelegateLowerRole(data) {
+      return hasStaffPermission('nombrar_moderadores') &&
+        data.role in ['moderador_general', 'moderador_cultural', 'administrador_academico', 'organizador'] &&
+        !('asignar_roles' in data.customPermissions) &&
+        !('modificar_configuraciones' in data.customPermissions) &&
+        !('crear_sectores' in data.customPermissions) &&
+        !('desactivar_sectores' in data.customPermissions);
+    }
+
     match /admins/{userId} {
-      allow get: if isValidId(userId) && (isOwner(userId) || isSuperAdmin());
-      allow list: if isSuperAdmin();
-      allow create, update, delete: if isValidId(userId) && isSuperAdmin();
+      allow get: if isValidId(userId) && (isOwner(userId) || hasStaffPermission('nombrar_moderadores') || hasStaffPermission('asignar_roles'));
+      allow list: if hasStaffPermission('nombrar_moderadores') || hasStaffPermission('asignar_roles');
+      allow create: if isValidId(userId)
+        && userId != request.auth.uid
+        && isValidAdminStaffDoc(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isSuperAdmin() || canDelegateLowerRole(incoming()));
+      allow update: if isValidId(userId)
+        && userId != request.auth.uid
+        && isValidAdminStaffDoc(incoming(), userId)
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isSuperAdmin() ||
+          (existing().role in ['moderador_general', 'moderador_cultural', 'administrador_academico', 'organizador'] && canDelegateLowerRole(incoming()))
+        );
+      allow delete: if isValidId(userId)
+        && userId != request.auth.uid
+        && (
+          isSuperAdmin() ||
+          (hasStaffPermission('nombrar_moderadores') && existing().role in ['moderador_general', 'moderador_cultural', 'administrador_academico', 'organizador'])
+        );
+    }
+
+    function isValidUserRestriction(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'accountStatus', 'restrictions', 'reason',
+          'warningsCount', 'sanctionsCount', 'updatedByUid', 'updatedByEmail', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'accountStatus', 'restrictions', 'reason',
+          'expiresAtIso', 'warningsCount', 'sanctionsCount', 'updatedByUid', 'updatedByEmail', 'updatedAt'
+        ])
+        && data.uid == userId
+        && isValidId(data.uid)
+        && (data.accountStatus is string && data.accountStatus in [
+          'activo', 'advertido', 'restringido', 'suspendido', 'desactivado', 'eliminado'
+        ])
+        && isValidStringList(data.restrictions, 10, 60)
+        && isValidString(data.reason, 0, 2000)
+        && (data.warningsCount is number && data.warningsCount >= 0)
+        && (data.sanctionsCount is number && data.sanctionsCount >= 0)
+        && data.updatedByUid == request.auth.uid
+        && isValidString(data.updatedByEmail, 3, 200)
+        && data.updatedAt is timestamp;
+    }
+
+    match /userRestrictions/{userId} {
+      allow get: if isValidId(userId) && (isSignedInOwner(userId) || isActiveStaff());
+      allow list: if hasStaffPermission('consultar_usuarios') || hasStaffPermission('revisar_denuncias');
+      allow create, update: if isValidId(userId)
+        && userId != request.auth.uid
+        && isValidUserRestriction(incoming(), userId)
+        && incoming().updatedAt == request.time
+        && (
+          hasStaffPermission('suspender_usuarios') ||
+          hasStaffPermission('reactivar_usuarios') ||
+          (hasStaffPermission('advertir_usuarios') && incoming().accountStatus in ['activo', 'advertido', 'restringido'])
+        );
+      allow delete: if isValidId(userId) && isSuperAdmin();
+    }
+
+    function isValidSectorRequest(data, reqId) {
+      return data.keys().hasAll([
+          'id', 'name', 'description', 'objective', 'targetAudience',
+          'proposedTools', 'justification', 'requesterUid', 'requesterName',
+          'status', 'createdAtIso', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'description', 'objective', 'targetAudience',
+          'proposedTools', 'justification', 'requesterUid', 'requesterName',
+          'status', 'adminComment', 'reviewedBy', 'createdAtIso', 'createdAt', 'updatedAt'
+        ])
+        && data.id == reqId
+        && isValidId(data.id)
+        && isValidString(data.name, 2, 120)
+        && isValidString(data.description, 5, 2000)
+        && isValidString(data.objective, 3, 1200)
+        && isValidString(data.targetAudience, 2, 400)
+        && isValidString(data.proposedTools, 2, 1500)
+        && isValidString(data.justification, 5, 2000)
+        && isValidId(data.requesterUid)
+        && isValidString(data.requesterName, 1, 120)
+        && (data.status is string && data.status in [
+          'pendiente', 'en_evaluacion', 'requiere_modificaciones',
+          'aprobada', 'rechazada', 'en_desarrollo', 'publicada'
+        ])
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /sectorRequests/{requestId} {
+      allow get: if isValidId(requestId) && ((isSignedIn() && existing().requesterUid == request.auth.uid) || hasStaffPermission('editar_sectores'));
+      allow list: if (isSignedIn() && resource.data.requesterUid == request.auth.uid) || hasStaffPermission('editar_sectores');
+      allow create: if isValidId(requestId)
+        && isSignedIn()
+        && isValidSectorRequest(incoming(), requestId)
+        && incoming().requesterUid == request.auth.uid
+        && incoming().status == 'pendiente'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(requestId)
+        && hasStaffPermission('editar_sectores')
+        && isValidSectorRequest(incoming(), requestId)
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminComment', 'reviewedBy', 'updatedAt']);
+      allow delete: if isValidId(requestId) && isSuperAdmin();
+    }
+
+    function isValidIdeaProposal(data, ideaId) {
+      return data.keys().hasAll([
+          'id', 'title', 'category', 'explanation', 'authorUid', 'authorName',
+          'status', 'voterUids', 'votesCount', 'comments', 'createdAtIso', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'title', 'category', 'explanation', 'authorUid', 'authorName',
+          'status', 'voterUids', 'votesCount', 'comments', 'adminResponse',
+          'adminResponderEmail', 'createdAtIso', 'createdAt', 'updatedAt'
+        ])
+        && data.id == ideaId
+        && isValidId(data.id)
+        && isValidString(data.title, 3, 160)
+        && (data.category is string && data.category in [
+          'nuevas_herramientas', 'nuevos_sectores', 'diseno', 'rendimiento',
+          'seguridad', 'comunidad', 'educacion', 'cultura',
+          'inteligencia_artificial', 'comunicacion', 'otras'
+        ])
+        && isValidString(data.explanation, 5, 3000)
+        && isValidId(data.authorUid)
+        && isValidString(data.authorName, 1, 120)
+        && (data.status is string && data.status in [
+          'recibida', 'en_evaluacion', 'aprobada', 'rechazada', 'en_desarrollo', 'implementada'
+        ])
+        && isValidStringList(data.voterUids, 500, 128)
+        && (data.votesCount is number && data.votesCount >= 0 && data.votesCount <= 50000)
+        && (data.comments is list && data.comments.size() <= 100)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /ideaProposals/{ideaId} {
+      allow get: if isValidId(ideaId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.votesCount >= 0;
+      allow create: if isValidId(ideaId)
+        && isSignedIn()
+        && isValidIdeaProposal(incoming(), ideaId)
+        && incoming().authorUid == request.auth.uid
+        && incoming().status == 'recibida'
+        && incoming().votesCount == 1
+        && incoming().voterUids.size() == 1
+        && incoming().voterUids[0] == request.auth.uid
+        && incoming().comments.size() == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(ideaId)
+        && isSignedIn()
+        && isValidIdeaProposal(incoming(), ideaId)
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['voterUids', 'votesCount', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'updatedAt']) ||
+          (hasStaffPermission('editar_sectores') && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminResponse', 'adminResponderEmail', 'updatedAt']))
+        );
+      allow delete: if isValidId(ideaId) && (isSuperAdmin() || (isSignedIn() && existing().authorUid == request.auth.uid));
+    }
+
+    function isValidPlatformSector(data, sectorId) {
+      return data.keys().hasAll([
+          'id', 'name', 'description', 'categories', 'subcategories',
+          'active', 'isCore', 'adminUids', 'moderatorUids', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'description', 'categories', 'subcategories',
+          'active', 'isCore', 'adminUids', 'moderatorUids',
+          'permissionsNote', 'updatedByEmail', 'updatedAt'
+        ])
+        && data.id == sectorId
+        && isValidId(data.id)
+        && isValidString(data.name, 2, 120)
+        && isValidString(data.description, 0, 1500)
+        && isValidStringList(data.categories, 30, 80)
+        && isValidStringList(data.subcategories, 50, 80)
+        && (data.active is bool)
+        && (data.isCore is bool)
+        && isValidStringList(data.adminUids, 20, 128)
+        && isValidStringList(data.moderatorUids, 40, 128)
+        && data.updatedAt is timestamp;
+    }
+
+    match /platformSectors/{sectorId} {
+      allow get: if isValidId(sectorId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.name is string;
+      allow create: if isValidId(sectorId)
+        && hasStaffPermission('crear_sectores')
+        && isValidPlatformSector(incoming(), sectorId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(sectorId)
+        && isValidPlatformSector(incoming(), sectorId)
+        && incoming().updatedAt == request.time
+        && (
+          (hasStaffPermission('editar_sectores') && incoming().active == existing().active) ||
+          hasStaffPermission('desactivar_sectores')
+        );
+      allow delete: if isValidId(sectorId) && isSuperAdmin() && existing().isCore == false;
+    }
+
+    function isValidPlatformEvent(data, eventId) {
+      return data.keys().hasAll([
+          'id', 'title', 'sector', 'dateIso', 'location', 'description',
+          'status', 'organizerUid', 'organizerName', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'title', 'sector', 'category', 'dateIso', 'location', 'description',
+          'status', 'organizerUid', 'organizerName', 'createdAt', 'updatedAt'
+        ])
+        && data.id == eventId
+        && isValidId(data.id)
+        && isValidString(data.title, 2, 160)
+        && isValidString(data.sector, 2, 60)
+        && isValidString(data.dateIso, 4, 40)
+        && isValidString(data.location, 0, 200)
+        && isValidString(data.description, 0, 2000)
+        && (data.status is string && data.status in ['borrador', 'publicado', 'cancelado', 'finalizado'])
+        && isValidId(data.organizerUid)
+        && isValidString(data.organizerName, 1, 120)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /platformEvents/{eventId} {
+      allow get: if isValidId(eventId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.title is string;
+      allow create: if isValidId(eventId)
+        && isValidPlatformEvent(incoming(), eventId)
+        && incoming().organizerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && hasStaffPermission('gestionar_eventos')
+        && (!isCulturalModeratorOnly() || incoming().sector == 'cultura');
+      allow update: if isValidId(eventId)
+        && isValidPlatformEvent(incoming(), eventId)
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && hasStaffPermission('gestionar_eventos')
+        && (!isCulturalModeratorOnly() || (existing().sector == 'cultura' && incoming().sector == 'cultura'));
+      allow delete: if isValidId(eventId)
+        && hasStaffPermission('gestionar_eventos')
+        && (!isCulturalModeratorOnly() || existing().sector == 'cultura');
+    }
+
+    match /adminSettings/{settingId} {
+      allow get, list: if isActiveStaff();
+      allow create, update: if isValidId(settingId)
+        && hasStaffPermission('modificar_configuraciones')
+        && incoming().keys().hasAll(['id', 'allowSectorRequests', 'allowIdeaVoting', 'requireModerationReason', 'localSpamSensitivity', 'zeroCostPolicyLocked', 'updatedAt'])
+        && incoming().keys().hasOnly(['id', 'allowSectorRequests', 'allowIdeaVoting', 'requireModerationReason', 'localSpamSensitivity', 'zeroCostPolicyLocked', 'updatedByEmail', 'updatedAt'])
+        && incoming().id == settingId
+        && incoming().zeroCostPolicyLocked == true
+        && incoming().updatedAt == request.time;
+      allow delete: if false;
     }
 
     match /notifications/{notifId} {
@@ -3218,6 +3598,7 @@ service cloud.firestore {
           'id', 'authorUid', 'author', 'authorAvatar', 'fabroId', 'text', 'likes',
           'origin', 'categoryTag', 'communityId', 'communityName', 'videoEmbed',
           'reactions', 'comments', 'media', 'sharedResource',
+          'moderationStatus', 'moderationReason', 'moderatedBy', 'moderatedAtMs',
           'createdAtLabel', 'createdAtMs', 'poll', 'createdAt', 'updatedAt'
         ])
         && data.id == postId
@@ -3237,6 +3618,10 @@ service cloud.firestore {
         && (!('comments' in data) || (data.comments is list && data.comments.size() <= 100))
         && (!('media' in data) || (data.media is list && data.media.size() <= 4))
         && (!('sharedResource' in data) || data.sharedResource is map)
+        && (!('moderationStatus' in data) || (data.moderationStatus is string && data.moderationStatus in ['visible', 'oculta', 'eliminada']))
+        && (!('moderationReason' in data) || isValidString(data.moderationReason, 0, 600))
+        && (!('moderatedBy' in data) || isValidString(data.moderatedBy, 0, 200))
+        && (!('moderatedAtMs' in data) || (data.moderatedAtMs is number && data.moderatedAtMs >= 0))
         && isValidString(data.createdAtLabel, 1, 40)
         && (data.createdAtMs is number && data.createdAtMs > 0)
         && (!('poll' in data) || (
@@ -3255,9 +3640,11 @@ service cloud.firestore {
       allow list: if isSignedIn() && resource.data.likes >= 0;
       allow create: if isValidId(postId)
         && isSignedIn()
+        && !isUserBlockedByRestriction('no_publicar')
         && isValidPublicWallPost(incoming(), postId)
         && incoming().authorUid == request.auth.uid
         && incoming().likes == 0
+        && (!('moderationStatus' in incoming()) || incoming().moderationStatus == 'visible')
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
       allow update: if isValidId(postId)
@@ -3275,10 +3662,23 @@ service cloud.firestore {
           ) ||
           incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'updatedAt']) ||
           incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'reactions', 'updatedAt']) ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'updatedAt']) ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['poll', 'updatedAt'])
+          (!isUserBlockedByRestriction('no_comentar') && incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'updatedAt'])) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['poll', 'updatedAt']) ||
+          (
+            (
+              (hasStaffPermission('ocultar_publicaciones') && !isCulturalModeratorOnly()) ||
+              (isCulturalModeratorOnly() && isCulturalWallPostData(existing()))
+            ) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'moderationStatus', 'moderationReason', 'moderatedBy', 'moderatedAtMs', 'updatedAt'
+            ])
+          )
         );
-      allow delete: if isValidId(postId) && isSignedIn() && (existing().authorUid == request.auth.uid || isAdmin());
+      allow delete: if isValidId(postId) && isSignedIn() && (
+        existing().authorUid == request.auth.uid ||
+        (hasStaffPermission('eliminar_publicaciones') && !isCulturalModeratorOnly()) ||
+        (isCulturalModeratorOnly() && isCulturalWallPostData(existing()))
+      );
     }
 
     function isValidCloudChatRoom(data, chatId) {
@@ -3331,6 +3731,7 @@ service cloud.firestore {
         allow create: if isValidId(chatId)
           && isValidId(msgId)
           && isSignedIn()
+          && !isUserBlockedByRestriction('no_mensajes')
           && exists(/databases/$(database)/documents/chats/$(chatId))
           && isValidCloudChatMessage(incoming(), chatId, msgId)
           && incoming().createdAt == request.time;

@@ -1,4 +1,8 @@
 import React from 'react';
+import { FabroAdminPanel } from './components/admin/FabroAdminPanel';
+import { CommunityParticipationModal } from './components/admin/CommunityParticipationModal';
+import { ReportContentModal } from './components/admin/ReportContentModal';
+import { UserRestrictionBanner } from './components/admin/UserRestrictionBanner';
 import { FabroAuthModal } from './components/auth/FabroAuthModal';
 import { FabroSplashScreen } from './components/brand/FabroSplashScreen';
 import { CalendarAlarmBanner } from './components/common/CalendarAlarmBanner';
@@ -16,10 +20,12 @@ import { Sector2Wellness } from './components/sectors/Sector2Wellness';
 import { Sector3Social } from './components/sectors/Sector3Social';
 import { Sector4AI } from './components/sectors/Sector4AI';
 import { Sector5ConnectConfig } from './components/sectors/Sector5ConnectConfig';
+import { SectorCulture } from './components/sectors/culture/SectorCulture';
 import { EditSocialProfileModal } from './components/sectors/social/EditSocialProfileModal';
 import { SocialProfileModal } from './components/sectors/social/SocialProfileModal';
 import { SharedResourceReader } from './components/shared/SharedResourceReader';
 import { ToolsHubScreen } from './components/tools/ToolsHubScreen';
+import { AdminProvider } from './context/AdminContext';
 import { EcosystemProvider, useEcosystem } from './context/EcosystemContext';
 
 const EcosystemRouter: React.FC = () => {
@@ -38,19 +44,24 @@ const EcosystemRouter: React.FC = () => {
     <>
       <ColorfulScreenLoader />
       <HybridShell>
+        {sector !== 'admin' && <UserRestrictionBanner />}
         {sector === 'inicio' && <DashboardHome />}
         {sector === 'hoy' && <HoyCosmosScreen />}
         {sector === 'herramientas' && <ToolsHubScreen />}
+        {sector === 'cultura' && <SectorCulture />}
         {sector === 'estudio' && <Sector1Study />}
         {sector === 'bienestar' && <Sector2Wellness />}
         {sector === 'social' && <Sector3Social />}
         {sector === 'ia' && <Sector4AI />}
         {sector === 'configuracion' && <Sector5ConnectConfig />}
+        {sector === 'admin' && <FabroAdminPanel />}
       </HybridShell>
       <InboxQuickCaptureModal />
       <FabroAuthModal />
       <SocialProfileModal />
       <EditSocialProfileModal />
+      <ReportContentModal />
+      <CommunityParticipationModal />
       <FloatingBackgroundChat />
       <FloatingMiniWindow />
       <CalendarAlarmBanner />
@@ -64,7 +75,9 @@ export default function App() {
     <ErrorBoundary>
       <FabroSplashScreen durationMs={1200} />
       <EcosystemProvider>
-        <EcosystemRouter />
+        <AdminProvider>
+          <EcosystemRouter />
+        </AdminProvider>
       </EcosystemProvider>
     </ErrorBoundary>
   );

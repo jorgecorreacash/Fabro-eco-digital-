@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
+import { isInstalledDeviceApp } from '../../lib/firebase';
 import {
   checkUsernameAvailability,
   computeIsMinorFromBirthDate,
@@ -255,6 +256,15 @@ export const FabroAuthModal: React.FC = () => {
             Creá o iniciá sesión con tu FABRO ID para {authModalReason}. Tus apuntes y tareas locales se migrarán automáticamente.
           </div>
         )}
+
+        <div className="rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-2.5 text-[11px] fabro-muted flex items-start gap-2">
+          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+          <span>
+            {isInstalledDeviceApp()
+              ? 'App instalada en tu dispositivo: tu sesión se mantendrá abierta hasta que toques «Cerrar sesión».'
+              : 'Navegador web: por seguridad, ninguna sesión queda abierta al cerrar la pestaña (solo permanece abierta en la app instalada).'}
+          </span>
+        </div>
 
         {/* Tabs */}
         {!resetMode && (

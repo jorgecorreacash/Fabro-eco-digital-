@@ -43,6 +43,7 @@ function renderWeatherIcon(code: number, className = 'w-7 h-7') {
 export const HoyCosmosScreen: React.FC = () => {
   const {
     profile,
+    authUser,
     updateProfile,
     network,
     selectedZodiac,
@@ -207,7 +208,9 @@ export const HoyCosmosScreen: React.FC = () => {
               <span className="font-mono truncate">{timeZone}</span>
             </div>
 
-            <p className="text-sm font-semibold">{greeting}, {profile.displayName}</p>
+            <p className="text-sm font-semibold">
+              {authUser ? `${greeting}, ${authUser.displayName}` : greeting}
+            </p>
             <p className="font-mono text-4xl sm:text-5xl font-extrabold tracking-tight tabular-nums">
               {formattedClock}
             </p>

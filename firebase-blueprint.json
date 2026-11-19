@@ -1472,6 +1472,163 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "chatId", "senderUid", "sender", "text", "time", "createdAtMs", "createdAt"]
+    },
+    "AdminStaffRecord": {
+      "title": "AdminStaffRecord",
+      "description": "Server-enforced RBAC assignment for FABRO ADMIN roles and custom permissions.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "role": {
+          "type": "string",
+          "enum": ["superadministrador", "administrador_general", "moderador_general", "moderador_cultural", "administrador_academico", "organizador"]
+        },
+        "customPermissions": { "type": "array" },
+        "allowedSectors": { "type": "array" },
+        "active": { "type": "boolean" },
+        "assignedByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "assignedByEmail": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "notes": { "type": "string", "maxLength": 600 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "customPermissions", "allowedSectors", "active", "assignedByUid", "assignedByEmail", "createdAt", "updatedAt"]
+    },
+    "UserRestrictionRecord": {
+      "title": "UserRestrictionRecord",
+      "description": "Authoritative moderation status and active platform restrictions for a user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "email": { "type": "string", "maxLength": 200 },
+        "accountStatus": {
+          "type": "string",
+          "enum": ["activo", "advertido", "restringido", "suspendido", "desactivado", "eliminado"]
+        },
+        "restrictions": { "type": "array" },
+        "reason": { "type": "string", "maxLength": 2000 },
+        "expiresAtIso": { "type": "string", "maxLength": 40 },
+        "warningsCount": { "type": "number" },
+        "sanctionsCount": { "type": "number" },
+        "updatedByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "updatedByEmail": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "accountStatus", "restrictions", "reason", "warningsCount", "sanctionsCount", "updatedByUid", "updatedByEmail", "updatedAt"]
+    },
+    "SectorRequestRecord": {
+      "title": "SectorRequestRecord",
+      "description": "User-submitted request proposing a new sector in FABRO.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "description": { "type": "string", "minLength": 5, "maxLength": 2000 },
+        "objective": { "type": "string", "minLength": 3, "maxLength": 1200 },
+        "targetAudience": { "type": "string", "minLength": 2, "maxLength": 400 },
+        "proposedTools": { "type": "string", "minLength": 2, "maxLength": 1500 },
+        "justification": { "type": "string", "minLength": 5, "maxLength": 2000 },
+        "requesterUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "requesterName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "status": {
+          "type": "string",
+          "enum": ["pendiente", "en_evaluacion", "requiere_modificaciones", "aprobada", "rechazada", "en_desarrollo", "publicada"]
+        },
+        "adminComment": { "type": "string", "maxLength": 2000 },
+        "reviewedBy": { "type": "string", "maxLength": 200 },
+        "createdAtIso": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "description", "objective", "targetAudience", "proposedTools", "justification", "requesterUid", "requesterName", "status", "createdAtIso", "createdAt", "updatedAt"]
+    },
+    "IdeaProposalRecord": {
+      "title": "IdeaProposalRecord",
+      "description": "User proposal in the FABRO Ideas and Improvements Inbox with voting and official admin tracking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "category": {
+          "type": "string",
+          "enum": ["nuevas_herramientas", "nuevos_sectores", "diseno", "rendimiento", "seguridad", "comunidad", "educacion", "cultura", "inteligencia_artificial", "comunicacion", "otras"]
+        },
+        "explanation": { "type": "string", "minLength": 5, "maxLength": 3000 },
+        "authorUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "status": {
+          "type": "string",
+          "enum": ["recibida", "en_evaluacion", "aprobada", "rechazada", "en_desarrollo", "implementada"]
+        },
+        "voterUids": { "type": "array" },
+        "votesCount": { "type": "number" },
+        "comments": { "type": "array" },
+        "adminResponse": { "type": "string", "maxLength": 2000 },
+        "adminResponderEmail": { "type": "string", "maxLength": 200 },
+        "createdAtIso": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "category", "explanation", "authorUid", "authorName", "status", "voterUids", "votesCount", "comments", "createdAtIso", "createdAt", "updatedAt"]
+    },
+    "PlatformSectorRecord": {
+      "title": "PlatformSectorRecord",
+      "description": "Governed FABRO sector or module configuration with non-destructive activation toggle.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 1500 },
+        "categories": { "type": "array" },
+        "subcategories": { "type": "array" },
+        "active": { "type": "boolean" },
+        "isCore": { "type": "boolean" },
+        "adminUids": { "type": "array" },
+        "moderatorUids": { "type": "array" },
+        "permissionsNote": { "type": "string", "maxLength": 600 },
+        "updatedByEmail": { "type": "string", "maxLength": 200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "description", "categories", "subcategories", "active", "isCore", "adminUids", "moderatorUids", "updatedAt"]
+    },
+    "PlatformEventRecord": {
+      "title": "PlatformEventRecord",
+      "description": "Cultural, academic, and community events managed by Organizadores and Admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "sector": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "category": { "type": "string", "maxLength": 80 },
+        "dateIso": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "location": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["borrador", "publicado", "cancelado", "finalizado"] },
+        "organizerUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "organizerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "sector", "dateIso", "location", "description", "status", "organizerUid", "organizerName", "createdAt", "updatedAt"]
+    },
+    "AdminSettingsRecord": {
+      "title": "AdminSettingsRecord",
+      "description": "Global FABRO governance and moderation settings restricted to Superadmin/authorized staff.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "allowSectorRequests": { "type": "boolean" },
+        "allowIdeaVoting": { "type": "boolean" },
+        "requireModerationReason": { "type": "boolean" },
+        "localSpamSensitivity": { "type": "string", "enum": ["baja", "media", "alta"] },
+        "zeroCostPolicyLocked": { "type": "boolean" },
+        "updatedByEmail": { "type": "string", "maxLength": 200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "allowSectorRequests", "allowIdeaVoting", "requireModerationReason", "localSpamSensitivity", "zeroCostPolicyLocked", "updatedAt"]
     }
   },
   "firestore": {
@@ -1738,6 +1895,34 @@
     "/chats/{chatId}/messages/{msgId}": {
       "schema": { "$ref": "#/entities/CloudChatMessage" },
       "description": "Real-time cloud chat messages inside a thread."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminStaffRecord" },
+      "description": "Authoritative RBAC role and granular permissions for FABRO ADMIN staff."
+    },
+    "/userRestrictions/{userId}": {
+      "schema": { "$ref": "#/entities/UserRestrictionRecord" },
+      "description": "Authoritative user status and active restrictions enforced across FABRO."
+    },
+    "/sectorRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/SectorRequestRecord" },
+      "description": "Community requests proposing new FABRO sectors."
+    },
+    "/ideaProposals/{ideaId}": {
+      "schema": { "$ref": "#/entities/IdeaProposalRecord" },
+      "description": "FABRO Ideas and Proposals inbox with community votes and admin responses."
+    },
+    "/platformSectors/{sectorId}": {
+      "schema": { "$ref": "#/entities/PlatformSectorRecord" },
+      "description": "Platform sector configurations and non-destructive activation state."
+    },
+    "/platformEvents/{eventId}": {
+      "schema": { "$ref": "#/entities/PlatformEventRecord" },
+      "description": "Cultural, academic, and community events managed by organizers and admins."
+    },
+    "/adminSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/AdminSettingsRecord" },
+      "description": "Governance and security preferences for FABRO ADMIN."
     }
   }
 }

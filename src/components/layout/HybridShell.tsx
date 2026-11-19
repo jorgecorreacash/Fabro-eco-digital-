@@ -2,43 +2,43 @@ import React, { useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Bell,
-  BellRing,
   BookOpen,
   Calculator,
   ChevronLeft,
   ChevronRight,
-  Cloud,
   Cpu,
   HeartPulse,
   Inbox,
+  Landmark,
   LayoutGrid,
+  Lightbulb,
+  LogOut,
   Menu,
   MessageSquare,
   Palette,
   PanelRightClose,
   PanelRightOpen,
   Pin,
-  Plus,
   Search,
   Settings,
-  SlidersHorizontal,
+  Shield,
   SunMoon,
   User,
-  Wifi,
-  WifiOff,
   X,
 } from 'lucide-react';
+import { useAdmin } from '../../context/AdminContext';
 import { useEcosystem } from '../../context/EcosystemContext';
+import { CULTURE_DISCIPLINES } from '../../data/cultureCatalog';
 import {
   ALL_SUBMENUS,
   FABRO_THEMES,
   SECTOR_PALETTES,
   SECTORS_CATALOG,
 } from '../../data/ecosystemCatalog';
+import { isInstalledDeviceApp } from '../../lib/firebase';
 import type { FiveSectorId, SectorId, SubmenuId } from '../../types/ecosystem';
 import { FabroBrandMark } from '../brand/FabroBrandMark';
 import { ScreenIndicatorBar } from '../navigation/ScreenNavigationEffects';
-import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { QuickActionsBar } from './QuickActionsBar';
 import { RightContextPanel } from './RightContextPanel';
 
@@ -71,22 +71,33 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
     unreadNotifications,
     markNotificationRead,
     markAllNotificationsRead,
-    network,
-    measureNetwork,
     rightPanelOpen,
     setRightPanelOpen,
     swipeNextScreen,
     swipePrevScreen,
     screenTransitionTick,
     authUser,
-    syncStatus,
     openAuthModal,
-    updatePresenceStatus,
+    signOutAccount,
     inboxItems,
     setOrganizerActiveTab,
-    setQuickCaptureOpen,
     openSocialProfileModal,
   } = useEcosystem();
+
+  const {
+    isStaff,
+    allReports,
+    openParticipationModal,
+    isSectorDisabledByAdmin,
+  } = useAdmin();
+
+  const pendingReportsBadge = useMemo(
+    () =>
+      isStaff
+        ? allReports.filter((r) => r.status === 'pendiente' || r.status === 'en_revision').length
+        : 0,
+    [isStaff, allReports]
+  );
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarTooltip, setSidebarTooltip] = useState<TooltipAnchor | null>(null);
@@ -94,7 +105,13 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileExpandedSector, setMobileExpandedSector] = useState<FiveSectorId>(
-    sector === 'inicio' || sector === 'hoy' || sector === 'herramientas' ? 'social' : sector
+    sector === 'inicio' ||
+      sector === 'hoy' ||
+      sector === 'herramientas' ||
+      sector === 'cultura' ||
+      sector === 'admin'
+      ? 'social'
+      : sector
   );
   const [globalSearch, setGlobalSearch] = useState('');
   const [headerSearchOpen, setHeaderSearchOpen] = useState(false);
@@ -126,6 +143,8 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
   const activeSectorAccent = useMemo(() => {
     if (sector === 'hoy') return '#06B6D4';
     if (sector === 'herramientas') return '#0EA5E9';
+    if (sector === 'cultura') return '#9A3412';
+    if (sector === 'admin') return '#0F172A';
     if (sector === 'inicio') return 'var(--fabro-accent)';
     return SECTOR_PALETTES[sector]?.primary || 'var(--fabro-accent)';
   }, [sector]);
@@ -167,6 +186,35 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
         description: 'Calculadora científica, conversor universal, cronómetro, divisor de gastos, claves y todas las utilidades.',
       });
     }
+    if (
+      'fabro cultura arte musica literatura cine teatro danza fotografia historia museos bibliotecas artesanias gastronomia folclore turismo filosofia ciencia indigena urbana videojuegos ambiental ciudadana genealogia coleccionismo festivales muro cultural academia'
+        .includes(q)
+    ) {
+      results.push({
+        id: 'cultura-inicio',
+        sector: 'cultura',
+        submenu: 'cultura-inicio',
+        label: 'FABRO Cultura · Disciplinas, Herramientas y Muro Cultural',
+        groupLabel: 'Sector cultural',
+        description: '24 disciplinas artísticas, patrimonio, talleres gratuitos, biblioteca abierta y muro cultural sincronizado.',
+      });
+    }
+    for (const disc of CULTURE_DISCIPLINES) {
+      if (
+        `${disc.label} ${disc.tagline} ${disc.category} ${disc.tools.join(' ')}`
+          .toLowerCase()
+          .includes(q)
+      ) {
+        results.push({
+          id: `cultura-${disc.id}`,
+          sector: 'cultura',
+          submenu: 'cultura-inicio',
+          label: `${disc.label} · FABRO Cultura`,
+          groupLabel: `Cultura · ${disc.category}`,
+          description: disc.tagline,
+        });
+      }
+    }
     for (const item of ALL_SUBMENUS) {
       if (
         `${item.label} ${item.description} ${item.groupLabel} ${item.keywords}`
@@ -183,8 +231,22 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       }
     }
+    if (
+      isStaff &&
+      'fabro admin administracion moderacion denuncias roles permisos auditoria seguridad sectores solicitudes'
+        .includes(q)
+    ) {
+      results.push({
+        id: 'admin-dashboard',
+        sector: 'admin',
+        submenu: 'admin-dashboard',
+        label: 'FABRO ADMIN · Panel de Administración y Moderación',
+        groupLabel: 'Centro privado de control',
+        description: 'Gestión de usuarios, denuncias, roles, sectores, ideas, auditoría y seguridad.',
+      });
+    }
     return results.slice(0, 8);
-  }, [globalSearch]);
+  }, [globalSearch, isStaff]);
 
   const handleMainTouchStart = (e: React.TouchEvent<HTMLElement>) => {
     if (e.touches.length !== 1) return;
@@ -225,11 +287,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const speedText = !network.isOnline
-    ? 'Offline · 0.0M'
-    : network.downlinkMbps !== null
-    ? `${network.downlinkMbps.toFixed(1)} Mbps`
-    : 'Online';
+  const installedDevice = isInstalledDeviceApp();
 
   const showCollapsedTip = (label: string, el: HTMLElement) => {
     if (!sidebarCollapsed) return;
@@ -288,8 +346,8 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
         >
           <button
             type="button"
-            onClick={() => navigateTo('social', 'fabro-id')}
-            onMouseEnter={(e) => showCollapsedTip('FABRO · Ecosistema Digital', e.currentTarget)}
+            onClick={() => navigateTo('social', 'perfil-social')}
+            onMouseEnter={(e) => showCollapsedTip('FABRO · Mi Perfil (Inicio)', e.currentTarget)}
             onMouseLeave={hideCollapsedTip}
             className="cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-[var(--fabro-accent)]"
           >
@@ -304,160 +362,103 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
         </div>
 
         <nav className="flex-1 overflow-y-auto p-2.5 space-y-3.5">
-          {/* Category 1: Inicio y Agenda */}
+          {/* Inicio principal: Mi Perfil */}
           <div className="space-y-1">
             {!sidebarCollapsed && (
               <p className="px-2.5 pb-0.5 text-[10px] font-bold tracking-wider uppercase fabro-muted/90">
-                Inicio y Agenda
+                Inicio principal
               </p>
             )}
             <button
               type="button"
-              onClick={() => navigateTo('inicio', 'dashboard')}
-              onMouseEnter={(e) => showCollapsedTip('Espacio de Trabajo', e.currentTarget)}
+              onClick={() => navigateTo('social', 'perfil-social')}
+              onMouseEnter={(e) => showCollapsedTip('Mi Perfil (Inicio)', e.currentTarget)}
               onMouseLeave={hideCollapsedTip}
-              aria-label="Espacio de Trabajo"
-              className={navItemClass(sector === 'inicio')}
+              aria-label="Mi Perfil — Inicio principal"
+              className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
+                sidebarCollapsed ? 'justify-center px-0' : ''
+              } ${
+                sector === 'social'
+                  ? 'font-semibold text-[var(--fabro-text)]'
+                  : 'border-transparent fabro-muted hover:text-[var(--fabro-text)] hover:bg-[var(--fabro-surface-2)]/70'
+              }`}
+              style={
+                sector === 'social'
+                  ? {
+                      backgroundColor: `${SECTOR_PALETTES.social.primary}1F`,
+                      borderColor: `${SECTOR_PALETTES.social.primary}66`,
+                      boxShadow: `0 4px 14px -6px ${SECTOR_PALETTES.social.shadowRgba}`,
+                    }
+                  : undefined
+              }
             >
-              {sector === 'inicio' && (
+              {sector === 'social' && (
                 <span
                   aria-hidden="true"
                   className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full"
-                  style={{ backgroundColor: activeSectorAccent }}
+                  style={{ backgroundColor: SECTOR_PALETTES.social.primary }}
                 />
               )}
-              <LayoutGrid
+              <User
                 className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
-                  sector === 'inicio' ? 'translate-x-0.5' : ''
+                  sector === 'social' ? 'translate-x-0.5 text-[#7C3AED] dark:text-[#C4B5FD]' : ''
                 }`}
               />
               {!sidebarCollapsed && (
                 <>
-                  <span className="truncate flex-1 text-left">Espacio de Trabajo</span>
-                  <span className="text-[10px] font-mono tabular-nums opacity-75">
-                    {pinnedTools.length}
-                  </span>
+                  <span className="truncate flex-1 text-left">Mi Perfil</span>
+                  <ChevronRight
+                    className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
+                      sector === 'social' ? 'rotate-90' : ''
+                    }`}
+                  />
                 </>
               )}
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setOrganizerActiveTab('inbox');
-                navigateTo('bienestar', 'organizador-integral');
-              }}
-              onMouseEnter={(e) => showCollapsedTip('Organizador Integral', e.currentTarget)}
-              onMouseLeave={hideCollapsedTip}
-              aria-label="Organizador Integral"
-              className={navItemClass(
-                sector === 'bienestar' && submenu === 'organizador-integral'
-              )}
-            >
-              {sector === 'bienestar' && submenu === 'organizador-integral' && (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full"
-                  style={{ backgroundColor: SECTOR_PALETTES.bienestar.primary }}
-                />
-              )}
-              <Inbox
-                className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
-                  sector === 'bienestar' && submenu === 'organizador-integral'
-                    ? 'translate-x-0.5'
-                    : ''
-                }`}
-              />
-              {!sidebarCollapsed && (
-                <>
-                  <span className="truncate flex-1 text-left">Organizador Integral</span>
-                  {inboxItems.length > 0 && (
-                    <span className="text-[10px] font-mono tabular-nums text-[#0EA5E9] font-bold">
-                      {inboxItems.length}
-                    </span>
-                  )}
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setQuickCaptureOpen(true)}
-              onMouseEnter={(e) => showCollapsedTip('Captura Rápida (Inbox)', e.currentTarget)}
-              onMouseLeave={hideCollapsedTip}
-              aria-label="Abrir Captura Rápida"
-              className={navItemClass(false)}
-            >
-              <Plus className="w-4 h-4 shrink-0 text-[#0EA5E9]" />
-              {!sidebarCollapsed && <span className="truncate">Captura Rápida</span>}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigateTo('hoy', 'hoy-cosmos')}
-              onMouseEnter={(e) => showCollapsedTip('Hoy y Cosmos', e.currentTarget)}
-              onMouseLeave={hideCollapsedTip}
-              aria-label="Hoy y Cosmos"
-              className={navItemClass(sector === 'hoy')}
-            >
-              {sector === 'hoy' && (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full bg-[#06B6D4]"
-                />
-              )}
-              <SunMoon
-                className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
-                  sector === 'hoy' ? 'translate-x-0.5' : ''
-                }`}
-              />
-              {!sidebarCollapsed && <span className="truncate">Hoy y Cosmos</span>}
-            </button>
+            {!sidebarCollapsed && sector === 'social' && (
+              <div className="ml-4 pl-2.5 border-l fabro-border/80 py-0.5 space-y-0.5">
+                {(SECTORS_CATALOG.find((s) => s.id === 'social')?.submenus || []).map((sub) => {
+                  const subActive = submenu === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => navigateTo('social', sub.id)}
+                      className={`relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center justify-between gap-2 ${
+                        subActive
+                          ? 'fabro-accent-soft font-semibold'
+                          : 'fabro-muted hover:text-[var(--fabro-text)]'
+                      }`}
+                    >
+                      <span className="truncate">{sub.shortLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Category 2: Ecosistema FABRO */}
+          {/* Sectores principales: 1- Estudio, 2- Cultura, 3- Bienestar, 4- Configuración */}
           <div className="space-y-1 pt-2.5 border-t fabro-border/75">
             {!sidebarCollapsed && (
               <p className="px-2.5 pb-0.5 text-[10px] font-bold tracking-wider uppercase fabro-muted/90">
-                Ecosistema FABRO
+                Sectores
               </p>
             )}
 
-            <button
-              type="button"
-              onClick={() => navigateTo('herramientas', 'centro-herramientas')}
-              onMouseEnter={(e) => showCollapsedTip('Herramientas Multiuso', e.currentTarget)}
-              onMouseLeave={hideCollapsedTip}
-              aria-label="Panel de Herramientas"
-              className={navItemClass(sector === 'herramientas')}
-            >
-              {sector === 'herramientas' && (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full bg-[#0EA5E9]"
-                />
-              )}
-              <Calculator
-                className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
-                  sector === 'herramientas' ? 'translate-x-0.5' : ''
-                }`}
-              />
-              {!sidebarCollapsed && <span className="truncate">Herramientas</span>}
-            </button>
-
-            {SECTORS_CATALOG.map((sec) => {
-              const Icon = SECTOR_ICONS[sec.id];
-              const isSelected = sector === sec.id;
+            {/* 1. Estudio */}
+            {(() => {
+              const sec = SECTORS_CATALOG.find((s) => s.id === 'estudio')!;
+              const isSelected = sector === 'estudio';
               return (
-                <div key={sec.id} className="space-y-1">
+                <div className="space-y-1">
                   <button
                     type="button"
-                    onClick={() => navigateTo(sec.id, sec.defaultSubmenu)}
-                    onMouseEnter={(e) =>
-                      showCollapsedTip(`${sec.number}. ${sec.shortTitle}`, e.currentTarget)
-                    }
+                    onClick={() => navigateTo('estudio', sec.defaultSubmenu)}
+                    onMouseEnter={(e) => showCollapsedTip('1. Estudio', e.currentTarget)}
                     onMouseLeave={hideCollapsedTip}
-                    aria-label={`${sec.number}. ${sec.title}`}
+                    aria-label="1. Estudio"
                     className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
                       sidebarCollapsed ? 'justify-center px-0' : ''
                     } ${
@@ -482,16 +483,214 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                         style={{ backgroundColor: sec.palette.primary }}
                       />
                     )}
-                    <Icon
+                    <BookOpen
                       className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
                         isSelected ? 'translate-x-0.5' : ''
                       }`}
                     />
                     {!sidebarCollapsed && (
                       <>
-                        <span className="truncate flex-1 text-left">
-                          {sec.number}. {sec.shortTitle}
-                        </span>
+                        <span className="truncate flex-1 text-left">1. Estudio</span>
+                        <ChevronRight
+                          className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
+                            isSelected ? 'rotate-90' : ''
+                          }`}
+                        />
+                      </>
+                    )}
+                  </button>
+                  {!sidebarCollapsed && isSelected && (
+                    <div className="ml-4 pl-2.5 border-l fabro-border/80 py-0.5 space-y-0.5">
+                      {sec.submenus.map((sub) => {
+                        const subActive = submenu === sub.id;
+                        const pinned = isToolPinned('estudio', sub.id);
+                        return (
+                          <button
+                            key={sub.id}
+                            type="button"
+                            onClick={() => navigateTo('estudio', sub.id)}
+                            className={`relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center justify-between gap-2 ${
+                              subActive
+                                ? 'fabro-accent-soft font-semibold'
+                                : 'fabro-muted hover:text-[var(--fabro-text)]'
+                            }`}
+                          >
+                            <span className="truncate">{sub.shortLabel}</span>
+                            {pinned && (
+                              <Pin className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* 2. Cultura */}
+            <button
+              type="button"
+              onClick={() => navigateTo('cultura', 'cultura-inicio')}
+              onMouseEnter={(e) => showCollapsedTip('2. Cultura', e.currentTarget)}
+              onMouseLeave={hideCollapsedTip}
+              aria-label="2. Cultura"
+              className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
+                sidebarCollapsed ? 'justify-center px-0' : ''
+              } ${
+                sector === 'cultura'
+                  ? 'font-semibold text-[var(--fabro-text)]'
+                  : 'border-transparent fabro-muted hover:text-[var(--fabro-text)] hover:bg-[var(--fabro-surface-2)]/70'
+              }`}
+              style={
+                sector === 'cultura'
+                  ? {
+                      backgroundColor: 'rgba(154, 52, 18, 0.14)',
+                      borderColor: 'rgba(154, 52, 18, 0.55)',
+                      boxShadow: '0 4px 14px -6px rgba(154, 52, 18, 0.35)',
+                    }
+                  : undefined
+              }
+            >
+              {sector === 'cultura' && (
+                <span
+                  aria-hidden="true"
+                  className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full bg-[#9A3412]"
+                />
+              )}
+              <Landmark
+                className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                  sector === 'cultura' ? 'translate-x-0.5 text-[#9A3412] dark:text-amber-400' : ''
+                }`}
+              />
+              {!sidebarCollapsed && <span className="truncate flex-1 text-left">2. Cultura</span>}
+            </button>
+
+            {/* 3. Bienestar */}
+            {(() => {
+              const sec = SECTORS_CATALOG.find((s) => s.id === 'bienestar')!;
+              const isSelected = sector === 'bienestar';
+              return (
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => navigateTo('bienestar', sec.defaultSubmenu)}
+                    onMouseEnter={(e) => showCollapsedTip('3. Bienestar', e.currentTarget)}
+                    onMouseLeave={hideCollapsedTip}
+                    aria-label="3. Bienestar"
+                    className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
+                      sidebarCollapsed ? 'justify-center px-0' : ''
+                    } ${
+                      isSelected
+                        ? 'font-semibold text-[var(--fabro-text)]'
+                        : 'border-transparent fabro-muted hover:text-[var(--fabro-text)] hover:bg-[var(--fabro-surface-2)]/70'
+                    }`}
+                    style={
+                      isSelected
+                        ? {
+                            backgroundColor: `${sec.palette.primary}1F`,
+                            borderColor: `${sec.palette.primary}66`,
+                            boxShadow: `0 4px 14px -6px ${sec.palette.shadowRgba}`,
+                          }
+                        : undefined
+                    }
+                  >
+                    {isSelected && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full"
+                        style={{ backgroundColor: sec.palette.primary }}
+                      />
+                    )}
+                    <HeartPulse
+                      className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                        isSelected ? 'translate-x-0.5' : ''
+                      }`}
+                    />
+                    {!sidebarCollapsed && (
+                      <>
+                        <span className="truncate flex-1 text-left">3. Bienestar</span>
+                        <ChevronRight
+                          className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
+                            isSelected ? 'rotate-90' : ''
+                          }`}
+                        />
+                      </>
+                    )}
+                  </button>
+                  {!sidebarCollapsed && isSelected && (
+                    <div className="ml-4 pl-2.5 border-l fabro-border/80 py-0.5 space-y-0.5">
+                      {sec.submenus.map((sub) => {
+                        const subActive = submenu === sub.id;
+                        const pinned = isToolPinned('bienestar', sub.id);
+                        return (
+                          <button
+                            key={sub.id}
+                            type="button"
+                            onClick={() => navigateTo('bienestar', sub.id)}
+                            className={`relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center justify-between gap-2 ${
+                              subActive
+                                ? 'fabro-accent-soft font-semibold'
+                                : 'fabro-muted hover:text-[var(--fabro-text)]'
+                            }`}
+                          >
+                            <span className="truncate">{sub.shortLabel}</span>
+                            {pinned && (
+                              <Pin className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* 4. Configuración (incluye IA BYOK e Ideas propuestas para nuevos sectores) */}
+            {(() => {
+              const sec = SECTORS_CATALOG.find((s) => s.id === 'configuracion')!;
+              const isSelected = sector === 'configuracion' || sector === 'ia';
+              return (
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => navigateTo('configuracion', sec.defaultSubmenu)}
+                    onMouseEnter={(e) => showCollapsedTip('4. Configuración', e.currentTarget)}
+                    onMouseLeave={hideCollapsedTip}
+                    aria-label="4. Configuración"
+                    className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
+                      sidebarCollapsed ? 'justify-center px-0' : ''
+                    } ${
+                      isSelected
+                        ? 'font-semibold text-[var(--fabro-text)]'
+                        : 'border-transparent fabro-muted hover:text-[var(--fabro-text)] hover:bg-[var(--fabro-surface-2)]/70'
+                    }`}
+                    style={
+                      isSelected
+                        ? {
+                            backgroundColor: `${sec.palette.primary}1F`,
+                            borderColor: `${sec.palette.primary}66`,
+                            boxShadow: `0 4px 14px -6px ${sec.palette.shadowRgba}`,
+                          }
+                        : undefined
+                    }
+                  >
+                    {isSelected && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full"
+                        style={{ backgroundColor: sec.palette.primary }}
+                      />
+                    )}
+                    <Settings
+                      className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                        isSelected ? 'translate-x-0.5' : ''
+                      }`}
+                    />
+                    {!sidebarCollapsed && (
+                      <>
+                        <span className="truncate flex-1 text-left">4. Configuración</span>
                         <ChevronRight
                           className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
                             isSelected ? 'rotate-90' : ''
@@ -501,130 +700,164 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                     )}
                   </button>
 
-                  {!sidebarCollapsed && isSelected && (
+                  {!sidebarCollapsed && (
                     <div className="ml-4 pl-2.5 border-l fabro-border/80 py-0.5 space-y-0.5">
-                      {sec.submenus.map((sub) => {
-                        const subActive = submenu === sub.id;
-                        const pinned = isToolPinned(sec.id, sub.id);
-                        return (
-                          <button
-                            key={sub.id}
-                            type="button"
-                            onClick={() => navigateTo(sec.id, sub.id)}
-                            className={`relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center justify-between gap-2 ${
-                              subActive
-                                ? 'fabro-accent-soft font-semibold'
-                                : 'fabro-muted hover:text-[var(--fabro-text)]'
-                            }`}
-                          >
-                            <span className="truncate">{sub.shortLabel}</span>
-                            {pinned && (
-                              <Pin
-                                className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400"
-                                aria-label="Fijado en tu espacio"
-                              />
-                            )}
-                          </button>
-                        );
-                      })}
+                      <button
+                        type="button"
+                        onClick={() => navigateTo('ia', 'claves-byok')}
+                        className={`relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center gap-2 ${
+                          sector === 'ia'
+                            ? 'fabro-accent-soft font-semibold'
+                            : 'fabro-muted hover:text-[var(--fabro-text)]'
+                        }`}
+                      >
+                        <Cpu className="w-3.5 h-3.5 shrink-0 text-[#4F46E5] dark:text-[#A5B4FC]" />
+                        <span className="truncate">IA BYOK</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openParticipationModal('ideas')}
+                        className="relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center gap-2 fabro-muted hover:text-[var(--fabro-text)]"
+                      >
+                        <Lightbulb className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <span className="truncate">Ideas nuevos sectores</span>
+                      </button>
+
+                      {sector === 'configuracion' &&
+                        sec.submenus.map((sub) => {
+                          const subActive = submenu === sub.id;
+                          return (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              onClick={() => navigateTo('configuracion', sub.id)}
+                              className={`relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center justify-between gap-2 ${
+                                subActive
+                                  ? 'fabro-accent-soft font-semibold'
+                                  : 'fabro-muted hover:text-[var(--fabro-text)]'
+                              }`}
+                            >
+                              <span className="truncate">{sub.shortLabel}</span>
+                            </button>
+                          );
+                        })}
                     </div>
                   )}
                 </div>
               );
-            })}
+            })()}
           </div>
 
-          {/* Category 3: Sistema */}
-          <div className="pt-2.5 space-y-1 border-t fabro-border/75">
+          {/* Utilidades rápidas */}
+          <div className="space-y-1 pt-2.5 border-t fabro-border/75">
             {!sidebarCollapsed && (
-              <div className="px-2.5 flex items-center justify-between gap-2 pb-0.5">
-                <p className="text-[10px] font-bold tracking-wider uppercase fabro-muted/90">
-                  Sistema
-                </p>
+              <p className="px-2.5 pb-0.5 text-[10px] font-bold tracking-wider uppercase fabro-muted/90">
+                Utilidades
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setOrganizerActiveTab('inbox');
+                navigateTo('bienestar', 'organizador-integral');
+              }}
+              onMouseEnter={(e) => showCollapsedTip('Organizador', e.currentTarget)}
+              onMouseLeave={hideCollapsedTip}
+              aria-label="Organizador"
+              className={navItemClass(
+                sector === 'bienestar' && submenu === 'organizador-integral'
+              )}
+            >
+              <Inbox className="w-4 h-4 shrink-0" />
+              {!sidebarCollapsed && (
+                <>
+                  <span className="truncate flex-1 text-left">Organizador</span>
+                  {inboxItems.length > 0 && (
+                    <span className="text-[10px] font-mono tabular-nums text-[#0EA5E9] font-bold">
+                      {inboxItems.length}
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigateTo('hoy', 'hoy-cosmos')}
+              onMouseEnter={(e) => showCollapsedTip('Hoy y Cosmos', e.currentTarget)}
+              onMouseLeave={hideCollapsedTip}
+              aria-label="Hoy y Cosmos"
+              className={navItemClass(sector === 'hoy')}
+            >
+              <SunMoon className="w-4 h-4 shrink-0" />
+              {!sidebarCollapsed && <span className="truncate">Hoy y Cosmos</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigateTo('herramientas', 'centro-herramientas')}
+              onMouseEnter={(e) => showCollapsedTip('Herramientas', e.currentTarget)}
+              onMouseLeave={hideCollapsedTip}
+              aria-label="Herramientas"
+              className={navItemClass(sector === 'herramientas')}
+            >
+              <Calculator className="w-4 h-4 shrink-0" />
+              {!sidebarCollapsed && <span className="truncate">Herramientas</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigateTo('inicio', 'dashboard')}
+              onMouseEnter={(e) => showCollapsedTip('Espacio de Widgets', e.currentTarget)}
+              onMouseLeave={hideCollapsedTip}
+              aria-label="Espacio de Widgets"
+              className={navItemClass(sector === 'inicio')}
+            >
+              <LayoutGrid className="w-4 h-4 shrink-0" />
+              {!sidebarCollapsed && (
+                <>
+                  <span className="truncate flex-1 text-left">Espacio Widgets</span>
+                  <span className="text-[10px] font-mono tabular-nums opacity-75">
+                    {pinnedTools.length}
+                  </span>
+                </>
+              )}
+            </button>
+
+            {/* FABRO ADMIN: estrictamente oculto para usuarios comunes */}
+            {isStaff && (
+              <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => navigateTo('inicio', 'dashboard')}
-                  className="text-[10px] font-semibold fabro-accent-text hover:underline cursor-pointer"
+                  onClick={() => navigateTo('admin', 'admin-dashboard')}
+                  onMouseEnter={(e) => showCollapsedTip('FABRO ADMIN', e.currentTarget)}
+                  onMouseLeave={hideCollapsedTip}
+                  aria-label="FABRO ADMIN"
+                  className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
+                    sidebarCollapsed ? 'justify-center px-0' : ''
+                  } ${
+                    sector === 'admin'
+                      ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-200 dark:bg-slate-100 dark:text-slate-900'
+                      : 'border-slate-300/80 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60 text-[var(--fabro-text)] hover:border-slate-500'
+                  }`}
                 >
-                  Fijadas ({pinnedTools.length})
+                  <Shield className="w-4 h-4 shrink-0" />
+                  {!sidebarCollapsed && (
+                    <span className="truncate flex-1 text-left">FABRO ADMIN</span>
+                  )}
+                  {!sidebarCollapsed && pendingReportsBadge > 0 && (
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-600 text-white tabular-nums">
+                      {pendingReportsBadge}
+                    </span>
+                  )}
                 </button>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => navigateTo('configuracion', 'notificaciones')}
-              onMouseEnter={(e) => showCollapsedTip('Notificaciones y PWA', e.currentTarget)}
-              onMouseLeave={hideCollapsedTip}
-              aria-label="Notificaciones y PWA"
-              className={navItemClass(
-                sector === 'configuracion' && submenu === 'notificaciones'
-              )}
-            >
-              {sector === 'configuracion' && submenu === 'notificaciones' && (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full"
-                  style={{ backgroundColor: SECTOR_PALETTES.configuracion.primary }}
-                />
-              )}
-              <BellRing className="w-4 h-4 shrink-0" />
-              {!sidebarCollapsed && <span className="truncate">Notificaciones y PWA</span>}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigateTo('configuracion', 'nubes-respaldos')}
-              onMouseEnter={(e) => showCollapsedTip('Nube Spark y Respaldos', e.currentTarget)}
-              onMouseLeave={hideCollapsedTip}
-              aria-label="Nube Spark y Respaldos"
-              className={navItemClass(
-                sector === 'configuracion' && submenu === 'nubes-respaldos'
-              )}
-            >
-              {sector === 'configuracion' && submenu === 'nubes-respaldos' && (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full"
-                  style={{ backgroundColor: SECTOR_PALETTES.configuracion.primary }}
-                />
-              )}
-              <Cloud className="w-4 h-4 shrink-0" />
-              {!sidebarCollapsed && <span className="truncate">Nube y Respaldos</span>}
-            </button>
-
-            {!sidebarCollapsed && pinnedTools.length > 0 && (
-              <div className="pt-1.5 space-y-0.5">
-                {pinnedTools.slice(0, 4).map((entry) => {
-                  const subMeta = ALL_SUBMENUS.find(
-                    (item) => item.sector === entry.sector && item.id === entry.submenu
-                  );
-                  if (!subMeta) return null;
-                  const active = sector === entry.sector && submenu === entry.submenu;
-                  return (
-                    <button
-                      key={entry.key}
-                      type="button"
-                      onClick={() => navigateTo(entry.sector, entry.submenu)}
-                      className={`w-full text-left px-2.5 py-1 rounded-lg text-[11px] cursor-pointer truncate flex items-center justify-between gap-2 ${
-                        active
-                          ? 'fabro-surface-elevated font-semibold'
-                          : 'fabro-muted hover:text-[var(--fabro-text)]'
-                      }`}
-                    >
-                      <span className="truncate flex items-center gap-1.5">
-                        <Pin className="w-2.5 h-2.5 text-amber-500 shrink-0" />
-                        {subMeta.shortLabel}
-                      </span>
-                    </button>
-                  );
-                })}
               </div>
             )}
           </div>
         </nav>
 
-        {/* Sidebar Account Footer */}
+        {/* Sidebar Account Footer with Visible Sign Out */}
         <div className="p-2.5 border-t fabro-border space-y-2 shrink-0">
           <button
             type="button"
@@ -662,19 +895,35 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                     ? `@${authUser.username}`
                     : profile.username
                     ? `@${profile.username}`
-                    : 'Mi Perfil Social'}
+                    : 'Modo Invitado'}
                 </p>
               </div>
             )}
           </button>
-          {!sidebarCollapsed && !authUser && (
+          {authUser ? (
             <button
               type="button"
-              onClick={() => openAuthModal('sincronizar tus datos en la nube', 'register')}
-              className="w-full min-h-[36px] rounded-xl border border-[#7C3AED]/50 bg-[#7C3AED]/12 text-[#6D28D9] dark:text-[#C4B5FD] px-2.5 py-1.5 text-xs font-medium cursor-pointer active:scale-95 transition-all duration-200"
+              onClick={() => void signOutAccount()}
+              onMouseEnter={(e) => showCollapsedTip('Cerrar sesión', e.currentTarget)}
+              onMouseLeave={hideCollapsedTip}
+              aria-label="Cerrar sesión"
+              className={`w-full min-h-[38px] rounded-xl border border-rose-500/45 bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2.5 py-1.5 text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all duration-200 ${
+                sidebarCollapsed ? 'px-0' : ''
+              }`}
             >
-              Iniciar sesión / Registrarme
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
+              {!sidebarCollapsed && <span>Cerrar sesión</span>}
             </button>
+          ) : (
+            !sidebarCollapsed && (
+              <button
+                type="button"
+                onClick={() => openAuthModal('sincronizar tus datos en la nube', 'register')}
+                className="w-full min-h-[38px] rounded-xl border border-[#7C3AED]/50 bg-[#7C3AED]/12 text-[#6D28D9] dark:text-[#C4B5FD] px-2.5 py-1.5 text-xs font-semibold cursor-pointer active:scale-95 transition-all duration-200"
+              >
+                Iniciar sesión
+              </button>
+            )
           )}
         </div>
       </aside>
@@ -722,18 +971,18 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                 type="button"
                 onClick={goBack}
                 aria-label="Volver al módulo anterior"
-                className="min-h-[40px] lg:min-h-[36px] inline-flex items-center gap-1 rounded-xl border fabro-border fabro-surface px-2.5 py-1 text-xs font-medium cursor-pointer whitespace-nowrap shrink-0 active:scale-95"
+                className="hidden sm:inline-flex min-h-[36px] items-center gap-1 rounded-xl border fabro-border fabro-surface px-2.5 py-1 text-xs font-medium cursor-pointer whitespace-nowrap shrink-0 active:scale-95"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Volver</span>
+                <span>Volver</span>
               </button>
             )}
 
             <button
               type="button"
-              onClick={() => navigateTo('social', 'fabro-id')}
+              onClick={() => navigateTo('social', 'perfil-social')}
               className="cursor-pointer shrink-0 px-1 py-0.5 rounded-lg"
-              aria-label="Ir a Social FABRO"
+              aria-label="Ir a Mi Perfil FABRO"
             >
               <FabroBrandMark size="sm" />
             </button>
@@ -813,34 +1062,8 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
             )}
           </div>
 
-          {/* Right Zone: Digital Network/Sync Indicator + Theme Selector + Notifications + Profile */}
+          {/* Right Zone: Streamlined Theme Selector + Notifications + Profile & Sign Out */}
           <div className="flex items-center gap-1.5 shrink-0">
-            <PWAInstallButton compact />
-
-            {/* Digital Network & Cloud Sync Indicator */}
-            <button
-              type="button"
-              onClick={() => void measureNetwork()}
-              title="Medir velocidad de red y estado de sincronización"
-              className="h-9 inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface px-2.5 text-xs font-mono tabular-nums whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              {network.isOnline ? (
-                <Wifi className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" strokeWidth={1.75} />
-              ) : (
-                <WifiOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" strokeWidth={1.75} />
-              )}
-              <span className="hidden xl:inline text-[11px]">{speedText}</span>
-              <span
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  syncStatus === 'cloud-synced'
-                    ? 'bg-emerald-500'
-                    : syncStatus === 'syncing'
-                    ? 'bg-sky-500 animate-pulse'
-                    : 'bg-amber-500'
-                }`}
-                aria-hidden="true"
-              />
-            </button>
 
             {/* Theme Quick Switcher */}
             <div ref={themeMenuRef} className="relative">
@@ -973,14 +1196,15 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               )}
             </div>
 
-            {/* User Profile / Mi Perfil Social + FABRO ID */}
+            {/* User Profile + 1-Tap Sign Out (Mobile & Desktop) */}
             {authUser ? (
-              <div className="h-9 inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface px-2 text-xs shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => openSocialProfileModal('publicaciones')}
                   title={`Abrir Mi Perfil Social (@${authUser.username})`}
-                  className="inline-flex items-center gap-1.5 cursor-pointer min-w-0"
+                  aria-label="Abrir Mi Perfil Social"
+                  className="min-h-[40px] lg:min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface px-2 text-xs cursor-pointer active:scale-95 shrink-0"
                 >
                   {profile.photoURL || authUser.photoURL ? (
                     <img
@@ -994,57 +1218,30 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                       {authUser.displayName.slice(0, 2).toUpperCase()}
                     </span>
                   )}
-                  <span className="hidden md:inline font-mono font-semibold text-[11px] text-[#6D28D9] dark:text-[#C4B5FD] max-w-[92px] truncate">
+                  <span className="hidden md:inline font-mono font-semibold text-[11px] text-[#6D28D9] dark:text-[#C4B5FD] max-w-[96px] truncate">
                     @{authUser.username}
                   </span>
                 </button>
-                <select
-                  value={authUser.presenceStatus}
-                  onChange={(e) =>
-                    void updatePresenceStatus(
-                      e.target.value as 'online' | 'focus' | 'invisible'
-                    )
-                  }
-                  aria-label="Estado de presencia"
-                  className="hidden xl:inline rounded-md border fabro-border fabro-surface-elevated px-1.5 py-0.5 text-[11px] font-medium cursor-pointer fabro-input"
+                <button
+                  type="button"
+                  onClick={() => void signOutAccount()}
+                  title="Cerrar sesión"
+                  aria-label="Cerrar sesión"
+                  className="min-h-[40px] lg:min-h-[36px] inline-flex items-center justify-center gap-1 rounded-xl border border-rose-500/55 bg-rose-500/12 text-rose-600 dark:text-rose-400 px-2.5 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
                 >
-                  <option value="online">En línea</option>
-                  <option value="focus">Enfoque</option>
-                  <option value="invisible">Invisible</option>
-                </select>
+                  <LogOut className="w-3.5 h-3.5 shrink-0" />
+                  <span>Salir</span>
+                </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => openSocialProfileModal('publicaciones')}
-                  title="Abrir Mi Perfil Social"
-                  aria-label="Abrir Mi Perfil Social"
-                  className="h-9 inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface px-2 text-xs font-medium cursor-pointer active:scale-95 shrink-0"
-                >
-                  {profile.photoURL ? (
-                    <img
-                      src={profile.photoURL}
-                      alt={profile.displayName}
-                      className="w-6 h-6 rounded-md object-cover shrink-0"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <span className="w-6 h-6 rounded-md bg-[#7C3AED] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                      {(profile.displayName || 'FA').slice(0, 2).toUpperCase()}
-                    </span>
-                  )}
-                  <span className="hidden md:inline max-w-[82px] truncate">Mi Perfil</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openAuthModal('sincronizar tus datos en la nube', 'login')}
-                  className="h-9 inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] text-white px-3 text-xs font-medium cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
-                >
-                  <User className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">Entrar</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => openAuthModal('sincronizar tus datos en la nube', 'login')}
+                className="min-h-[40px] lg:min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] text-white px-3 text-xs font-semibold cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
+              >
+                <User className="w-3.5 h-3.5 shrink-0" />
+                <span>Entrar</span>
+              </button>
             )}
 
             {/* Right Contextual Panel Toggle (Desktop) */}
@@ -1075,87 +1272,41 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               <ScreenIndicatorBar />
 
               <div key={screenTransitionTick} className="fabro-screen-enter space-y-5">
-                {children}
-              </div>
-
-              {/* Footer with Functional General Search (Mobile + Quick Bottom Discovery) */}
-              <footer className="no-print mt-10 pt-6 border-t fabro-border space-y-4">
-                <div className="rounded-2xl border fabro-surface p-4 sm:p-5 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold fabro-accent-text">
-                        Buscador general del ecosistema
+                {sector !== 'admin' && isSectorDisabledByAdmin(sector) && (
+                  <section className="rounded-2xl border border-amber-500/50 bg-amber-50/90 dark:bg-amber-950/30 p-5 space-y-2 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                        Este sector está temporalmente pausado por administración
                       </p>
-                      <p className="text-xs fabro-muted">
-                        Encontrá cualquier sector, herramienta o pantalla (clima, luna, horóscopo, apuntes, BYOK...).
-                      </p>
-                    </div>
-                    <div className="relative w-full sm:w-80">
-                      <Search className="w-4 h-4 fabro-muted absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
-                      <input
-                        type="search"
-                        value={globalSearch}
-                        onChange={(e) => setGlobalSearch(e.target.value)}
-                        placeholder="Buscar clima, luna, apuntes, BYOK..."
-                        aria-label="Buscador general inferior de FABRO"
-                        className="w-full h-9 rounded-xl border fabro-border fabro-surface-elevated pl-9 pr-8 text-xs fabro-input"
-                      />
-                      {globalSearch && (
+                      {isStaff && (
                         <button
                           type="button"
-                          onClick={() => setGlobalSearch('')}
-                          aria-label="Limpiar búsqueda"
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 fabro-muted cursor-pointer"
+                          onClick={() => navigateTo('admin', 'admin-dashboard')}
+                          className="rounded-lg bg-slate-900 text-white px-3 py-1.5 font-semibold cursor-pointer"
                         >
-                          <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+                          Gestionar en FABRO ADMIN
                         </button>
                       )}
                     </div>
-                  </div>
+                    <p className="text-amber-800 dark:text-amber-300 leading-relaxed">
+                      Todos tus datos, publicaciones, archivos y usuarios permanecen intactos. Mientras el sector está en mantenimiento o pausa administrativa, podés navegar por el resto de FABRO.
+                    </p>
+                  </section>
+                )}
+                {(sector === 'admin' || !isSectorDisabledByAdmin(sector) || isStaff) && children}
+              </div>
 
-                  {globalSearch.trim() !== '' && (
-                    <div className="pt-2 border-t fabro-border">
-                      {searchResults.length === 0 ? (
-                        <p className="text-xs fabro-muted">
-                          No se encontraron herramientas para «{globalSearch}».
-                        </p>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {searchResults.map((res) => (
-                            <button
-                              key={res.id}
-                              type="button"
-                              onClick={() => {
-                                navigateTo(res.sector, res.submenu);
-                                setGlobalSearch('');
-                              }}
-                              className="text-left rounded-xl border fabro-border fabro-surface-elevated p-3 hover:border-[var(--fabro-accent)] transition-colors cursor-pointer"
-                            >
-                              <p className="text-xs font-semibold">{res.label}</p>
-                              <p className="text-[11px] fabro-muted mt-0.5 truncate">
-                                {res.groupLabel} · {res.description}
-                              </p>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs fabro-muted">
-                  <button
-                    type="button"
-                    onClick={() => navigateTo('social', 'fabro-id')}
-                    className="cursor-pointer text-left"
-                    aria-label="FABRO — Ecosistema Digital"
-                  >
-                    <FabroBrandMark size="sm" showIdentity />
-                  </button>
-                  <p>
-                    FABRO es tu Ecosistema Digital Offline-First · Espacio configurable, mensajería sin conexión y BYOK
-                  </p>
-                </div>
+              {/* Clean Minimal Brand Footer */}
+              <footer className="no-print mt-10 pt-5 border-t fabro-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs fabro-muted">
+                <button
+                  type="button"
+                  onClick={() => navigateTo('social', 'fabro-id')}
+                  className="cursor-pointer text-left"
+                  aria-label="FABRO — Ecosistema Digital"
+                >
+                  <FabroBrandMark size="sm" showIdentity />
+                </button>
+                <p>Ecosistema Digital Offline-First · Privacidad local y BYOK</p>
               </footer>
             </div>
           </main>
@@ -1193,7 +1344,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-5">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Mobile Quick Global Search */}
               <div className="relative">
                 <Search className="w-3.5 h-3.5 fabro-muted absolute left-3 top-1/2 -translate-y-1/2" />
@@ -1202,139 +1353,98 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   value={globalSearch}
                   onChange={(e) => setGlobalSearch(e.target.value)}
                   placeholder="Buscar herramienta..."
-                  className="min-h-[42px] w-full rounded-xl border fabro-border fabro-surface-elevated pl-9 pr-3 text-xs fabro-input"
+                  className="min-h-[44px] w-full rounded-xl border fabro-border fabro-surface-elevated pl-9 pr-3 text-xs fabro-input"
                 />
               </div>
 
-              {/* Primary Panels */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateTo('social', 'fabro-id');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`min-h-[42px] rounded-xl border px-3 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer ${
-                    sector === 'social' && submenu === 'fabro-id'
-                      ? 'border-[#7C3AED] bg-[#7C3AED]/12 text-[#6D28D9] dark:text-[#C4B5FD]'
-                      : 'fabro-border fabro-surface-elevated'
-                  }`}
-                >
-                  <MessageSquare className="w-4 h-4 shrink-0" />
-                  Red Social
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateTo('inicio', 'dashboard');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`min-h-[42px] rounded-xl border px-3 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer ${
-                    sector === 'inicio'
-                      ? 'fabro-accent-border fabro-accent-soft fabro-accent-text'
-                      : 'fabro-border fabro-surface-elevated'
-                  }`}
-                >
-                  <SlidersHorizontal className="w-4 h-4 shrink-0" />
-                  Mi Espacio
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateTo('hoy', 'hoy-cosmos');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`col-span-2 min-h-[42px] rounded-xl border px-3 py-2 text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer ${
-                    sector === 'hoy'
-                      ? 'border-[#06B6D4] bg-[#06B6D4]/12 text-[#0284C7] dark:text-[#38BDF8]'
-                      : 'fabro-border fabro-surface-elevated'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <SunMoon className="w-4 h-4 shrink-0" />
-                    Hoy y Cosmos · Hora, Clima, Luna y Frases
-                  </span>
-                  <ChevronRight className="w-4 h-4 shrink-0" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateTo('herramientas', 'centro-herramientas');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`col-span-2 min-h-[42px] rounded-xl border px-3 py-2 text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer ${
-                    sector === 'herramientas'
-                      ? 'border-[#0EA5E9] bg-[#0EA5E9]/12 text-[#0284C7] dark:text-[#38BDF8]'
-                      : 'fabro-border fabro-surface-elevated'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Calculator className="w-4 h-4 shrink-0" />
-                    Herramientas · Calculadora y Suite Multiuso
-                  </span>
-                  <ChevronRight className="w-4 h-4 shrink-0" />
-                </button>
-              </div>
-
-              {/* Pinned Shortcuts */}
-              {pinnedTools.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider fabro-gold-text flex items-center gap-1.5">
-                    <Pin className="w-3.5 h-3.5" />
-                    Fijadas en tu Espacio
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {pinnedTools.map((entry) => {
-                      const subMeta = ALL_SUBMENUS.find(
-                        (m) => m.sector === entry.sector && m.id === entry.submenu
-                      );
-                      if (!subMeta) return null;
-                      return (
-                        <button
-                          key={entry.key}
-                          type="button"
-                          onClick={() => {
-                            navigateTo(entry.sector, entry.submenu);
-                            setMobileMenuOpen(false);
-                          }}
-                          className="min-h-[36px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-1.5 text-xs font-medium cursor-pointer"
-                        >
-                          {subMeta.shortLabel}
-                        </button>
-                      );
-                    })}
-                  </div>
+              {globalSearch.trim() !== '' && (
+                <div className="space-y-1.5">
+                  {searchResults.length === 0 ? (
+                    <p className="text-xs fabro-muted px-1">Sin resultados para «{globalSearch}».</p>
+                  ) : (
+                    searchResults.slice(0, 5).map((res) => (
+                      <button
+                        key={res.id}
+                        type="button"
+                        onClick={() => {
+                          navigateTo(res.sector, res.submenu);
+                          setGlobalSearch('');
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full min-h-[44px] text-left rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-xs cursor-pointer"
+                      >
+                        <p className="font-semibold truncate">{res.label}</p>
+                        <p className="text-[11px] fabro-muted truncate">{res.groupLabel}</p>
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
 
-              {/* All 5 Sectors + Expandable Submenus */}
-              <div className="space-y-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider fabro-muted">
-                  Menú de Sectores y Submenús
+              {/* Inicio Principal: Mi Perfil */}
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-bold tracking-wider uppercase fabro-muted">
+                  Inicio principal
                 </p>
-                {SECTORS_CATALOG.map((sec) => {
-                  const Icon = SECTOR_ICONS[sec.id];
-                  const expanded = mobileExpandedSector === sec.id;
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigateTo('social', 'perfil-social');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer ${
+                      sector === 'social' && submenu === 'perfil-social'
+                        ? 'border-[#7C3AED] bg-[#7C3AED]/12 text-[#6D28D9] dark:text-[#C4B5FD]'
+                        : 'fabro-border fabro-surface-elevated'
+                    }`}
+                  >
+                    <User className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Mi Perfil</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigateTo('social', 'fabro-id');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer ${
+                      sector === 'social' && submenu !== 'perfil-social'
+                        ? 'border-[#7C3AED] bg-[#7C3AED]/12 text-[#6D28D9] dark:text-[#C4B5FD]'
+                        : 'fabro-border fabro-surface-elevated'
+                    }`}
+                  >
+                    <MessageSquare className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Muro Social</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Sectores: 1. Estudio, 2. Cultura, 3. Bienestar, 4. Configuración */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold tracking-wider uppercase fabro-muted">
+                  Sectores
+                </p>
+
+                {/* 1. Estudio */}
+                {(() => {
+                  const sec = SECTORS_CATALOG.find((s) => s.id === 'estudio')!;
+                  const expanded = mobileExpandedSector === 'estudio';
                   return (
-                    <div
-                      key={sec.id}
-                      className="rounded-xl border fabro-border fabro-surface-elevated overflow-hidden"
-                    >
+                    <div className="rounded-xl border fabro-border fabro-surface-elevated overflow-hidden">
                       <button
                         type="button"
-                        onClick={() => setMobileExpandedSector(sec.id)}
-                        className="w-full min-h-[42px] px-3 py-2 flex items-center justify-between gap-2 text-xs font-semibold cursor-pointer"
+                        onClick={() => setMobileExpandedSector('estudio')}
+                        className="w-full min-h-[44px] px-3 py-2 flex items-center justify-between gap-2 text-xs font-semibold cursor-pointer"
                       >
                         <span className="flex items-center gap-2.5 min-w-0">
                           <span
                             className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
                             style={{ background: sec.palette.gradientCss }}
                           >
-                            <Icon className="w-3.5 h-3.5" />
+                            <BookOpen className="w-3.5 h-3.5" />
                           </span>
-                          <span className="truncate">
-                            {sec.number}. {sec.title}
-                          </span>
+                          <span className="truncate">1. Estudio</span>
                         </span>
                         <ChevronRight
                           className={`w-4 h-4 shrink-0 transition-transform ${
@@ -1342,29 +1452,25 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                           }`}
                         />
                       </button>
-
                       {expanded && (
-                        <div className="px-3 pb-3 pt-1 border-t fabro-border space-y-1">
+                        <div className="px-3 pb-2.5 pt-1 border-t fabro-border space-y-1">
                           {sec.submenus.map((sub) => {
-                            const active = sector === sec.id && submenu === sub.id;
+                            const active = sector === 'estudio' && submenu === sub.id;
                             return (
                               <button
                                 key={sub.id}
                                 type="button"
                                 onClick={() => {
-                                  navigateTo(sec.id, sub.id);
+                                  navigateTo('estudio', sub.id);
                                   setMobileMenuOpen(false);
                                 }}
-                                className={`w-full min-h-[38px] rounded-lg px-2.5 py-1.5 text-left text-xs flex items-center justify-between gap-2 cursor-pointer ${
+                                className={`w-full min-h-[40px] rounded-lg px-2.5 py-1.5 text-left text-xs flex items-center justify-between gap-2 cursor-pointer ${
                                   active
                                     ? 'fabro-accent-soft font-semibold'
                                     : 'fabro-muted hover:opacity-100'
                                 }`}
                               >
-                                <span className="truncate">{sub.label}</span>
-                                {isToolPinned(sec.id, sub.id) && (
-                                  <Pin className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                                )}
+                                <span className="truncate">{sub.shortLabel}</span>
                               </button>
                             );
                           })}
@@ -1372,43 +1478,313 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                       )}
                     </div>
                   );
-                })}
+                })()}
+
+                {/* 2. Cultura */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigateTo('cultura', 'cultura-inicio');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer ${
+                    sector === 'cultura'
+                      ? 'border-[#9A3412] bg-[#9A3412]/12 text-[#9A3412] dark:text-amber-300'
+                      : 'fabro-border fabro-surface-elevated'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #9A3412, #1E3A8A)' }}
+                    >
+                      <Landmark className="w-3.5 h-3.5" />
+                    </span>
+                    <span>2. Cultura</span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 shrink-0" />
+                </button>
+
+                {/* 3. Bienestar */}
+                {(() => {
+                  const sec = SECTORS_CATALOG.find((s) => s.id === 'bienestar')!;
+                  const expanded = mobileExpandedSector === 'bienestar';
+                  return (
+                    <div className="rounded-xl border fabro-border fabro-surface-elevated overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setMobileExpandedSector('bienestar')}
+                        className="w-full min-h-[44px] px-3 py-2 flex items-center justify-between gap-2 text-xs font-semibold cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
+                            style={{ background: sec.palette.gradientCss }}
+                          >
+                            <HeartPulse className="w-3.5 h-3.5" />
+                          </span>
+                          <span className="truncate">3. Bienestar</span>
+                        </span>
+                        <ChevronRight
+                          className={`w-4 h-4 shrink-0 transition-transform ${
+                            expanded ? 'rotate-90' : ''
+                          }`}
+                        />
+                      </button>
+                      {expanded && (
+                        <div className="px-3 pb-2.5 pt-1 border-t fabro-border space-y-1">
+                          {sec.submenus.map((sub) => {
+                            const active = sector === 'bienestar' && submenu === sub.id;
+                            return (
+                              <button
+                                key={sub.id}
+                                type="button"
+                                onClick={() => {
+                                  navigateTo('bienestar', sub.id);
+                                  setMobileMenuOpen(false);
+                                }}
+                                className={`w-full min-h-[40px] rounded-lg px-2.5 py-1.5 text-left text-xs flex items-center justify-between gap-2 cursor-pointer ${
+                                  active
+                                    ? 'fabro-accent-soft font-semibold'
+                                    : 'fabro-muted hover:opacity-100'
+                                }`}
+                              >
+                                <span className="truncate">{sub.shortLabel}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* 4. Configuración (IA BYOK + Ideas y propuestas para nuevos sectores) */}
+                {(() => {
+                  const sec = SECTORS_CATALOG.find((s) => s.id === 'configuracion')!;
+                  const expanded = mobileExpandedSector === 'configuracion' || sector === 'configuracion' || sector === 'ia';
+                  return (
+                    <div className="rounded-xl border fabro-border fabro-surface-elevated overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setMobileExpandedSector('configuracion')}
+                        className="w-full min-h-[44px] px-3 py-2 flex items-center justify-between gap-2 text-xs font-semibold cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
+                            style={{ background: sec.palette.gradientCss }}
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </span>
+                          <span className="truncate">4. Configuración</span>
+                        </span>
+                        <ChevronRight
+                          className={`w-4 h-4 shrink-0 transition-transform ${
+                            expanded ? 'rotate-90' : ''
+                          }`}
+                        />
+                      </button>
+                      {expanded && (
+                        <div className="px-3 pb-2.5 pt-1 border-t fabro-border space-y-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigateTo('ia', 'claves-byok');
+                              setMobileMenuOpen(false);
+                            }}
+                            className={`w-full min-h-[40px] rounded-lg px-2.5 py-1.5 text-left text-xs flex items-center gap-2 cursor-pointer ${
+                              sector === 'ia'
+                                ? 'fabro-accent-soft font-semibold'
+                                : 'fabro-muted hover:opacity-100'
+                            }`}
+                          >
+                            <Cpu className="w-3.5 h-3.5 shrink-0 text-[#4F46E5] dark:text-[#A5B4FC]" />
+                            <span className="truncate">IA BYOK</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              openParticipationModal('ideas');
+                            }}
+                            className="w-full min-h-[40px] rounded-lg px-2.5 py-1.5 text-left text-xs flex items-center gap-2 fabro-muted hover:opacity-100 cursor-pointer"
+                          >
+                            <Lightbulb className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                            <span className="truncate">Ideas y propuestas para nuevos sectores</span>
+                          </button>
+
+                          {sec.submenus.map((sub) => {
+                            const active = sector === 'configuracion' && submenu === sub.id;
+                            return (
+                              <button
+                                key={sub.id}
+                                type="button"
+                                onClick={() => {
+                                  navigateTo('configuracion', sub.id);
+                                  setMobileMenuOpen(false);
+                                }}
+                                className={`w-full min-h-[40px] rounded-lg px-2.5 py-1.5 text-left text-xs flex items-center justify-between gap-2 cursor-pointer ${
+                                  active
+                                    ? 'fabro-accent-soft font-semibold'
+                                    : 'fabro-muted hover:opacity-100'
+                                }`}
+                              >
+                                <span className="truncate">{sub.shortLabel}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
-              {/* Color Templates Quick Selector */}
-              <div className="space-y-2 pt-2 border-t fabro-border">
-                <p className="text-[11px] font-bold uppercase tracking-wider fabro-muted">
-                  Plantillas de color ({FABRO_THEMES.length})
+              {/* Utilidades rápidas */}
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-bold tracking-wider uppercase fabro-muted">
+                  Utilidades
                 </p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {FABRO_THEMES.map((item) => {
-                    const active = theme === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setTheme(item.id)}
-                        className={`min-h-[38px] rounded-lg border px-2.5 py-1.5 text-left text-[11px] flex items-center justify-between gap-1 cursor-pointer ${
-                          active
-                            ? 'fabro-accent-border fabro-accent-soft font-semibold'
-                            : 'fabro-border fabro-surface-elevated'
-                        }`}
-                      >
-                        <span className="truncate">{item.name}</span>
-                        <span className="flex items-center gap-0.5 shrink-0">
-                          {item.swatches.slice(0, 2).map((hex) => (
-                            <span
-                              key={hex}
-                              className="w-2.5 h-2.5 rounded-sm border fabro-border"
-                              style={{ backgroundColor: hex }}
-                            />
-                          ))}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrganizerActiveTab('inbox');
+                      navigateTo('bienestar', 'organizador-integral');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="min-h-[42px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer"
+                  >
+                    <Inbox className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Organizador</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigateTo('hoy', 'hoy-cosmos');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="min-h-[42px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer"
+                  >
+                    <SunMoon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Hoy y Cosmos</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigateTo('herramientas', 'centro-herramientas');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="min-h-[42px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer"
+                  >
+                    <Calculator className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Herramientas</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigateTo('inicio', 'dashboard');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="min-h-[42px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer"
+                  >
+                    <LayoutGrid className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Widgets</span>
+                  </button>
                 </div>
+
+                {isStaff && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigateTo('admin', 'admin-dashboard');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full min-h-[44px] rounded-xl border px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer ${
+                      sector === 'admin'
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-400/70 bg-slate-100/80 dark:bg-slate-800/70 text-[var(--fabro-text)]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 shrink-0" />
+                      FABRO ADMIN · Panel privado
+                    </span>
+                    {pendingReportsBadge > 0 ? (
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-600 text-white tabular-nums">
+                        {pendingReportsBadge}
+                      </span>
+                    ) : (
+                      <ChevronRight className="w-4 h-4 shrink-0" />
+                    )}
+                  </button>
+                )}
               </div>
+            </div>
+
+            {/* Pinned Mobile Drawer Account & Sign-Out Footer (Always Visible in Thumb Zone) */}
+            <div className="p-3.5 border-t fabro-border fabro-surface-elevated space-y-2.5 shrink-0 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  openSocialProfileModal('publicaciones');
+                }}
+                className="w-full min-h-[44px] flex items-center gap-2.5 rounded-xl border fabro-border fabro-surface px-3 py-2 text-left cursor-pointer active:scale-[0.99]"
+              >
+                {profile.photoURL || authUser?.photoURL ? (
+                  <img
+                    src={profile.photoURL || authUser?.photoURL}
+                    alt={profile.displayName}
+                    className="w-8 h-8 rounded-lg object-cover border fabro-border shrink-0"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-lg fabro-accent-soft flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold truncate">
+                    {authUser ? authUser.displayName : profile.displayName}
+                  </p>
+                  <p className="text-[11px] fabro-muted truncate">
+                    {authUser
+                      ? `@${authUser.username} · ${
+                          installedDevice ? 'App instalada' : 'Sesión temporal web'
+                        }`
+                      : 'Modo Invitado · Abrir perfil'}
+                  </p>
+                </div>
+              </button>
+
+              {authUser ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void signOutAccount();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full min-h-[46px] rounded-xl border-2 border-rose-500/60 bg-rose-500/12 text-rose-600 dark:text-rose-400 px-4 py-2 text-xs font-extrabold inline-flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <LogOut className="w-4 h-4 shrink-0" />
+                  <span>Cerrar sesión</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openAuthModal('sincronizar tus datos en la nube', 'login');
+                  }}
+                  className="w-full min-h-[46px] rounded-xl border border-[#7C3AED] bg-[#7C3AED] text-white px-4 py-2 text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <User className="w-4 h-4 shrink-0" />
+                  <span>Iniciar sesión / Crear FABRO ID</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1422,22 +1798,13 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
         {(
           [
             {
-              id: 'social',
-              label: 'Social',
-              icon: MessageSquare,
+              id: 'perfil',
+              label: 'Perfil',
+              icon: User,
               active: sector === 'social',
               color: SECTOR_PALETTES.social.primary,
               soft: SECTOR_PALETTES.social.softBgCss,
-              onClick: () => navigateTo('social', 'fabro-id'),
-            },
-            {
-              id: 'inicio',
-              label: 'Espacio',
-              icon: LayoutGrid,
-              active: sector === 'inicio',
-              color: 'var(--fabro-accent)',
-              soft: 'var(--fabro-accent-soft)',
-              onClick: () => navigateTo('inicio', 'dashboard'),
+              onClick: () => navigateTo('social', 'perfil-social'),
             },
             {
               id: 'estudio',
@@ -1447,6 +1814,15 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               color: SECTOR_PALETTES.estudio.primary,
               soft: SECTOR_PALETTES.estudio.softBgCss,
               onClick: () => navigateTo('estudio', 'academico-panel'),
+            },
+            {
+              id: 'cultura',
+              label: 'Cultura',
+              icon: Landmark,
+              active: sector === 'cultura',
+              color: '#9A3412',
+              soft: 'rgba(154, 52, 18, 0.14)',
+              onClick: () => navigateTo('cultura', 'cultura-inicio'),
             },
             {
               id: 'bienestar',
@@ -1461,9 +1837,13 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               id: 'menu',
               label: 'Menú',
               icon: Menu,
-              active: mobileMenuOpen || sector === 'ia' || sector === 'configuracion',
-              color: SECTOR_PALETTES.ia.primary,
-              soft: SECTOR_PALETTES.ia.softBgCss,
+              active:
+                mobileMenuOpen ||
+                sector === 'configuracion' ||
+                sector === 'ia' ||
+                sector === 'admin',
+              color: SECTOR_PALETTES.configuracion.primary,
+              soft: SECTOR_PALETTES.configuracion.softBgCss,
               onClick: () => setMobileMenuOpen(true),
             },
           ] as const

@@ -6,9 +6,11 @@ import {
   BellRing,
   CheckCircle2,
   Cloud,
+  Cpu,
   Download,
   HardDrive,
   KeyRound,
+  Lightbulb,
   Link2,
   LogOut,
   MessageSquare,
@@ -19,11 +21,13 @@ import {
   Settings,
   Shield,
   Smartphone,
+  Sparkles,
   Trash2,
   User,
   UserCheck,
   Volume2,
 } from 'lucide-react';
+import { useAdmin } from '../../context/AdminContext';
 import { useEcosystem } from '../../context/EcosystemContext';
 import { FABRO_THEMES } from '../../data/ecosystemCatalog';
 import { hasNativeAndroidBubbles, isDocumentPiPSupported } from '../../services/androidBubblesBridge';
@@ -67,7 +71,9 @@ export const Sector5ConnectConfig: React.FC = () => {
     linkGoogleProvider,
     deleteAccountSafely,
     syncNowToCloud,
+    byokKeys,
   } = useEcosystem();
+  const { openParticipationModal } = useAdmin();
 
   const activeSub: ConfigSubmenuId =
     submenu === 'fabro-connect' ||
@@ -76,7 +82,7 @@ export const Sector5ConnectConfig: React.FC = () => {
     submenu === 'notificaciones' ||
     submenu === 'config-general'
       ? submenu
-      : 'fabro-connect';
+      : 'config-general';
 
   const [draftConnect, setDraftConnect] = useState<ConnectProviderItem[]>(connectItems);
   const [hasUnsavedConnect, setHasUnsavedConnect] = useState(false);
@@ -232,8 +238,62 @@ export const Sector5ConnectConfig: React.FC = () => {
     <SectorLayout
       sectorId="configuracion"
       activeSubmenu={activeSub}
-      badgeText="Connect · Nubes · Bóveda de Ideas"
+      badgeText="Configuración · IA BYOK · Ideas para nuevos sectores"
     >
+      {/* Accesos principales dentro de 4. Configuración: IA BYOK + Ideas y propuestas para nuevos sectores */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div className="rounded-2xl border fabro-border fabro-surface p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h2 className="font-display text-sm font-bold flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-[#4F46E5] dark:text-[#A5B4FC] shrink-0" />
+              IA BYOK (Tu propia clave)
+            </h2>
+            <p className="text-xs fabro-muted leading-relaxed">
+              Conectá tu propia API local sin cargos precargados ·{' '}
+              <span className="font-semibold text-[var(--fabro-text)]">
+                {byokKeys.length} {byokKeys.length === 1 ? 'clave configurada' : 'claves configuradas'}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigateTo('ia', 'claves-byok')}
+            className="min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#4F46E5] bg-[#4F46E5] text-white px-3.5 py-2 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Abrir IA BYOK
+          </button>
+        </div>
+
+        <div className="rounded-2xl border fabro-border fabro-surface p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h2 className="font-display text-sm font-bold flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              Ideas y propuestas para nuevos sectores
+            </h2>
+            <p className="text-xs fabro-muted leading-relaxed">
+              Proponé nuevos sectores para FABRO, votá ideas de la comunidad y seguí su estado.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => openParticipationModal('ideas')}
+              className="min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/60 bg-amber-500/12 text-amber-800 dark:text-amber-300 px-3 py-2 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap"
+            >
+              Ver ideas
+            </button>
+            <button
+              type="button"
+              onClick={() => openParticipationModal('sector-request')}
+              className="min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-xs font-semibold cursor-pointer active:scale-95 whitespace-nowrap"
+            >
+              + Nuevo sector
+            </button>
+          </div>
+        </div>
+      </section>
+
       {activeSub === 'boveda-ideas' && <IdeasVaultTool />}
 
       {activeSub === 'fabro-connect' && (

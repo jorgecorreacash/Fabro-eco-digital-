@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import {
   Award,
-  Compass,
   Edit3,
-  LayoutGrid,
   Lock,
   MessageSquare,
   Mic,
@@ -37,6 +35,7 @@ export const Sector3Social: React.FC = () => {
     submenu,
     navigateTo,
     profile,
+    authUser,
     updateProfile,
     network,
     friendsList,
@@ -58,7 +57,7 @@ export const Sector3Social: React.FC = () => {
     submenu === 'push-to-talk' ||
     submenu === 'comunidades-seguridad'
       ? submenu
-      : 'fabro-id';
+      : 'perfil-social';
 
   const [pttActive, setPttActive] = useState(false);
   const [pttCancelled, setPttCancelled] = useState(false);
@@ -103,33 +102,25 @@ export const Sector3Social: React.FC = () => {
       activeSubmenu={activeSub}
       badgeText="Página Principal · Amistades y Mensajería Offline"
     >
-      {/* Orderly Social Principal Panel */}
+      {/* Compact Social Welcome Strip (no redundant shortcut cluster) */}
       {activeSub === 'fabro-id' && (
-        <section className="rounded-2xl border fabro-surface p-4 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-2.5 min-w-0">
-            <FabroBrandMark size="lg" showIdentity />
-            <div className="space-y-1">
-              <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight">
-                Hola, {profile.displayName}
-              </h2>
-              <p className="text-xs sm:text-sm fabro-muted leading-relaxed max-w-2xl">
-                Conectá con tus amistades, compartí estados 24h y dejá mensajes que se guardan y entregan aunque estén sin conexión.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs fabro-muted font-medium tabular-nums">
+        <section className="rounded-2xl border fabro-surface px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight truncate">
+              {authUser ? `Hola, ${authUser.displayName}` : 'Bienvenido a FABRO'}
+            </h2>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs fabro-muted font-medium tabular-nums">
               <span>{friendsList.length} amistades</span>
               <span aria-hidden="true">·</span>
               <span>{pendingReqCount} solicitudes</span>
-              <span aria-hidden="true">·</span>
-              <span
-                className={
-                  queuedOfflineCount > 0
-                    ? 'text-amber-700 dark:text-amber-300 font-semibold'
-                    : ''
-                }
-              >
-                {queuedOfflineCount} mensajes en cola offline
-              </span>
+              {queuedOfflineCount > 0 && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="text-amber-700 dark:text-amber-300 font-semibold">
+                    {queuedOfflineCount} en cola offline
+                  </span>
+                </>
+              )}
               <span aria-hidden="true">·</span>
               <span
                 className={
@@ -138,45 +129,19 @@ export const Sector3Social: React.FC = () => {
                     : 'text-amber-700 dark:text-amber-300 font-semibold'
                 }
               >
-                {network.isOnline ? 'En línea' : 'Modo Offline-First'}
+                {network.isOnline ? 'En línea' : 'Modo Offline'}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => navigateTo('social', 'perfil-social')}
-              className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border border-[#7C3AED] bg-[#7C3AED] hover:bg-[#6D28D9] text-white px-3.5 py-1.5 md:py-2 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200 whitespace-nowrap"
-            >
-              <User className="w-4 h-4" />
-              Mi Perfil Social
-            </button>
-            <button
-              type="button"
-              onClick={() => navigateTo('social', 'mensajeria')}
-              className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border border-[#7C3AED]/50 bg-[#7C3AED]/10 text-[#6D28D9] dark:text-[#C4B5FD] px-3.5 py-1.5 md:py-2 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200 whitespace-nowrap"
-            >
-              <MessageSquare className="w-4 h-4" />
-              Mensajes ({queuedOfflineCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => navigateTo('social', 'descubrir')}
-              className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border border-[#EC4899]/50 bg-[#EC4899]/10 text-[#BE185D] dark:text-[#F472B6] px-3.5 py-1.5 md:py-2 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200 whitespace-nowrap"
-            >
-              <Compass className="w-4 h-4" />
-              Descubrir
-            </button>
-            <button
-              type="button"
-              onClick={() => navigateTo('inicio', 'dashboard')}
-              className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-1.5 md:py-2 text-sm font-medium cursor-pointer active:scale-95 transition-all duration-200 whitespace-nowrap"
-            >
-              <LayoutGrid className="w-4 h-4 fabro-accent-text" />
-              Espacio
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigateTo('social', 'perfil-social')}
+            className="min-h-[42px] md:min-h-[38px] inline-flex items-center justify-center gap-2 rounded-xl border border-[#7C3AED] bg-[#7C3AED] hover:bg-[#6D28D9] text-white px-4 py-1.5 text-xs font-bold cursor-pointer active:scale-95 transition-all whitespace-nowrap shrink-0"
+          >
+            <User className="w-4 h-4" />
+            Mi Perfil
+          </button>
         </section>
       )}
 

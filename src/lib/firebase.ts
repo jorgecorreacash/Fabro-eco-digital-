@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import {
   browserLocalPersistence,
+  browserSessionPersistence,
   getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -43,9 +44,43 @@ try {
 
 export const db = dbInstance;
 export const auth = getAuth(app);
-void setPersistence(auth, browserLocalPersistence).catch(() => {
-  // Fallback handled by Firebase SDK if IndexedDB persistence is restricted
-});
+
+export const AUTH_WEB_SESSION_KEY = 'fabro_active_web_session_v1';
+
+/**
+ * Returns true ONLY when FABRO is running as an installed app on the user's device
+ * (installed PWA standalone/fullscreen/minimal-ui, iOS Home Screen, Android TWA, or desktop wrapper).
+ * Regular browser tabs return false so sessions never stay open after closing the browser.
+ */
+export function isInstalledDeviceApp(): boolean {
+  if (typeof window === 'undefined') return false;
+  const standaloneDisplay =
+    typeof window.matchMedia === 'function' &&
+    (window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches ||
+      window.matchMedia('(display-mode: minimal-ui)').matches);
+  const iosStandalone = Boolean(
+    (window.navigator as Navigator & { standalone?: boolean }).standalone
+  );
+  const androidTwa =
+    typeof document !== 'undefined' && document.referrer.startsWith('android-app://');
+  const desktopWrapper =
+    '__TAURI__' in window ||
+    (typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent));
+  return standaloneDisplay || iosStandalone || androidTwa || desktopWrapper;
+}
+
+export async function enforceDeviceSessionPersistence(): Promise<'local' | 'session'> {
+  const installed = isInstalledDeviceApp();
+  try {
+    await setPersistence(auth, installed ? browserLocalPersistence : browserSessionPersistence);
+  } catch {
+    // Fallback handled by Firebase SDK if storage is restricted
+  }
+  return installed ? 'local' : 'session';
+}
+
+void enforceDeviceSessionPersistence();
 
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();

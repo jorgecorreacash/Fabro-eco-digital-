@@ -1,776 +1,266 @@
-import React, { useState } from 'react';
-import {
-  Brain,
-  CalendarCheck,
-  CheckSquare,
-  Dumbbell,
-  Feather,
-  Film,
-  Flame,
-  Heart,
-  KeyRound,
-  Loader2,
-  MessageSquareHeart,
-  Play,
-  ShieldAlert,
-  Sparkles,
-  Square,
-  Trash2,
-  Volume2,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { HeartPulse, Menu, X } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
-import { DEFAULT_MOBILITY_ROUTINE } from '../../services/localVault';
-import { activateMediaSession, stopMediaSession } from '../../services/mediaSessionBridge';
 import {
-  findByokKeyForWellnessEngine,
-  generateStoicReflectionWithByok,
-  getOfflineStoicSession,
-} from '../../services/wellnessAiService';
-import type { WellnessStoicSessionItem, WellnessSubmenuId } from '../../types/ecosystem';
-import { ShareResourceButton } from '../common/ShareResourceButton';
-import { OrganizerHub } from '../organizer/OrganizerHub';
-import { SectorLayout } from './SectorLayout';
-import { BreathingTool } from './wellness/BreathingTool';
-import { CalisthenicsTimerTool } from './wellness/CalisthenicsTimerTool';
-import { GuidedStoicReflectionsTool } from './wellness/GuidedStoicReflectionsTool';
-import { HydrationSleepTool } from './wellness/HydrationSleepTool';
-import { StoicRouletteTool } from './wellness/StoicRouletteTool';
-import { TimeCapsuleTool } from './wellness/TimeCapsuleTool';
-import { WellnessAiHeaderBar } from './wellness/WellnessAiHeaderBar';
-import { WellnessAiStudioPanel } from './wellness/WellnessAiStudioPanel';
-import { WellnessVideoLibraryPanel } from './wellness/WellnessVideoLibraryPanel';
-import { WellnessWallPanel } from './wellness/WellnessWallPanel';
+  DEFAULT_WELLNESS_STATE,
+  WELLNESS_SIDEBAR_ORDER,
+} from '../../data/wellnessCatalog';
+import { loadWellnessState, saveWellnessState } from '../../services/wellnessVault';
+import type { WellnessSubmenuId } from '../../types/ecosystem';
+import type { WellnessNavId, WellnessStateSnapshot } from '../../types/wellness';
+import { WellnessCoachHistoryChallengesPanel } from './wellness/v2/WellnessCoachHistoryChallengesPanel';
+import { WellnessFitnessPanel } from './wellness/v2/WellnessFitnessPanel';
+import { WellnessHealthGrowthPanel } from './wellness/v2/WellnessHealthGrowthPanel';
+import { WellnessMindSleepPanel } from './wellness/v2/WellnessMindSleepPanel';
+import { WellnessMyDayPanel } from './wellness/v2/WellnessMyDayPanel';
+import { WellnessNutritionPanel } from './wellness/v2/WellnessNutritionPanel';
+import { WellnessSafetyCommunityConfigPanel } from './wellness/v2/WellnessSafetyCommunityConfigPanel';
+
+const LEGACY_SUBMENU_MAP: Record<WellnessSubmenuId, WellnessNavId> = {
+  'mi-vida': 'mi-dia',
+  'organizacion-calorias': 'nutricion',
+  'salud-ejercicios': 'actividad-fisica',
+  'bienestar-emocional': 'mente-emociones',
+  'escritura-recuerdos': 'mente-emociones',
+  'videoteca-bienestar': 'educacion-conocimiento',
+  'muro-bienestar': 'comunidad-bienestar',
+  'organizador-integral': 'agenda-objetivos',
+};
 
 export const Sector2Wellness: React.FC = () => {
-  const {
-    submenu,
-    navigateTo,
-    profile,
-    updateProfile,
-    moodLogs,
-    addMoodLog,
-    balancedPlanner,
-    toggleBalancedPlanner,
-    examplesCleared,
-    clearSeedExamples,
-    byokKeys,
-    getByokSecret,
-    wellnessAiEngine,
-    wellnessPhysicalProfile,
-    saveWellnessStoicSession,
-    wellnessVideos,
-    wallPosts,
-  } = useEcosystem();
-  const activeSub: WellnessSubmenuId =
-    submenu === 'mi-vida' ||
-    submenu === 'videoteca-bienestar' ||
-    submenu === 'muro-bienestar' ||
-    submenu === 'organizador-integral' ||
-    submenu === 'organizacion-calorias' ||
-    submenu === 'salud-ejercicios' ||
-    submenu === 'bienestar-emocional' ||
-    submenu === 'escritura-recuerdos'
-      ? submenu
-      : 'mi-vida';
+  const { submenu } = useEcosystem();
 
-  const wellnessWallCount = wallPosts.filter((p) => p.origin === 'bienestar').length;
-  const isCoreWellnessTab =
-    activeSub === 'mi-vida' ||
-    activeSub === 'organizacion-calorias' ||
-    activeSub === 'salud-ejercicios' ||
-    activeSub === 'bienestar-emocional' ||
-    activeSub === 'escritura-recuerdos';
+  const initialNav = useMemo<WellnessNavId>(() => {
+    const mapped = LEGACY_SUBMENU_MAP[submenu as WellnessSubmenuId];
+    return mapped || 'mi-dia';
+  }, [submenu]);
 
-  const [happinessScore, setHappinessScore] = useState(8);
-  const [gratitudeNote, setGratitudeNote] = useState(
-    'Agradezco tener salud, claridad para crear y tiempo compartido con las personas que quiero.'
-  );
-  const [caloriesIn, setCaloriesIn] = useState(1450);
-  const [caloriesBurned, setCaloriesBurned] = useState(320);
-  const [writingTitle, setWritingTitle] = useState('Carta para mi presente');
-  const [writingText, setWritingText] = useState(
-    'Si hoy fuera mi último día, elegiría escuchar con calma, agradecer sin prisa y dejar palabras honestas.'
-  );
-  const [speaking, setSpeaking] = useState(false);
-  const [journalAiLoading, setJournalAiLoading] = useState(false);
-  const [journalAiError, setJournalAiError] = useState<string | null>(null);
-  const [journalAiSession, setJournalAiSession] = useState<WellnessStoicSessionItem | null>(null);
+  const [activeNav, setActiveNav] = useState<WellnessNavId>(initialNav);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarFilter, setSidebarFilter] = useState('');
+  const [state, setState] = useState<WellnessStateSnapshot>(DEFAULT_WELLNESS_STATE);
 
-  const handleJournalReflectWithAi = async () => {
-    const moodFeeling = writingTitle.trim() || 'Reflexión personal en mi diario';
-    const journalContext = writingText.trim();
-    if (!journalContext && !writingTitle.trim()) return;
-    setJournalAiError(null);
-    const found = findByokKeyForWellnessEngine(byokKeys, getByokSecret, wellnessAiEngine);
-    if (!found) {
-      const offline = getOfflineStoicSession(journalContext || moodFeeling);
-      setJournalAiSession(offline);
-      saveWellnessStoicSession(offline);
-      setJournalAiError(
-        `No tenés clave propia de ${wellnessAiEngine === 'gemini' ? 'Gemini' : 'ChatGPT'} conectada. Te mostramos la guía estoica offline y la guardamos en tu cuaderno local.`
-      );
-      return;
+  // Sync deep links from other FABRO sectors (e.g. HybridShell / Reminders / Organizer)
+  useEffect(() => {
+    const mapped = LEGACY_SUBMENU_MAP[submenu as WellnessSubmenuId];
+    if (mapped) {
+      setActiveNav(mapped);
     }
-    setJournalAiLoading(true);
-    try {
-      const res = await generateStoicReflectionWithByok({
-        keyMeta: found.keyMeta,
-        rawApiKey: found.secret,
-        moodFeeling,
-        journalContext,
-      });
-      if (!res.ok || !res.session) {
-        throw new Error(res.error || 'No se pudo generar la reflexión con IA.');
-      }
-      setJournalAiSession(res.session);
-      saveWellnessStoicSession(res.session);
-    } catch (err) {
-      setJournalAiError(err instanceof Error ? err.message : 'No se pudo generar la reflexión con IA.');
-    } finally {
-      setJournalAiLoading(false);
-    }
+  }, [submenu]);
+
+  useEffect(() => {
+    let mounted = true;
+    void loadWellnessState().then((loaded) => {
+      if (mounted) setState(loaded);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const updateWellnessState = (
+    updater: (prev: WellnessStateSnapshot) => WellnessStateSnapshot
+  ) => {
+    setState((prev) => {
+      const next = updater(prev);
+      void saveWellnessState(next);
+      return next;
+    });
   };
 
-  const handleReadAloud = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    if (speaking) {
-      setSpeaking(false);
-      stopMediaSession('speech');
-      return;
+  const filteredSidebarItems = useMemo(() => {
+    const q = sidebarFilter.trim().toLowerCase();
+    if (!q) return WELLNESS_SIDEBAR_ORDER;
+    return WELLNESS_SIDEBAR_ORDER.filter(
+      (item) =>
+        item.label.toLowerCase().includes(q) ||
+        item.shortDesc.toLowerCase().includes(q) ||
+        String(item.number).includes(q)
+    );
+  }, [sidebarFilter]);
+
+  const activeEntry = useMemo(
+    () => WELLNESS_SIDEBAR_ORDER.find((i) => i.id === activeNav) || WELLNESS_SIDEBAR_ORDER[0],
+    [activeNav]
+  );
+
+  const selectNav = (id: WellnessNavId) => {
+    setActiveNav(id);
+    setMobileSidebarOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const renderSidebarContent = () => (
+    <div className="flex flex-col h-full">
+      <div className="p-3 border-b fabro-border space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-2 text-xs font-bold tracking-wide uppercase text-[#059669] dark:text-[#34D399]">
+            <HeartPulse className="w-4 h-4 shrink-0" />
+            FABRO Bienestar
+          </span>
+          <span className="text-[11px] font-mono tabular-nums fabro-muted">18 áreas</span>
+        </div>
+        <p className="text-[11px] fabro-muted leading-snug">
+          Ecosistema integral · El Último Día de Tu Vida
+        </p>
+        <input
+          type="search"
+          value={sidebarFilter}
+          onChange={(e) => setSidebarFilter(e.target.value)}
+          placeholder="Filtrar 18 espacios..."
+          className="w-full min-h-[36px] rounded-xl border fabro-border fabro-surface-elevated px-3 text-xs fabro-input"
+        />
+      </div>
+
+      <nav
+        aria-label="Menú lateral de FABRO Bienestar"
+        className="flex-1 overflow-y-auto p-2 space-y-0.5"
+      >
+        {filteredSidebarItems.map((item) => {
+          const active = activeNav === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => selectNav(item.id)}
+              className={`w-full min-h-[38px] rounded-xl px-2.5 py-1.5 text-left text-xs flex items-center gap-2 cursor-pointer transition-colors ${
+                active
+                  ? 'bg-[#059669] text-white font-semibold'
+                  : 'fabro-muted hover:text-[var(--fabro-text)] hover:bg-[var(--fabro-surface-2)]'
+              }`}
+            >
+              <span
+                className={`font-mono text-[10px] w-5 text-right shrink-0 tabular-nums ${
+                  active ? 'text-white/85' : 'opacity-65'
+                }`}
+              >
+                {String(item.number).padStart(2, '0')}
+              </span>
+              <span className="truncate">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+    </div>
+  );
+
+  const renderActiveSpace = () => {
+    switch (activeNav) {
+      case 'mi-dia':
+        return (
+          <WellnessMyDayPanel
+            state={state}
+            onNavigate={selectNav}
+            onUpdateState={updateWellnessState}
+          />
+        );
+      case 'nutricion':
+        return <WellnessNutritionPanel state={state} onUpdateState={updateWellnessState} />;
+      case 'actividad-fisica':
+        return <WellnessFitnessPanel state={state} onUpdateState={updateWellnessState} />;
+      case 'mente-emociones':
+      case 'sueno-descanso':
+      case 'fabro-respira':
+        return (
+          <WellnessMindSleepPanel
+            section={activeNav}
+            state={state}
+            onUpdateState={updateWellnessState}
+          />
+        );
+      case 'salud-prevencion':
+      case 'desarrollo-personal':
+      case 'relaciones-social':
+      case 'naturaleza-ambiente':
+        return (
+          <WellnessHealthGrowthPanel
+            section={activeNav}
+            state={state}
+            onUpdateState={updateWellnessState}
+          />
+        );
+      case 'educacion-conocimiento':
+      case 'agenda-objetivos':
+      case 'fabro-coach':
+      case 'mi-historial':
+      case 'fabro-desafios':
+        return (
+          <WellnessCoachHistoryChallengesPanel
+            section={activeNav}
+            state={state}
+            onUpdateState={updateWellnessState}
+          />
+        );
+      case 'primeros-auxilios':
+      case 'comunidad-bienestar':
+      case 'configuracion-privacidad':
+        return (
+          <WellnessSafetyCommunityConfigPanel
+            section={activeNav}
+            state={state}
+            onUpdateState={updateWellnessState}
+          />
+        );
+      default:
+        return null;
     }
-    const utterance = new SpeechSynthesisUtterance(`${writingTitle}. ${writingText}`);
-    utterance.lang = 'es-ES';
-    utterance.onend = () => {
-      setSpeaking(false);
-      stopMediaSession('speech');
-    };
-    utterance.onerror = () => {
-      setSpeaking(false);
-      stopMediaSession('speech');
-    };
-    setSpeaking(true);
-    activateMediaSession({
-      title: writingTitle || 'Lectura personal FABRO',
-      artist: 'Escritura y Legado · Sector 2',
-      album: '🍀 FABRO · Lectura por Voz',
-      mode: 'speech',
-      playbackState: 'playing',
-      handlers: {
-        onPause: () => {
-          window.speechSynthesis.cancel();
-          setSpeaking(false);
-          stopMediaSession('speech');
-        },
-        onStop: () => {
-          window.speechSynthesis.cancel();
-          setSpeaking(false);
-          stopMediaSession('speech');
-        },
-      },
-    });
-    window.speechSynthesis.speak(utterance);
   };
 
   return (
-    <SectorLayout
-      sectorId="bienestar"
-      activeSubmenu={activeSub}
-      badgeText="El Último Día de Tu Vida"
-    >
-      {/* Stoic Identity Anchor */}
-      <div className="rounded-2xl border-2 border-[#10B981]/35 bg-gradient-to-r from-[#10B981]/10 via-transparent to-[#F59E0B]/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold text-[#047857] dark:text-[#34D399]">
-            Filosofía del Sector 2
+    <div className="space-y-4">
+      {/* Mobile Header Bar */}
+      <div className="lg:hidden flex items-center justify-between gap-3 rounded-2xl border fabro-border fabro-surface px-3.5 py-2.5">
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(true)}
+          className="min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface-elevated px-3 text-xs font-semibold cursor-pointer"
+        >
+          <Menu className="w-4 h-4 text-[#059669]" />
+          Menú Bienestar (18)
+        </button>
+        <div className="text-right min-w-0">
+          <p className="text-[10px] font-mono fabro-muted">
+            {String(activeEntry.number).padStart(2, '0')} / 18
           </p>
-          <p className="font-display text-base sm:text-lg font-bold mt-0.5">
-            «Si hoy fuera tu último día, ¿cómo elegirías vivirlo?»
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <span className="rounded-full border-2 border-[#F59E0B]/40 bg-[#F59E0B]/10 px-3 py-1 text-xs font-semibold text-[#B45309] dark:text-[#FBBF24]">
-            Privacidad local · IndexedDB Offline
-          </span>
-          {!examplesCleared && (
-            <button
-              type="button"
-              onClick={() => void clearSeedExamples()}
-              className="inline-flex items-center gap-1 text-[11px] fabro-muted hover:text-rose-600 cursor-pointer underline"
-            >
-              <Trash2 className="w-3 h-3" />
-              Borrar ejemplos
-            </button>
-          )}
+          <p className="text-xs font-bold truncate">{activeEntry.label}</p>
         </div>
       </div>
 
-      {/* Compact Wellness Quick Tabs (IA/Bienestar · Videoteca · Muro · Organizador) */}
-      <nav
-        aria-label="Accesos rápidos de Bienestar"
-        className="grid grid-cols-2 lg:grid-cols-4 gap-2"
-      >
-        <button
-          type="button"
-          onClick={() => navigateTo('bienestar', 'mi-vida')}
-          className={`min-h-[44px] rounded-xl border-2 px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] ${
-            isCoreWellnessTab
-              ? 'border-[#10B981] bg-[#10B981] text-white shadow-[0_8px_18px_-10px_rgba(16,185,129,0.75)]'
-              : 'fabro-border fabro-surface hover:border-[#10B981]'
-          }`}
-        >
-          <span className="inline-flex items-center gap-2 min-w-0">
-            <Sparkles
-              className={`w-4 h-4 shrink-0 ${
-                isCoreWellnessTab ? 'text-white' : 'text-[#10B981]'
-              }`}
-            />
-            <span className="truncate">Bienestar e IA</span>
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigateTo('bienestar', 'videoteca-bienestar')}
-          className={`min-h-[44px] rounded-xl border-2 px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] ${
-            activeSub === 'videoteca-bienestar'
-              ? 'border-[#10B981] bg-[#10B981] text-white shadow-[0_8px_18px_-10px_rgba(16,185,129,0.75)]'
-              : 'fabro-border fabro-surface hover:border-[#10B981]'
-          }`}
-        >
-          <span className="inline-flex items-center gap-2 min-w-0">
-            <Film
-              className={`w-4 h-4 shrink-0 ${
-                activeSub === 'videoteca-bienestar' ? 'text-white' : 'text-[#10B981]'
-              }`}
-            />
-            <span className="truncate">Videoteca Bienestar</span>
-          </span>
-          <span
-            className={`rounded-md border px-1.5 py-0.5 text-[10px] font-mono tabular-nums shrink-0 ${
-              activeSub === 'videoteca-bienestar'
-                ? 'border-white/30 bg-white/15 text-white'
-                : 'fabro-border fabro-surface-elevated fabro-muted'
-            }`}
-          >
-            {wellnessVideos.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigateTo('bienestar', 'muro-bienestar')}
-          className={`min-h-[44px] rounded-xl border-2 px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] ${
-            activeSub === 'muro-bienestar'
-              ? 'border-[#10B981] bg-[#10B981] text-white shadow-[0_8px_18px_-10px_rgba(16,185,129,0.75)]'
-              : 'fabro-border fabro-surface hover:border-[#10B981]'
-          }`}
-        >
-          <span className="inline-flex items-center gap-2 min-w-0">
-            <MessageSquareHeart
-              className={`w-4 h-4 shrink-0 ${
-                activeSub === 'muro-bienestar' ? 'text-white' : 'text-[#10B981]'
-              }`}
-            />
-            <span className="truncate">Muro de Bienestar</span>
-          </span>
-          <span
-            className={`rounded-md border px-1.5 py-0.5 text-[10px] font-mono tabular-nums shrink-0 ${
-              activeSub === 'muro-bienestar'
-                ? 'border-white/30 bg-white/15 text-white'
-                : 'fabro-border fabro-surface-elevated fabro-muted'
-            }`}
-          >
-            {wellnessWallCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigateTo('bienestar', 'organizador-integral')}
-          className={`min-h-[44px] rounded-xl border-2 px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] ${
-            activeSub === 'organizador-integral'
-              ? 'border-[#0EA5E9] bg-[#0EA5E9] text-white shadow-[0_8px_18px_-10px_rgba(14,165,233,0.75)]'
-              : 'fabro-border fabro-surface hover:border-[#0EA5E9]'
-          }`}
-        >
-          <span className="inline-flex items-center gap-2 min-w-0">
-            <CalendarCheck
-              className={`w-4 h-4 shrink-0 ${
-                activeSub === 'organizador-integral' ? 'text-white' : 'text-[#0EA5E9]'
-              }`}
-            />
-            <span className="truncate">Organizador</span>
-          </span>
-        </button>
-      </nav>
-
-      {isCoreWellnessTab && <WellnessAiHeaderBar />}
-
-      {activeSub === 'videoteca-bienestar' && <WellnessVideoLibraryPanel />}
-
-      {activeSub === 'muro-bienestar' && <WellnessWallPanel />}
-
-      {activeSub === 'organizador-integral' && <OrganizerHub />}
-
-      {activeSub === 'mi-vida' && (
-        <div className="space-y-5">
-          <GuidedStoicReflectionsTool />
-
-          <WellnessAiStudioPanel key="well-mi-vida" initialTab="claridad" />
-
-          <StoicRouletteTool />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-2xl border-2 border-[#10B981]/30 fabro-surface p-5 space-y-4">
-              <h2 className="font-display text-base font-bold flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#F59E0B]" />
-                A. Mi Vida — Reflexión, deseos y recuerdos
-              </h2>
-              <div className="space-y-3 text-xs">
-                <div className="rounded-xl border-2 fabro-border fabro-surface-elevated p-3.5">
-                  <p className="font-semibold">Actividades que generan felicidad</p>
-                  <p className="fabro-muted mt-1">
-                    Caminar al aire libre al amanecer, conversar sin pantallas, leer filosofía estoica y aprender algo nuevo.
-                  </p>
-                </div>
-                <div className="rounded-xl border-2 fabro-border fabro-surface-elevated p-3.5">
-                  <p className="font-semibold">Sueños pendientes y objetivos vitales</p>
-                  <p className="fabro-muted mt-1">
-                    Escribir un libro personal de recuerdos · Completar un viaje tranquilo en familia.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border-2 border-[#10B981]/30 fabro-surface p-6 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-display text-base font-bold">Perfil de gustos personales</h2>
-                <label className="min-h-[44px] inline-flex items-center gap-2 text-xs cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={profile.shareTastesPublicly}
-                    onChange={(e) => updateProfile({ shareTastesPublicly: e.target.checked })}
-                    className="w-4 h-4 rounded accent-[#10B981]"
-                  />
-                  <span>Compartir en perfil público</span>
-                </label>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                {(
-                  [
-                    { key: 'music', label: 'Música favorita' },
-                    { key: 'movies', label: 'Películas favoritas' },
-                    { key: 'books', label: 'Libros favoritos' },
-                    { key: 'food', label: 'Comidas favoritas' },
-                    { key: 'drinks', label: 'Bebidas favoritas' },
-                  ] as const
-                ).map((field) => (
-                  <label key={field.key} className="space-y-1 block">
-                    <span className="fabro-muted font-medium">{field.label}</span>
-                    <input
-                      type="text"
-                      value={profile.tastes[field.key]}
-                      onChange={(e) =>
-                        updateProfile({
-                          tastes: { ...profile.tastes, [field.key]: e.target.value },
-                        })
-                      }
-                      className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3 py-2 text-xs fabro-input"
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeSub === 'organizacion-calorias' && (
-        <div className="space-y-5">
-          <div className="rounded-2xl border-2 border-[#0EA5E9]/40 bg-[#0EA5E9]/10 p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div>
-              <p className="font-bold text-[#0284C7] dark:text-[#38BDF8]">
-                ¿Querés organizar tu día por bloques horarios y prioridades?
-              </p>
-              <p className="fabro-muted">
-                Usá el Organizador Integral con Bandeja Rápida, Matriz Eisenhower y Revisión Diaria.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigateTo('bienestar', 'organizador-integral')}
-              className="min-h-[44px] rounded-xl border-2 border-[#0EA5E9] bg-[#0EA5E9] text-white px-4 py-2 font-bold cursor-pointer active:scale-95 whitespace-nowrap"
-            >
-              Abrir Organizador Integral
-            </button>
-          </div>
-
-          <WellnessAiStudioPanel key="well-dietas" initialTab="dietas" />
-
-          <HydrationSleepTool />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-2xl border-2 border-[#F59E0B]/35 fabro-surface p-5 space-y-4">
-              <h2 className="font-display text-base font-bold flex items-center gap-2">
-                <Flame className="w-4 h-4 text-[#F59E0B]" />
-                Contador de calorías y balance diario
-              </h2>
-              <div className="grid grid-cols-3 gap-2 text-xs font-mono tabular-nums">
-                <div className="rounded-xl border-2 fabro-border fabro-surface-elevated p-3">
-                  <p className="text-[11px] fabro-muted">Consumidas</p>
-                  <p className="text-lg font-bold mt-0.5">{caloriesIn} kcal</p>
-                </div>
-                <div className="rounded-xl border-2 fabro-border fabro-surface-elevated p-3">
-                  <p className="text-[11px] fabro-muted">Quemadas</p>
-                  <p className="text-lg font-bold mt-0.5">{caloriesBurned} kcal</p>
-                </div>
-                <div className="rounded-xl border-2 border-[#F59E0B]/35 fabro-surface-elevated p-3">
-                  <p className="text-[11px] fabro-muted">Balance neto</p>
-                  <p className="text-lg font-bold text-[#B45309] dark:text-[#FBBF24] mt-0.5">
-                    {caloriesIn - caloriesBurned} kcal
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCaloriesIn((v) => v + 250)}
-                  className="min-h-[44px] rounded-xl border-2 border-[#F59E0B] bg-[#F59E0B] text-white px-4 py-2 text-xs font-bold shadow-[0_6px_16px_-6px_rgba(245,158,11,0.5)] cursor-pointer transition-transform active:scale-95 whitespace-nowrap"
-                >
-                  +250 kcal comida
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCaloriesBurned((v) => v + 120)}
-                  className="min-h-[44px] rounded-xl border-2 border-[#10B981] bg-[#10B981]/15 text-[#047857] dark:text-[#34D399] px-4 py-2 text-xs font-bold cursor-pointer transition-transform active:scale-95 whitespace-nowrap"
-                >
-                  +120 kcal ejercicio
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border-2 border-[#10B981]/30 fabro-surface p-5 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-display text-base font-bold flex items-center gap-2">
-                  <CalendarCheck className="w-4 h-4 text-[#10B981]" />
-                  Planificador diario equilibrado (enfoque, descanso, hidratación)
-                </h2>
-              </div>
-              <div className="space-y-2 text-xs">
-                {balancedPlanner.map((row) => (
-                  <button
-                    key={row.id}
-                    type="button"
-                    onClick={() => toggleBalancedPlanner(row.id)}
-                    className="w-full min-h-[44px] rounded-xl border-2 fabro-border fabro-surface-elevated px-3 py-2 flex items-center justify-between gap-3 text-left cursor-pointer active:scale-[0.99]"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      {row.done ? (
-                        <CheckSquare className="w-4 h-4 text-[#10B981] shrink-0" />
-                      ) : (
-                        <Square className="w-4 h-4 fabro-muted shrink-0" />
-                      )}
-                      <span className="font-mono font-bold text-[#047857] dark:text-[#34D399] shrink-0">
-                        {row.time}
-                      </span>
-                      <span className={row.done ? 'line-through opacity-60' : ''}>
-                        {row.activity}
-                      </span>
-                    </span>
-                    <span className="rounded-lg border fabro-border px-2 py-0.5 text-[10px] font-bold shrink-0">
-                      {row.block}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <ShareResourceButton
-                compact
-                label="Compartir plantilla por WhatsApp"
-                payload={{
-                  v: 1,
-                  kind: 'note',
-                  title: 'Planificador Diario Equilibrado FABRO',
-                  subject: 'Bienestar y Hábitos',
-                  body: balancedPlanner
-                    .map((p) => `• ${p.time} [${p.block}]: ${p.activity}`)
-                    .join('\n'),
-                  author: profile.displayName,
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeSub === 'salud-ejercicios' && (
-        <div className="space-y-5">
-          <WellnessAiStudioPanel key="well-entrenador" initialTab="entrenador" />
-
-          <div className="rounded-2xl border-2 border-[#10B981]/40 bg-[#10B981]/10 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-xs font-bold uppercase text-[#047857] dark:text-[#34D399]">
-                Rutina lista para iniciar y compartir
-              </p>
-              <h3 className="font-display text-base font-bold">{DEFAULT_MOBILITY_ROUTINE.title}</h3>
-              <p className="text-xs fabro-muted">
-                {DEFAULT_MOBILITY_ROUTINE.rounds} rondas ({DEFAULT_MOBILITY_ROUTINE.workSec}s activo /{' '}
-                {DEFAULT_MOBILITY_ROUTINE.restSec}s descanso) · Ideal para activar cuerpo y mente.
-              </p>
-            </div>
-            <ShareResourceButton
-              label="Compartir rutina por WhatsApp"
-              payload={{
-                v: 1,
-                kind: 'routine',
-                title: DEFAULT_MOBILITY_ROUTINE.title,
-                category: DEFAULT_MOBILITY_ROUTINE.category,
-                workSec: DEFAULT_MOBILITY_ROUTINE.workSec,
-                restSec: DEFAULT_MOBILITY_ROUTINE.restSec,
-                rounds: DEFAULT_MOBILITY_ROUTINE.rounds,
-                steps: DEFAULT_MOBILITY_ROUTINE.steps,
-                author: profile.displayName,
-              }}
-            />
-          </div>
-
-          <CalisthenicsTimerTool />
-
-          <div className="flex md:grid md:grid-cols-2 gap-4 overflow-x-auto md:overflow-visible snap-x snap-mandatory pb-2 md:pb-0">
-            {[
-              {
-                title: 'Movilidad y estiramiento cervical',
-                category: 'Movilidad / Estiramientos',
-                duration: '8 min',
-                level: 'Nivel 1 · Principiante',
-                steps: '1. Rotaciones lentas de hombros · 2. Inclinación lateral sin forzar · 3. Respiración diafragmática.',
-                safety: 'Detener ante mareo o dolor agudo en articulaciones.',
-              },
-              {
-                title: 'Calistenia funcional + respiración 4-4-6',
-                category: 'Calistenia / Respiración / Meditación',
-                duration: '15 min',
-                level: 'Nivel 2 · Intermedio',
-                steps: '1. Sentadillas controladas (3x10) · 2. Flexiones inclinadas · 3. Descanso y relajación guiada.',
-                safety: 'Mantener columna neutra y calentar muñecas antes de apoyar peso.',
-              },
-            ].map((ex) => (
-              <article
-                key={ex.title}
-                className="min-w-[85%] sm:min-w-[60%] md:min-w-0 snap-start rounded-2xl border-2 border-[#10B981]/30 fabro-surface p-5 space-y-3"
+      {/* Mobile Drawer */}
+      {mobileSidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <button
+            type="button"
+            aria-label="Cerrar menú de FABRO Bienestar"
+            onClick={() => setMobileSidebarOpen(false)}
+            className="fixed inset-0 bg-black/45"
+          />
+          <aside className="relative z-10 w-72 max-w-[84vw] h-full fabro-surface border-r fabro-border flex flex-col">
+            <div className="flex items-center justify-end p-2 border-b fabro-border">
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(false)}
+                className="min-h-[36px] min-w-[36px] rounded-xl border fabro-border flex items-center justify-center cursor-pointer"
+                aria-label="Cerrar"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-xs text-[#047857] dark:text-[#34D399] font-bold">{ex.category}</p>
-                    <h3 className="font-display text-base font-bold mt-0.5">{ex.title}</h3>
-                  </div>
-                  <Dumbbell className="w-5 h-5 text-[#10B981] shrink-0" />
-                </div>
-
-                <div className="rounded-xl border-2 fabro-border fabro-surface-elevated h-32 flex flex-col items-center justify-center gap-2 text-xs fabro-muted">
-                  <Play className="w-6 h-6 text-[#10B981]" />
-                  <span>Espacio para guía demostrativa local / offline</span>
-                </div>
-
-                <p className="text-xs font-mono tabular-nums fabro-muted">
-                  Duración: {ex.duration} · {ex.level}
-                </p>
-                <p className="text-xs leading-relaxed">{ex.steps}</p>
-                <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
-                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} />
-                  <span>Seguridad: {ex.safety}</span>
-                </p>
-
-                <ShareResourceButton
-                  compact
-                  label="WhatsApp"
-                  payload={{
-                    v: 1,
-                    kind: 'routine',
-                    title: ex.title,
-                    category: ex.category,
-                    workSec: 30,
-                    restSec: 15,
-                    rounds: 6,
-                    steps: ex.steps.split('·').map((s) => s.trim()),
-                    author: profile.displayName,
-                  }}
-                />
-              </article>
-            ))}
-          </div>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">{renderSidebarContent()}</div>
+          </aside>
         </div>
       )}
 
-      {activeSub === 'bienestar-emocional' && (
-        <div className="space-y-5">
-          <BreathingTool />
+      {/* Desktop Split Workspace modeled on FABRO Cultura */}
+      <div className="flex flex-col lg:flex-row gap-5 items-start">
+        <aside className="hidden lg:block w-64 shrink-0 sticky top-20 rounded-2xl border fabro-border fabro-surface overflow-hidden max-h-[calc(100vh-6.5rem)]">
+          {renderSidebarContent()}
+        </aside>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div className="rounded-2xl border-2 border-[#10B981]/30 fabro-surface p-6 space-y-4">
-              <h2 className="font-display text-base font-bold flex items-center gap-2">
-                <Heart className="w-4 h-4 text-[#10B981]" strokeWidth={1.75} />
-                Registro diario de felicidad (Escala 1 al 10)
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                  <button
-                    key={num}
-                    type="button"
-                    onClick={() => setHappinessScore(num)}
-                    className={`min-h-[44px] min-w-[44px] rounded-xl border-2 text-xs font-mono font-bold tabular-nums cursor-pointer transition-all active:scale-95 ${
-                      happinessScore === num
-                        ? 'border-[#10B981] bg-[#10B981] text-white shadow-[0_6px_14px_-6px_rgba(16,185,129,0.6)]'
-                        : 'fabro-border fabro-surface-elevated hover:border-[#10B981]'
-                    }`}
-                  >
-                    {num}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs fabro-muted font-mono tabular-nums">
-                  Nivel declarado hoy: {happinessScore}/10
-                </p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    addMoodLog(
-                      happinessScore,
-                      happinessScore >= 7 ? 'Serenidad y gratitud' : 'En observación',
-                      'Registro Sector 2'
-                    )
-                  }
-                  className="min-h-[44px] rounded-xl border-2 border-[#F59E0B] bg-[#F59E0B] text-white px-4 py-2 text-xs font-bold cursor-pointer active:scale-95"
-                >
-                  Guardar emoción ({moodLogs.length})
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border-2 border-[#F59E0B]/30 fabro-surface p-6 space-y-3">
-              <h2 className="font-display text-base font-bold">
-                Gratitud, esperanza y motivación
-              </h2>
-              <textarea
-                rows={4}
-                value={gratitudeNote}
-                onChange={(e) => setGratitudeNote(e.target.value)}
-                aria-label="Registro de gratitud y motivación"
-                className="w-full rounded-xl border-2 fabro-border fabro-surface-elevated p-3 text-xs leading-relaxed fabro-input"
-              />
-            </div>
-          </div>
-
-          <WellnessAiStudioPanel key="well-emocional" initialTab="claridad" />
-        </div>
-      )}
-
-      {activeSub === 'escritura-recuerdos' && (
-        <div className="space-y-5">
-          <TimeCapsuleTool />
-
-          <div className="rounded-2xl border-2 border-[#10B981]/30 fabro-surface p-5 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-display text-base font-bold flex items-center gap-2">
-                <Feather className="w-4 h-4 text-[#F59E0B]" />
-                E. Escritura, diarios, cartas, legado y lectura por voz
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleJournalReflectWithAi()}
-                  disabled={journalAiLoading}
-                  className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border-2 border-[#6366F1] bg-[#6366F1] text-white px-4 py-2 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap disabled:opacity-60"
-                >
-                  {journalAiLoading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Brain className="w-3.5 h-3.5" />
-                  )}
-                  {journalAiLoading ? 'Reflexionando...' : 'Reflexionar con IA'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleReadAloud}
-                  className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border-2 border-[#10B981] bg-[#10B981] text-white px-4 py-2 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap"
-                >
-                  {speaking ? <Square className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                  {speaking ? 'Detener voz' : 'Leer en voz (Web Speech)'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border-2 fabro-border fabro-surface-elevated px-4 py-2 text-xs font-semibold cursor-pointer active:scale-95 whitespace-nowrap"
-                >
-                  Exportar PDF
-                </button>
-              </div>
-            </div>
-
-            <input
-              type="text"
-              value={writingTitle}
-              onChange={(e) => setWritingTitle(e.target.value)}
-              aria-label="Título de escritura personal"
-              className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3 py-2 text-sm font-semibold fabro-input"
-            />
-            <textarea
-              rows={5}
-              value={writingText}
-              onChange={(e) => setWritingText(e.target.value)}
-              aria-label="Texto de diario o legado"
-              className="w-full rounded-xl border-2 fabro-border fabro-surface-elevated p-3 text-xs leading-relaxed fabro-input"
-            />
-
-            {journalAiError && (
-              <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-3 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-800 dark:text-amber-300">
-                <span>{journalAiError}</span>
-                <button
-                  type="button"
-                  onClick={() => navigateTo('ia', 'claves-byok')}
-                  className="min-h-[40px] inline-flex items-center gap-1.5 rounded-lg border border-amber-500 bg-amber-500 text-white px-3 py-1.5 text-[11px] font-bold cursor-pointer"
-                >
-                  <KeyRound className="w-3.5 h-3.5" />
-                  Configurar mi clave BYOK
-                </button>
-              </div>
-            )}
-
-            {journalAiSession && (
-              <div className="rounded-2xl border-2 border-[#6366F1]/40 bg-gradient-to-br from-[#6366F1]/10 via-transparent to-[#10B981]/10 p-4 space-y-3 text-xs">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-bold text-[#4F46E5] dark:text-[#A5B4FC] flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4" />
-                    {journalAiSession.reframeTitle} (Guardado en tu cuaderno local)
-                  </p>
-                  <span className="rounded-md border border-[#6366F1]/40 px-2 py-0.5 text-[10px] font-bold">
-                    {journalAiSession.providerLabel}
-                  </span>
-                </div>
-                <div className="rounded-xl border fabro-border fabro-surface-elevated p-3 space-y-1">
-                  <p className="font-bold text-[#4F46E5] dark:text-[#A5B4FC]">
-                    Reencuadre cognitivo estoico
-                  </p>
-                  <p className="leading-relaxed">{journalAiSession.guidance}</p>
-                </div>
-                <div className="rounded-xl border fabro-border fabro-surface-elevated p-3 space-y-1">
-                  <p className="font-bold text-[#047857] dark:text-[#34D399]">
-                    Ejercicio de calma mental
-                  </p>
-                  <p className="leading-relaxed">{journalAiSession.calmExercise}</p>
-                </div>
-                <div className="rounded-xl border border-[#F59E0B]/40 bg-[#F59E0B]/10 p-3 space-y-1">
-                  <p className="font-bold text-[#B45309] dark:text-[#FBBF24]">
-                    Pregunta guiada para profundizar
-                  </p>
-                  <p className="leading-relaxed">{journalAiSession.journalPrompt}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </SectorLayout>
+        <section className="flex-1 min-w-0 w-full space-y-5">
+          {renderActiveSpace()}
+        </section>
+      </div>
+    </div>
   );
 };

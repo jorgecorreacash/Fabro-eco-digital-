@@ -555,7 +555,7 @@ export const DashboardHome: React.FC = () => {
                 Espacio de Trabajo Configurable
               </h1>
               <p className="text-xs sm:text-sm fabro-muted mt-1 leading-relaxed">
-                Hola, {profile.displayName}. Fijá tus herramientas favoritas de cualquier sector, ordenalas y ajustá cuántas columnas ver.
+                {authUser ? `Hola, ${authUser.displayName}. ` : ''}Fijá tus herramientas favoritas de cualquier sector, ordenalas y ajustá cuántas columnas ver.
               </p>
             </div>
           </div>
@@ -572,25 +572,7 @@ export const DashboardHome: React.FC = () => {
               }`}
             >
               <SlidersHorizontal className="w-4 h-4" />
-              {configOpen ? 'Cerrar configurador' : `Configurar herramientas (${pinnedTools.length})`}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigateTo('herramientas', 'centro-herramientas')}
-              className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border border-[#0EA5E9]/45 bg-[#0EA5E9]/10 text-[#0284C7] dark:text-[#38BDF8] px-3.5 py-1.5 text-sm font-medium cursor-pointer active:scale-95 whitespace-nowrap"
-            >
-              <Calculator className="w-4 h-4" />
-              Panel Multiuso
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFloatingChatOpen(true)}
-              className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border border-[#7C3AED]/45 bg-[#7C3AED]/10 text-[#6D28D9] dark:text-[#C4B5FD] px-3.5 py-1.5 text-sm font-medium cursor-pointer active:scale-95 whitespace-nowrap"
-            >
-              <MessageSquare className="w-4 h-4" />
-              Chat Flotante
+              {configOpen ? 'Cerrar configurador' : `Configurar (${pinnedTools.length})`}
             </button>
 
             <div
@@ -617,15 +599,6 @@ export const DashboardHome: React.FC = () => {
                 3 col
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={() => navigateTo('social', 'fabro-id')}
-              className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-1.5 text-sm font-medium cursor-pointer active:scale-95 whitespace-nowrap"
-            >
-              <MessageSquare className="w-4 h-4 text-[#7C3AED]" />
-              Red Social
-            </button>
           </div>
         </div>
 

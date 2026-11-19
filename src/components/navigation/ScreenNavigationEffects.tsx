@@ -1,30 +1,8 @@
 import React from 'react';
-import {
-  BookOpen,
-  Calculator,
-  ChevronLeft,
-  ChevronRight,
-  Cpu,
-  HeartPulse,
-  LayoutGrid,
-  MessageSquare,
-  Settings,
-  SunMoon,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
 import { PRIMARY_SCREENS_ORDER } from '../../data/ecosystemCatalog';
 import type { SectorId, SubmenuId } from '../../types/ecosystem';
-
-const SCREEN_ICONS: Record<SectorId, React.FC<{ className?: string }>> = {
-  social: MessageSquare,
-  inicio: LayoutGrid,
-  hoy: SunMoon,
-  herramientas: Calculator,
-  estudio: BookOpen,
-  bienestar: HeartPulse,
-  ia: Cpu,
-  configuracion: Settings,
-};
 
 export const ColorfulScreenLoader: React.FC = () => {
   const { isScreenTransitioning } = useEcosystem();
@@ -44,6 +22,8 @@ export const ColorfulScreenLoader: React.FC = () => {
 export const ScreenIndicatorBar: React.FC = () => {
   const { sector, navigateTo, swipePrevScreen, swipeNextScreen } = useEcosystem();
 
+  if (sector === 'admin') return null;
+
   const currentIdx = Math.max(
     0,
     PRIMARY_SCREENS_ORDER.findIndex((s) => s.sector === sector)
@@ -52,75 +32,60 @@ export const ScreenIndicatorBar: React.FC = () => {
 
   return (
     <section
-      aria-label="Indicaciones y navegación deslizable entre pantallas"
-      className="rounded-2xl border fabro-surface px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+      aria-label="Indicador de pantalla actual"
+      className="flex items-center justify-between gap-2 px-1"
     >
-      <div className="flex items-center justify-between sm:justify-start gap-2.5 min-w-0">
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={swipePrevScreen}
-            aria-label="Pantalla anterior"
-            title="Deslizar a la pantalla anterior"
-            className="min-h-[38px] min-w-[38px] rounded-xl border fabro-border fabro-surface-elevated flex items-center justify-center cursor-pointer active:scale-95"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={swipeNextScreen}
-            aria-label="Siguiente pantalla"
-            title="Deslizar a la siguiente pantalla"
-            className="min-h-[38px] min-w-[38px] rounded-xl border fabro-border fabro-surface-elevated flex items-center justify-center cursor-pointer active:scale-95"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="min-w-0">
-          <p className="text-xs font-bold flex items-center gap-2 truncate">
-            <span className="font-mono tabular-nums fabro-accent-text shrink-0">
-              Pantalla {currentIdx + 1}/{PRIMARY_SCREENS_ORDER.length}
-            </span>
-            <span aria-hidden="true" className="fabro-muted">
-              ·
-            </span>
-            <span className="truncate">{current.title}</span>
-          </p>
-          <p className="text-[11px] fabro-muted truncate">
-            {current.hint} · Deslizá horizontalmente en móvil o usá los indicadores
-          </p>
-        </div>
+      <div className="flex items-center gap-2 min-w-0 text-xs">
+        <span className="font-mono tabular-nums font-bold fabro-accent-text shrink-0">
+          {currentIdx + 1}/{PRIMARY_SCREENS_ORDER.length}
+        </span>
+        <span aria-hidden="true" className="fabro-muted">
+          ·
+        </span>
+        <span className="font-semibold truncate">{current.title}</span>
       </div>
 
-      {/* Interactive Screen Stepper / Swipeable Pills */}
-      <div
-        role="navigation"
-        aria-label="Pantallas principales deslizables"
-        className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0 shrink-0"
-      >
-        {PRIMARY_SCREENS_ORDER.map((item, idx) => {
-          const active = item.sector === sector;
-          const Icon = SCREEN_ICONS[item.sector];
-          return (
-            <button
-              key={item.sector}
-              type="button"
-              onClick={() => navigateTo(item.sector, item.submenu)}
-              aria-current={active ? 'page' : undefined}
-              title={`Pantalla ${idx + 1}: ${item.title}`}
-              className={`min-h-[36px] rounded-xl border px-2.5 py-1 inline-flex items-center gap-1.5 text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 active:scale-95 ${
-                active
-                  ? 'text-white border-transparent'
-                  : 'fabro-border fabro-surface-elevated fabro-muted hover:opacity-100'
-              }`}
-              style={active ? { background: item.gradientCss } : undefined}
-            >
-              <Icon className="w-3.5 h-3.5 shrink-0" />
-              <span className={active ? 'inline' : 'hidden xl:inline'}>{item.shortLabel}</span>
-            </button>
-          );
-        })}
+      <div className="flex items-center gap-2 shrink-0">
+        {/* Quiet pagination dots (desktop) */}
+        <div
+          role="navigation"
+          aria-label="Indicador de pantallas"
+          className="hidden sm:flex items-center gap-1.5 mr-1"
+        >
+          {PRIMARY_SCREENS_ORDER.map((item, idx) => {
+            const active = item.sector === sector;
+            return (
+              <button
+                key={item.sector}
+                type="button"
+                onClick={() => navigateTo(item.sector, item.submenu)}
+                aria-label={`Ir a ${item.title}`}
+                aria-current={active ? 'page' : undefined}
+                title={`${idx + 1}. ${item.title}`}
+                className={`h-2 rounded-full transition-all cursor-pointer ${
+                  active ? 'w-5 bg-[var(--fabro-accent)]' : 'w-2 bg-[var(--fabro-border)] hover:opacity-80'
+                }`}
+              />
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={swipePrevScreen}
+          aria-label="Pantalla anterior"
+          className="min-h-[36px] min-w-[36px] rounded-xl border fabro-border fabro-surface flex items-center justify-center cursor-pointer active:scale-95"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={swipeNextScreen}
+          aria-label="Siguiente pantalla"
+          className="min-h-[36px] min-w-[36px] rounded-xl border fabro-border fabro-surface flex items-center justify-center cursor-pointer active:scale-95"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
     </section>
   );

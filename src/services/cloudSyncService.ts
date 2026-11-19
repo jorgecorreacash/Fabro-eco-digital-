@@ -537,11 +537,23 @@ export function subscribeToPublicPosts(
         const data = d.data();
         return {
           id: String(data.id || d.id),
+          authorUid: typeof data.authorUid === 'string' ? data.authorUid : undefined,
           author: String(data.author || 'Usuario FABRO'),
           authorAvatar: typeof data.authorAvatar === 'string' ? data.authorAvatar : undefined,
           fabroId: String(data.fabroId || 'FABRO'),
           text: String(data.text || ''),
           likes: typeof data.likes === 'number' ? data.likes : 0,
+          moderationStatus:
+            data.moderationStatus === 'visible' ||
+            data.moderationStatus === 'oculta' ||
+            data.moderationStatus === 'eliminada'
+              ? data.moderationStatus
+              : 'visible',
+          moderationReason:
+            typeof data.moderationReason === 'string' ? data.moderationReason : undefined,
+          moderatedBy: typeof data.moderatedBy === 'string' ? data.moderatedBy : undefined,
+          moderatedAtMs:
+            typeof data.moderatedAtMs === 'number' ? data.moderatedAtMs : undefined,
           origin:
             data.origin === 'estudio' ||
             data.origin === 'bienestar' ||
@@ -563,6 +575,16 @@ export function subscribeToPublicPosts(
               : undefined,
           createdAt: String(data.createdAtLabel || 'Recién'),
           poll: data.poll || undefined,
+          spaces:
+            data.communityId === 'cultura-only'
+              ? ['cultura']
+              : data.communityId === 'cultura-both'
+              ? ['cultura', 'general']
+              : ['general'],
+          cultureDiscipline:
+            typeof data.categoryTag === 'string' && data.categoryTag.startsWith('cultura:')
+              ? data.categoryTag.replace('cultura:', '')
+              : undefined,
         };
       });
       onPosts(posts);
@@ -620,6 +642,15 @@ export async function publishPublicPost(uid: string, post: WallPostItem): Promis
     });
   } catch (err) {
     handleFirestoreError(err, OperationType.CREATE, path);
+  }
+}
+
+export async function deletePublicPost(postId: string): Promise<void> {
+  const safeId = postId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
+  try {
+    await deleteDoc(doc(db, 'public_posts', safeId));
+  } catch {
+    // Non-fatal if offline or local-only post
   }
 }
 

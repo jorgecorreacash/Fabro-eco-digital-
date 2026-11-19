@@ -3,6 +3,7 @@ import {
   CheckCheck,
   Clock,
   Cloud,
+  Flag,
   MessageSquare,
   Mic,
   RefreshCw,
@@ -16,6 +17,7 @@ import {
   WifiOff,
   X,
 } from 'lucide-react';
+import { useAdmin } from '../../../context/AdminContext';
 import { useEcosystem } from '../../../context/EcosystemContext';
 import { sendCloudChatMessage, subscribeToCloudChat } from '../../../services/cloudSyncService';
 import { activateMediaSession, stopMediaSession } from '../../../services/mediaSessionBridge';
@@ -40,6 +42,7 @@ export const InteractiveChatInbox: React.FC = () => {
     reactToChatMessage,
     navigateTo,
   } = useEcosystem();
+  const { isActionRestricted, openReportModal } = useAdmin();
 
   const [cloudThreadMessages, setCloudThreadMessages] = useState<ChatMessageItem[]>([]);
   const [inboxFilter, setInboxFilter] = useState<'all' | 'starred' | 'queued'>('all');
@@ -140,6 +143,15 @@ export const InteractiveChatInbox: React.FC = () => {
 
   const handleSendText = (e: React.FormEvent) => {
     e.preventDefault();
+    const msgCheck = isActionRestricted('no_mensajes');
+    if (msgCheck.blocked) {
+      setDeliveryToast(
+        msgCheck.reason ||
+          'Tu cuenta tiene una restricción temporal para enviar mensajes. Podés revisar o apelar desde el aviso superior.'
+      );
+      setTimeout(() => setDeliveryToast(null), 4500);
+      return;
+    }
     if (!chatDraft.trim()) return;
     const cleanText = chatDraft.trim();
     sendQuickChatMessage(cleanText, {
@@ -162,6 +174,14 @@ export const InteractiveChatInbox: React.FC = () => {
   };
 
   const handleQuickVoice = async () => {
+    const msgCheck = isActionRestricted('no_mensajes');
+    if (msgCheck.blocked) {
+      setDeliveryToast(
+        msgCheck.reason || 'Tu cuenta tiene una restricción temporal para enviar notas de voz.'
+      );
+      setTimeout(() => setDeliveryToast(null), 4000);
+      return;
+    }
     if (recordingVoice) {
       if (recorderRef.current && recorderRef.current.state !== 'inactive') {
         recorderRef.current.stop();
@@ -615,6 +635,26 @@ export const InteractiveChatInbox: React.FC = () => {
                     >
                       <Star className="w-3.5 h-3.5" />
                     </button>
+                    {!msg.own && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openReportModal({
+                            targetType: 'mensaje',
+                            targetId: msg.id,
+                            targetAuthorName: msg.sender,
+                            targetSummary: (msg.text || 'Mensaje de chat').slice(0, 200),
+                            sector: 'social',
+                          });
+                        }}
+                        title="Denunciar mensaje"
+                        aria-label="Denunciar mensaje"
+                        className="min-h-[38px] min-w-[38px] rounded-lg border fabro-border fabro-surface flex items-center justify-center fabro-muted hover:text-rose-600 cursor-pointer"
+                      >
+                        <Flag className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -631,6 +671,15 @@ export const InteractiveChatInbox: React.FC = () => {
             key={st}
             type="button"
             onClick={() => {
+              const msgCheck = isActionRestricted('no_mensajes');
+              if (msgCheck.blocked) {
+                setDeliveryToast(
+                  msgCheck.reason ||
+                    'Tu cuenta tiene una restricción temporal para enviar mensajes.'
+                );
+                setTimeout(() => setDeliveryToast(null), 4000);
+                return;
+              }
               sendQuickChatMessage(`Sticker ${st}`, {
                 sticker: st,
                 recipientId: activeChatThreadId,

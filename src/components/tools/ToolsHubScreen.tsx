@@ -100,7 +100,7 @@ export const ToolsHubScreen: React.FC = () => {
     togglePinTool,
     pinnedTools,
     setFloatingChatOpen,
-    profile,
+    authUser,
   } = useEcosystem();
 
   const workbenchRef = useRef<HTMLElement | null>(null);
@@ -523,7 +523,7 @@ export const ToolsHubScreen: React.FC = () => {
                 Centro Unificado de Herramientas
               </h1>
               <p className="text-xs sm:text-sm fabro-muted leading-relaxed">
-                {allUnifiedTools.length} utilidades reunidas para {profile.displayName} · Calculadora científica, conversor, cronómetro y acceso directo a todo el ecosistema.
+                {allUnifiedTools.length} utilidades reunidas{authUser ? ` para ${authUser.displayName}` : ' en FABRO'} · Calculadora científica, conversor, cronómetro y acceso directo a todo el ecosistema.
               </p>
             </div>
 

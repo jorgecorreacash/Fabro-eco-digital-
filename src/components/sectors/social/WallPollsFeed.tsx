@@ -7,6 +7,7 @@ import {
   Check,
   ExternalLink,
   Film,
+  Flag,
   Forward,
   Heart,
   Image as ImageIcon,
@@ -21,6 +22,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { useAdmin } from '../../../context/AdminContext';
 import { useEcosystem } from '../../../context/EcosystemContext';
 import {
   PHOTO_CROP_LABELS,
@@ -29,6 +31,10 @@ import {
   saveImageAttachmentToVault,
   saveVideoAttachmentToVault,
 } from '../../../services/mediaVault';
+import {
+  isPostCultureOnly,
+  isPostInCultureWall,
+} from '../../../services/cultureVault';
 import { isDirectHtml5VideoUrl } from '../../../services/videoEmbedUtils';
 import type {
   PhotoCropMode,
@@ -46,6 +52,7 @@ type FeedFilter =
   | 'todo'
   | 'estudio'
   | 'bienestar'
+  | 'cultura'
   | 'comunidad'
   | 'general'
   | 'multimedia'
@@ -107,6 +114,7 @@ export const WallPollsFeed: React.FC = () => {
     navigateTo,
     openSocialProfileModal,
   } = useEcosystem();
+  const { isActionRestricted, openReportModal } = useAdmin();
 
   const [composerMode, setComposerMode] = useState<ComposerMode>('multimedia');
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('todo');
@@ -141,10 +149,22 @@ export const WallPollsFeed: React.FC = () => {
     title: string;
   } | null>(null);
 
+  const generalVisiblePosts = useMemo(
+    () =>
+      wallPosts.filter(
+        (p) =>
+          !isPostCultureOnly(p) &&
+          p.moderationStatus !== 'oculta' &&
+          p.moderationStatus !== 'eliminada'
+      ),
+    [wallPosts]
+  );
+
   const filteredPosts = useMemo(() => {
-    return wallPosts.filter((p) => {
+    return generalVisiblePosts.filter((p) => {
       if (feedFilter === 'estudio') return p.origin === 'estudio';
       if (feedFilter === 'bienestar') return p.origin === 'bienestar';
+      if (feedFilter === 'cultura') return isPostInCultureWall(p);
       if (feedFilter === 'comunidad') return p.origin === 'comunidad';
       if (feedFilter === 'general') return !p.origin || p.origin === 'general';
       if (feedFilter === 'multimedia') {
@@ -155,7 +175,7 @@ export const WallPollsFeed: React.FC = () => {
       if (feedFilter === 'guardados') return Boolean(p.bookmarked);
       return true;
     });
-  }, [feedFilter, wallPosts]);
+  }, [feedFilter, generalVisiblePosts]);
 
   const handleMediaPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -255,6 +275,15 @@ export const WallPollsFeed: React.FC = () => {
   const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
     setComposerNotice(null);
+
+    const pubRestriction = isActionRestricted('no_publicar');
+    if (pubRestriction.blocked) {
+      setComposerNotice(
+        pubRestriction.reason ||
+          'Tu cuenta tiene una restricción temporal para publicar. Podés revisar el motivo o apelar desde el aviso superior.'
+      );
+      return;
+    }
 
     if (composerMode === 'historia') {
       if (!postText.trim() && pendingMedia.length === 0) {
@@ -426,6 +455,14 @@ export const WallPollsFeed: React.FC = () => {
   };
 
   const handleSubmitComment = (postId: string) => {
+    const commentRestriction = isActionRestricted('no_comentar');
+    if (commentRestriction.blocked) {
+      setComposerNotice(
+        commentRestriction.reason ||
+          'Tu cuenta tiene una restricción temporal para comentar. Revisá tu estado en el panel de apelaciones.'
+      );
+      return;
+    }
     const text = (commentDrafts[postId] || '').trim();
     if (!text) return;
     const replyTarget = replyingTo[postId];
@@ -880,51 +917,60 @@ export const WallPollsFeed: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
           <span className="font-bold">Muro General Unificado · Filtrar por origen o formato</span>
           <span className="fabro-muted">
-            Converge #Estudio, #Bienestar, #Comunidad y #General
+            Converge #Estudio, #Bienestar, #Cultura, #Comunidad y #General
           </span>
         </div>
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
           {(
             [
-              { id: 'todo', label: `Todos (${wallPosts.length})`, activeCls: 'border-[#7C3AED] bg-[#7C3AED] text-white' },
+              {
+                id: 'todo',
+                label: `Todos (${generalVisiblePosts.length})`,
+                activeCls: 'border-[#7C3AED] bg-[#7C3AED] text-white',
+              },
               {
                 id: 'estudio',
-                label: `#Estudio (${wallPosts.filter((p) => p.origin === 'estudio').length})`,
+                label: `#Estudio (${generalVisiblePosts.filter((p) => p.origin === 'estudio').length})`,
                 activeCls: 'border-[#2563EB] bg-[#2563EB] text-white',
               },
               {
                 id: 'bienestar',
-                label: `#Bienestar (${wallPosts.filter((p) => p.origin === 'bienestar').length})`,
+                label: `#Bienestar (${generalVisiblePosts.filter((p) => p.origin === 'bienestar').length})`,
                 activeCls: 'border-[#10B981] bg-[#10B981] text-white',
               },
               {
+                id: 'cultura',
+                label: `#Cultura (${generalVisiblePosts.filter((p) => isPostInCultureWall(p)).length})`,
+                activeCls: 'border-[#9A3412] bg-[#9A3412] text-white',
+              },
+              {
                 id: 'comunidad',
-                label: `#Comunidad (${wallPosts.filter((p) => p.origin === 'comunidad').length})`,
+                label: `#Comunidad (${generalVisiblePosts.filter((p) => p.origin === 'comunidad').length})`,
                 activeCls: 'border-[#4F46E5] bg-[#4F46E5] text-white',
               },
               {
                 id: 'general',
-                label: `#General (${wallPosts.filter((p) => !p.origin || p.origin === 'general').length})`,
+                label: `#General (${generalVisiblePosts.filter((p) => !p.origin || p.origin === 'general').length})`,
                 activeCls: 'border-[#7C3AED] bg-[#7C3AED] text-white',
               },
               {
                 id: 'multimedia',
-                label: `Videos y Fotos (${wallPosts.filter((p) => (p.media && p.media.length > 0) || p.videoEmbed).length})`,
+                label: `Videos y Fotos (${generalVisiblePosts.filter((p) => (p.media && p.media.length > 0) || p.videoEmbed).length})`,
                 activeCls: 'border-[#EC4899] bg-[#EC4899] text-white',
               },
               {
                 id: 'encuestas',
-                label: `Encuestas (${wallPosts.filter((p) => p.poll).length})`,
+                label: `Encuestas (${generalVisiblePosts.filter((p) => p.poll).length})`,
                 activeCls: 'border-[#7C3AED] bg-[#7C3AED] text-white',
               },
               {
                 id: 'recursos',
-                label: `Recursos (${wallPosts.filter((p) => p.sharedResource).length})`,
+                label: `Recursos (${generalVisiblePosts.filter((p) => p.sharedResource).length})`,
                 activeCls: 'border-[#2563EB] bg-[#2563EB] text-white',
               },
               {
                 id: 'guardados',
-                label: `Guardados (${wallPosts.filter((p) => p.bookmarked).length})`,
+                label: `Guardados (${generalVisiblePosts.filter((p) => p.bookmarked).length})`,
                 activeCls: 'border-[#F59E0B] bg-[#F59E0B] text-white',
               },
             ] as const
@@ -1006,7 +1052,9 @@ export const WallPollsFeed: React.FC = () => {
                         <p className="font-bold text-sm truncate">{post.author}</p>
                         <span
                           className={`rounded-md border px-2 py-0.5 text-[10px] font-bold shrink-0 ${
-                            post.origin === 'estudio'
+                            isPostInCultureWall(post)
+                              ? 'border-[#9A3412]/45 bg-[#9A3412]/12 text-[#9A3412] dark:text-amber-300'
+                              : post.origin === 'estudio'
                               ? 'border-[#2563EB]/45 bg-[#2563EB]/12 text-[#1D4ED8] dark:text-[#93C5FD]'
                               : post.origin === 'bienestar'
                               ? 'border-[#10B981]/45 bg-[#10B981]/12 text-[#047857] dark:text-[#6EE7B7]'
@@ -1015,7 +1063,9 @@ export const WallPollsFeed: React.FC = () => {
                               : 'border-[#7C3AED]/40 bg-[#7C3AED]/10 text-[#6D28D9] dark:text-[#DDD6FE]'
                           }`}
                         >
-                          {post.origin === 'estudio'
+                          {isPostInCultureWall(post)
+                            ? '#Cultura'
+                            : post.origin === 'estudio'
                             ? '#Estudio'
                             : post.origin === 'bienestar'
                             ? '#Bienestar'
@@ -1028,7 +1078,7 @@ export const WallPollsFeed: React.FC = () => {
                             {post.communityName}
                           </span>
                         )}
-                        {post.categoryTag && !post.communityName && (
+                        {post.categoryTag && !post.communityName && !isPostInCultureWall(post) && (
                           <span className="rounded-md border fabro-border fabro-surface-elevated px-2 py-0.5 text-[10px] font-semibold">
                             {post.categoryTag}
                           </span>
@@ -1056,6 +1106,26 @@ export const WallPollsFeed: React.FC = () => {
                         className={`w-3.5 h-3.5 ${post.bookmarked ? 'fill-current' : ''}`}
                       />
                     </button>
+                    {!isOwnPost(post) && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openReportModal({
+                            targetType: 'publicacion',
+                            targetId: post.id,
+                            targetAuthorUid: post.authorUid,
+                            targetAuthorName: post.author,
+                            targetSummary: (post.text || 'Publicación multimedia').slice(0, 200),
+                            sector: isPostInCultureWall(post) ? 'cultura' : 'general',
+                          })
+                        }
+                        title="Denunciar publicación"
+                        aria-label="Denunciar publicación"
+                        className="min-h-[34px] min-w-[34px] rounded-xl border fabro-border fabro-surface-elevated flex items-center justify-center fabro-muted hover:text-rose-600 cursor-pointer"
+                      >
+                        <Flag className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     {isOwnPost(post) && (
                       <button
                         type="button"
@@ -1418,18 +1488,36 @@ export const WallPollsFeed: React.FC = () => {
                                   <span className="text-[10px] fabro-muted">{cmt.createdAt}</span>
                                 </div>
                                 <p className="mt-0.5 leading-relaxed">{cmt.text}</p>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setReplyingTo((prev) => ({
-                                      ...prev,
-                                      [post.id]: { id: cmt.id, author: cmt.author },
-                                    }))
-                                  }
-                                  className="mt-1 text-[11px] font-semibold text-[#7C3AED] dark:text-[#C4B5FD] hover:underline cursor-pointer"
-                                >
-                                  Responder
-                                </button>
+                                <div className="mt-1 flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setReplyingTo((prev) => ({
+                                        ...prev,
+                                        [post.id]: { id: cmt.id, author: cmt.author },
+                                      }))
+                                    }
+                                    className="text-[11px] font-semibold text-[#7C3AED] dark:text-[#C4B5FD] hover:underline cursor-pointer"
+                                  >
+                                    Responder
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openReportModal({
+                                        targetType: 'comentario',
+                                        targetId: `${post.id}::${cmt.id}`,
+                                        targetAuthorName: cmt.author,
+                                        targetSummary: cmt.text.slice(0, 200),
+                                        sector: isPostInCultureWall(post) ? 'cultura' : 'general',
+                                      })
+                                    }
+                                    className="text-[11px] fabro-muted hover:text-rose-600 cursor-pointer inline-flex items-center gap-1"
+                                  >
+                                    <Flag className="w-3 h-3" />
+                                    Denunciar
+                                  </button>
+                                </div>
                               </div>
 
                               {childReplies.length > 0 && (

@@ -23,6 +23,8 @@ export type ThemeId =
   | 'medianoche-rubi'
   | 'bosque-musgo';
 
+import type { CulturalProfileData } from './culture';
+
 export type FiveSectorId =
   | 'estudio'
   | 'bienestar'
@@ -30,7 +32,7 @@ export type FiveSectorId =
   | 'ia'
   | 'configuracion';
 
-export type SectorId = 'inicio' | 'hoy' | 'herramientas' | FiveSectorId;
+export type SectorId = 'inicio' | 'hoy' | 'herramientas' | 'cultura' | 'admin' | FiveSectorId;
 
 export type StudySubmenuId =
   | 'academico-panel'
@@ -79,6 +81,8 @@ export type SubmenuId =
   | 'dashboard'
   | 'hoy-cosmos'
   | 'centro-herramientas'
+  | 'cultura-inicio'
+  | 'admin-dashboard'
   | StudySubmenuId
   | WellnessSubmenuId
   | SocialSubmenuId
@@ -166,6 +170,7 @@ export interface LocalUserProfile {
     food: string;
     drinks: string;
   };
+  culturalProfile?: CulturalProfileData;
 }
 
 export interface ByokProviderKey {
@@ -488,12 +493,17 @@ export interface WallVideoEmbed {
 
 export interface WallPostItem {
   id: string;
+  authorUid?: string;
   author: string;
   fabroId: string;
   authorAvatar?: string;
   text: string;
   likes: number;
   createdAt: string;
+  moderationStatus?: 'visible' | 'oculta' | 'eliminada';
+  moderationReason?: string;
+  moderatedBy?: string;
+  moderatedAtMs?: number;
   origin?: WallPostOrigin;
   categoryTag?: string;
   communityId?: string;
@@ -507,6 +517,15 @@ export interface WallPostItem {
   sharedResource?: WallSharedResource;
   groupId?: string;
   groupName?: string;
+  spaces?: Array<'general' | 'cultura'>;
+  cultureDiscipline?: string;
+  hashtags?: string[];
+  fileAttachment?: {
+    name: string;
+    mimeType: string;
+    sizeLabel: string;
+    dataUrl?: string;
+  };
   poll?: {
     question: string;
     votedOptionId: string | null;
