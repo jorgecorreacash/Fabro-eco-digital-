@@ -24,6 +24,7 @@ import type {
 import { CultureCommunityAcademyLibrary } from './CultureCommunityAcademyLibrary';
 import { CultureDisciplinesStudio } from './CultureDisciplinesStudio';
 import { CultureHomeView } from './CultureHomeView';
+import { CultureNewsPanel } from './CultureNewsPanel';
 import { CultureWallPanel } from './CultureWallPanel';
 import { HeritageCraftsGastroStudio } from './HeritageCraftsGastroStudio';
 import { LiteratureStudio } from './LiteratureStudio';
@@ -115,13 +116,13 @@ export const SectorCulture: React.FC = () => {
             <Landmark className="w-4 h-4 shrink-0" />
             FABRO Cultura
           </span>
-          <span className="text-[11px] font-mono tabular-nums fabro-muted">26 áreas</span>
+          <span className="text-[11px] font-mono tabular-nums fabro-muted">27 áreas</span>
         </div>
         <input
           type="search"
           value={sidebarFilter}
           onChange={(e) => setSidebarFilter(e.target.value)}
-          placeholder="Filtrar 26 secciones..."
+          placeholder="Filtrar 27 secciones..."
           className="w-full min-h-[36px] rounded-xl border fabro-border fabro-surface-elevated px-3 text-xs fabro-input"
         />
       </div>
@@ -209,6 +210,10 @@ export const SectorCulture: React.FC = () => {
           }
         />
       );
+    }
+
+    if (activeNav === 'noticias-culturales') {
+      return <CultureNewsPanel />;
     }
 
     if (activeNav === 'muro-cultural') {
@@ -457,7 +462,7 @@ export const SectorCulture: React.FC = () => {
           className="min-h-[40px] inline-flex items-center gap-2 rounded-xl bg-[#9A3412] text-white px-3.5 text-xs font-bold cursor-pointer whitespace-nowrap"
         >
           <Menu className="w-4 h-4" />
-          <span>Disciplinas Cultura (26)</span>
+          <span>Cultura (27)</span>
         </button>
 
         <div className="flex items-center gap-1.5 overflow-x-auto">
@@ -471,6 +476,17 @@ export const SectorCulture: React.FC = () => {
             }`}
           >
             Inicio
+          </button>
+          <button
+            type="button"
+            onClick={() => selectNav('noticias-culturales')}
+            className={`min-h-[36px] px-3 rounded-xl border text-xs font-semibold whitespace-nowrap cursor-pointer ${
+              activeNav === 'noticias-culturales'
+                ? 'border-[#9A3412] bg-[#9A3412]/12 text-[#9A3412] dark:text-[#FDBA74]'
+                : 'fabro-border fabro-surface-elevated'
+            }`}
+          >
+            Noticias
           </button>
           <button
             type="button"

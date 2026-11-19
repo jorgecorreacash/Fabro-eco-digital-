@@ -1,10 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   BookOpen,
   Calendar,
+  ExternalLink,
   GraduationCap,
   Layers,
+  Newspaper,
+  RefreshCw,
   Search,
   UserCheck,
   UserPlus,
@@ -17,6 +20,10 @@ import {
   RECOMMENDED_ARTISTS,
 } from '../../../data/cultureCatalog';
 import {
+  fetchCultureNews,
+  formatRelativeCultureDate,
+} from '../../../services/cultureNewsService';
+import {
   extractCultureDisciplineFromPost,
   isPostInCultureWall,
 } from '../../../services/cultureVault';
@@ -25,6 +32,7 @@ import type {
   CultureDisciplineId,
   CultureEventItem,
   CultureNavId,
+  CultureNewsArticle,
 } from '../../../types/culture';
 
 interface CultureHomeViewProps {
@@ -87,6 +95,34 @@ export const CultureHomeView: React.FC<CultureHomeViewProps> = ({
   const { wallPosts, profile, toggleFollowProfile } = useEcosystem();
   const [activitySearch, setActivitySearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('Todas');
+  const [liveNews, setLiveNews] = useState<CultureNewsArticle[]>([]);
+  const [newsUpdatedAt, setNewsUpdatedAt] = useState<string | null>(null);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [newsRefreshing, setNewsRefreshing] = useState(false);
+
+  const loadLiveNews = useCallback(async (force = false) => {
+    if (force) setNewsRefreshing(true);
+    try {
+      const res = await fetchCultureNews(force);
+      if (res.articles.length > 0) {
+        setLiveNews(res.articles.slice(0, 5));
+        setNewsUpdatedAt(res.updatedAt);
+      }
+    } finally {
+      setNewsLoading(false);
+      setNewsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadLiveNews(false);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void loadLiveNews(true);
+      }
+    }, 180_000);
+    return () => window.clearInterval(interval);
+  }, [loadLiveNews]);
 
   const recentCulturePosts = useMemo(
     () => wallPosts.filter(isPostInCultureWall).slice(0, 3),
@@ -126,11 +162,19 @@ export const CultureHomeView: React.FC<CultureHomeViewProps> = ({
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => onNavigateCulture('muro-cultural')}
+              onClick={() => onNavigateCulture('noticias-culturales')}
               className="min-h-[42px] inline-flex items-center gap-2 rounded-xl bg-[#9A3412] text-white px-4 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap"
             >
-              <Layers className="w-4 h-4" />
-              <span>Ir al Muro Cultural</span>
+              <Newspaper className="w-4 h-4" />
+              <span>Noticias culturales</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigateCulture('muro-cultural')}
+              className="min-h-[42px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface-elevated px-3.5 text-xs font-semibold cursor-pointer active:scale-95 whitespace-nowrap"
+            >
+              <Layers className="w-4 h-4 text-[#9A3412] dark:text-[#FDBA74]" />
+              <span>Muro Cultural</span>
             </button>
             <button
               type="button"
@@ -146,7 +190,7 @@ export const CultureHomeView: React.FC<CultureHomeViewProps> = ({
               className="min-h-[42px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface-elevated px-3.5 text-xs font-semibold cursor-pointer whitespace-nowrap"
             >
               <BookOpen className="w-4 h-4 text-[#14532D] dark:text-emerald-400" />
-              <span>Biblioteca Digital</span>
+              <span>Biblioteca</span>
             </button>
           </div>
         </div>
@@ -169,6 +213,155 @@ export const CultureHomeView: React.FC<CultureHomeViewProps> = ({
             <span>Sin costos adicionales</span>
           </div>
         </div>
+      </section>
+
+      {/* 1B. Live Auto-Updating Cultural News Strip */}
+      <section className="rounded-2xl border fabro-border fabro-surface p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b fabro-border">
+          <div className="space-y-0.5">
+            <h2 className="font-display text-lg font-bold flex items-center gap-2">
+              <Newspaper className="w-4 h-4 text-[#9A3412] dark:text-[#FDBA74]" />
+              <span>Noticias culturales en actualización</span>
+            </h2>
+            <p className="text-xs fabro-muted">
+              Auto-actualización cada 3 min
+              {newsUpdatedAt && (
+                <>
+                  {' · '}
+                  <span className="font-mono tabular-nums">
+                    Actualizado{' '}
+                    {new Intl.DateTimeFormat('es-AR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    }).format(new Date(newsUpdatedAt))}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={newsRefreshing}
+              onClick={() => void loadLiveNews(true)}
+              className="min-h-[34px] inline-flex items-center gap-1.5 rounded-lg border fabro-border fabro-surface-elevated px-2.5 text-xs font-semibold cursor-pointer disabled:opacity-60 whitespace-nowrap"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${newsRefreshing ? 'animate-spin' : ''}`} />
+              <span>Actualizar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigateCulture('noticias-culturales')}
+              className="min-h-[34px] inline-flex items-center gap-1 rounded-lg bg-[#9A3412] text-white px-3 text-xs font-bold cursor-pointer whitespace-nowrap"
+            >
+              <span>Ver todas</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {newsLoading && liveNews.length === 0 ? (
+          <p className="text-xs fabro-muted py-4 text-center">
+            Cargando titulares culturales actualizados...
+          </p>
+        ) : liveNews.length === 0 ? (
+          <div className="py-4 text-center space-y-2 text-xs fabro-muted">
+            <p>No se pudieron cargar titulares culturales en este instante.</p>
+            <button
+              type="button"
+              onClick={() => void loadLiveNews(true)}
+              className="text-[#9A3412] dark:text-[#FDBA74] font-semibold hover:underline cursor-pointer"
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+            {liveNews[0] && (
+              <article className="lg:col-span-6 rounded-xl border fabro-border fabro-surface-elevated overflow-hidden flex flex-col justify-between">
+                {liveNews[0].image && (
+                  <div className="h-44 w-full bg-[var(--fabro-surface-2)] overflow-hidden">
+                    <img
+                      src={liveNews[0].image}
+                      alt={liveNews[0].title}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+                <div className="p-4 flex-1 flex flex-col justify-between gap-2.5">
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] fabro-muted">
+                      <span className="font-semibold text-[#9A3412] dark:text-[#FDBA74]">
+                        {liveNews[0].categoryLabel}
+                      </span>
+                      {' · '}
+                      {liveNews[0].source}
+                      {' · '}
+                      <span className="tabular-nums">
+                        {formatRelativeCultureDate(liveNews[0].publishedAt)}
+                      </span>
+                    </p>
+                    <h3 className="text-sm sm:text-base font-bold leading-snug">
+                      <a
+                        href={liveNews[0].url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-[#9A3412] dark:hover:text-[#FDBA74] transition-colors"
+                      >
+                        {liveNews[0].title}
+                      </a>
+                    </h3>
+                    <p className="text-xs fabro-muted line-clamp-2 leading-relaxed">
+                      {liveNews[0].summary}
+                    </p>
+                  </div>
+                  <a
+                    href={liveNews[0].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#1E3A8A] dark:text-[#93C5FD] hover:underline"
+                  >
+                    <span>Leer nota</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </article>
+            )}
+
+            <div className="lg:col-span-6 divide-y fabro-border rounded-xl border fabro-border fabro-surface-elevated px-4 py-1 flex flex-col justify-between">
+              {liveNews.slice(1, 5).map((art, idx) => (
+                <article key={`${art.id}-home-${idx}`} className="py-2.5 space-y-1">
+                  <p className="text-[11px] fabro-muted">
+                    <span className="font-semibold text-[#9A3412] dark:text-[#FDBA74]">
+                      {art.categoryLabel}
+                    </span>
+                    {' · '}
+                    {art.source}
+                    {' · '}
+                    <span className="tabular-nums">
+                      {formatRelativeCultureDate(art.publishedAt)}
+                    </span>
+                  </p>
+                  <h3 className="text-xs sm:text-sm font-semibold leading-snug line-clamp-2">
+                    <a
+                      href={art.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-[#9A3412] dark:hover:text-[#FDBA74] transition-colors"
+                    >
+                      {art.title}
+                    </a>
+                  </h3>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 2. Featured Free Creative Tools */}

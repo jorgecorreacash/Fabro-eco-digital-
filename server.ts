@@ -3,11 +3,13 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createCultureRouter } from './server/cultureRouter';
 import { createSportsRouter } from './server/sportsRouter';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT || 3000);
+const SPEED_PROBE_BUFFER = Buffer.alloc(256 * 1024, 0x46); // 256 KB deterministic probe
 
 async function startServer() {
   const app = express();
@@ -24,13 +26,28 @@ async function startServer() {
     });
   });
 
+  // Zero-cost real connection speed probe (256 KB non-cached response)
+  app.get('/api/speed-probe', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Length', String(SPEED_PROBE_BUFFER.length));
+    res.send(SPEED_PROBE_BUFFER);
+  });
+
   // FABRO DEPORTES $0-cost public sports JSON & RSS aggregator with TTL cache
   app.use('/api/sports', createSportsRouter());
+
+  // FABRO CULTURA $0-cost Spanish cultural RSS news aggregator with TTL cache
+  app.use('/api/culture', createCultureRouter());
 
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+        ws: false,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

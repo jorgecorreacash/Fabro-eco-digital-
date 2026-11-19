@@ -1,5 +1,6 @@
 export type CultureNavId =
   | 'inicio'
+  | 'noticias-culturales'
   | 'muro-cultural'
   | 'artes-visuales'
   | 'musica'
@@ -33,12 +34,43 @@ export type CultureNavId =
 export type CultureDisciplineId = Exclude<
   CultureNavId,
   | 'inicio'
+  | 'noticias-culturales'
   | 'muro-cultural'
   | 'perfil-cultural'
   | 'comunidades-culturales'
   | 'academia-cultural'
   | 'biblioteca-digital'
 >;
+
+export type CultureNewsCategory =
+  | 'todas'
+  | 'arte-museos'
+  | 'cine-series'
+  | 'musica'
+  | 'libros-literatura'
+  | 'teatro-escena'
+  | 'patrimonio-sociedad';
+
+export interface CultureNewsArticle {
+  id: string;
+  title: string;
+  summary: string;
+  url: string;
+  image?: string;
+  publishedAt: string;
+  source: string;
+  sourceId: string;
+  category: Exclude<CultureNewsCategory, 'todas'>;
+  categoryLabel: string;
+  region: string;
+}
+
+export interface CultureNewsFeedResult {
+  articles: CultureNewsArticle[];
+  sources: string[];
+  updatedAt: string;
+  mode: 'server' | 'cors-direct' | 'cache';
+}
 
 export type CultureStudioKind =
   | 'visual-arts'

@@ -42,6 +42,7 @@ import { isInstalledDeviceApp } from '../../lib/firebase';
 import type { FiveSectorId, SectorId, SubmenuId } from '../../types/ecosystem';
 import { FabroBrandMark } from '../brand/FabroBrandMark';
 import { ScreenIndicatorBar } from '../navigation/ScreenNavigationEffects';
+import { ConnectionSpeedBadge } from './ConnectionSpeedBadge';
 import { QuickActionsBar } from './QuickActionsBar';
 import { RightContextPanel } from './RightContextPanel';
 
@@ -209,16 +210,16 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
     if (
-      'fabro cultura arte musica literatura cine teatro danza fotografia historia museos bibliotecas artesanias gastronomia folclore turismo filosofia ciencia indigena urbana videojuegos ambiental ciudadana genealogia coleccionismo festivales muro cultural academia'
+      'fabro cultura noticias culturales actualidad cultural arte musica literatura cine teatro danza fotografia historia museos bibliotecas artesanias gastronomia folclore turismo filosofia ciencia indigena urbana videojuegos ambiental ciudadana genealogia coleccionismo festivales muro cultural academia'
         .includes(q)
     ) {
       results.push({
         id: 'cultura-inicio',
         sector: 'cultura',
         submenu: 'cultura-inicio',
-        label: 'FABRO Cultura · Disciplinas, Herramientas y Muro Cultural',
+        label: 'FABRO Cultura · Noticias Culturales, Disciplinas y Muro',
         groupLabel: 'Sector cultural',
-        description: '24 disciplinas artísticas, patrimonio, talleres gratuitos, biblioteca abierta y muro cultural sincronizado.',
+        description: 'Noticias culturales en actualización, 24 disciplinas artísticas, talleres gratuitos, biblioteca abierta y muro cultural.',
       });
     }
     for (const disc of CULTURE_DISCIPLINES) {
@@ -1131,8 +1132,11 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
             )}
           </div>
 
-          {/* Right Zone: Radio AM/FM + Streamlined Theme Selector + Notifications + Profile & Sign Out */}
+          {/* Right Zone: Connection Speed + Radio AM/FM + Theme Selector + Notifications + Profile & Sign Out */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Real-time Connection Speed Monitor (Mbps & Ping) */}
+            <ConnectionSpeedBadge />
+
             {/* Compact Radio Digital AM/FM Button */}
             <button
               type="button"
