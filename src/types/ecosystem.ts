@@ -204,6 +204,8 @@ export interface ActivityEntry {
   timestamp: string;
 }
 
+export type NotificationCategory = 'culture-news' | 'community' | 'system';
+
 export interface NotificationEntry {
   id: string;
   title: string;
@@ -211,15 +213,30 @@ export interface NotificationEntry {
   read: boolean;
   createdAt: string;
   target: NavDestination;
+  category?: NotificationCategory;
+  cultureNav?: string;
 }
 
 export interface NotificationPreferences {
   enabled: boolean;
+  cultureNews: boolean;
+  communityUpdates: boolean;
   pomodoroAndRoutines: boolean;
   chatMessages: boolean;
   scheduledReminders: boolean;
   sound: boolean;
   vibrate: boolean;
+}
+
+export interface PushToastItem {
+  id: string;
+  title: string;
+  body: string;
+  category: NotificationCategory;
+  target: NavDestination;
+  cultureNav?: string;
+  actionLabel: string;
+  createdAt: string;
 }
 
 export interface ScheduledReminderItem {

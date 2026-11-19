@@ -96,11 +96,12 @@ export interface DispatchNotificationOptions {
   body: string;
   sector: SectorId;
   submenu: SubmenuId;
+  cultureNav?: string;
   tag?: string;
   soundType?: 'focus-end' | 'break-end' | 'interval' | null;
   vibratePattern?: number[];
   prefs?: NotificationPreferences;
-  onInAppFallback?: (sector: SectorId, submenu: SubmenuId) => void;
+  onInAppFallback?: (sector: SectorId, submenu: SubmenuId, cultureNav?: string) => void;
 }
 
 export async function dispatchSystemNotification(
@@ -111,6 +112,7 @@ export async function dispatchSystemNotification(
     body,
     sector,
     submenu,
+    cultureNav,
     tag = `fabro-${sector}-${submenu}`,
     soundType = 'interval',
     vibratePattern = [180, 90, 220],
@@ -162,6 +164,7 @@ export async function dispatchSystemNotification(
     try {
       const reg = await navigator.serviceWorker.ready;
       if (reg && typeof reg.showNotification === 'function') {
+        const cultureParam = cultureNav ? `&cultureNav=${encodeURIComponent(cultureNav)}` : '';
         const swOptions: NotificationOptions & { vibrate?: number[]; renotify?: boolean } = {
           body,
           icon: '/pwa-192x192.png',
@@ -172,7 +175,8 @@ export async function dispatchSystemNotification(
           data: {
             sector,
             submenu,
-            url: `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}`,
+            cultureNav,
+            url: `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}${cultureParam}`,
           },
         };
         await reg.showNotification(title, swOptions);
@@ -195,7 +199,7 @@ export async function dispatchSystemNotification(
     });
     notif.onclick = () => {
       window.focus();
-      options.onInAppFallback?.(sector, submenu);
+      options.onInAppFallback?.(sector, submenu, cultureNav);
       notif.close();
     };
     return {

@@ -7,6 +7,7 @@ import { FabroAuthModal } from './components/auth/FabroAuthModal';
 import { FabroSplashScreen } from './components/brand/FabroSplashScreen';
 import { CalendarAlarmBanner } from './components/common/CalendarAlarmBanner';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { PushNotificationToast } from './components/common/PushNotificationToast';
 import { DashboardHome } from './components/home/DashboardHome';
 import { HoyCosmosScreen } from './components/hoy/HoyCosmosScreen';
 import { HybridShell } from './components/layout/HybridShell';
@@ -70,6 +71,7 @@ const EcosystemRouter: React.FC = () => {
       <RadioMiniPlayer />
       <FabroRadioModal />
       <CalendarAlarmBanner />
+      <PushNotificationToast />
       <DeploymentStatusBar hasMobileBottomNav />
     </>
   );

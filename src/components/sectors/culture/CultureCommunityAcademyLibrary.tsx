@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import {
   Award,
+  Bell,
+  BellOff,
   BookOpen,
   CheckCircle2,
   ExternalLink,
@@ -54,7 +56,16 @@ export const CultureCommunityAcademyLibrary: React.FC<CultureCommunityAcademyLib
   onSaveCourses,
   onSaveLibrary,
 }) => {
-  const { profile, authUser, saveFullSocialProfile } = useEcosystem();
+  const {
+    profile,
+    authUser,
+    saveFullSocialProfile,
+    notificationPrefs,
+    updateNotificationPrefs,
+    notificationPermission,
+    requestNotificationPermission,
+    notifyCommunityUpdate,
+  } = useEcosystem();
   const cp = profile.culturalProfile || {};
 
   // 1. Cultural Profile optional fields (extends existing profile without requiring completion)
@@ -426,8 +437,61 @@ export const CultureCommunityAcademyLibrary: React.FC<CultureCommunityAcademyLib
   // SECTION 2: CULTURAL COMMUNITIES
   if (section === 'comunidades-culturales') {
     const activeComm = communities.find((c) => c.id === selectedCommId) || communities[0];
+    const joinedCommunitiesCount = communities.filter((c) => c.joined).length;
+    const communityPushActive = notificationPrefs.enabled && notificationPrefs.communityUpdates;
+
+    const handleToggleCommunityPush = async () => {
+      if (!communityPushActive) {
+        updateNotificationPrefs({ enabled: true, communityUpdates: true });
+        if (notificationPermission === 'default') {
+          await requestNotificationPermission();
+        }
+      } else {
+        updateNotificationPrefs({ communityUpdates: false });
+      }
+    };
+
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="space-y-4">
+        {/* Community Push Alerts Control Strip */}
+        <div className="rounded-2xl border fabro-border fabro-surface p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="space-y-0.5">
+            <p className="font-bold flex items-center gap-2">
+              <Bell className="w-4 h-4 text-[#9A3412] dark:text-[#FDBA74]" />
+              Alertas push de tus comunidades culturales
+            </p>
+            <p className="fabro-muted">
+              Participás en{' '}
+              <span className="font-mono tabular-nums font-semibold text-[var(--fabro-text)]">
+                {joinedCommunitiesCount}
+              </span>{' '}
+              comunidad{joinedCommunitiesCount === 1 ? '' : 'es'}. Recibí avisos inmediatos ante nuevas publicaciones e intercambios.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleToggleCommunityPush()}
+            className={`min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border px-3.5 text-xs font-bold cursor-pointer whitespace-nowrap ${
+              communityPushActive
+                ? 'border-[#9A3412]/40 bg-[#9A3412]/10 text-[#9A3412] dark:text-[#FDBA74]'
+                : 'fabro-border fabro-surface-elevated fabro-muted'
+            }`}
+          >
+            {communityPushActive ? (
+              <>
+                <Bell className="w-3.5 h-3.5" />
+                <span>Alertas push activas</span>
+              </>
+            ) : (
+              <>
+                <BellOff className="w-3.5 h-3.5" />
+                <span>Activar alertas push</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <div className="lg:col-span-5 space-y-4">
           <form
             onSubmit={(e) => {
@@ -551,19 +615,30 @@ export const CultureCommunityAcademyLibrary: React.FC<CultureCommunityAcademyLib
                 </div>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    const willJoin = !activeComm.joined;
                     onSaveCommunities(
                       communities.map((c) =>
                         c.id === activeComm.id
                           ? {
                               ...c,
-                              joined: !c.joined,
-                              membersCount: c.joined ? c.membersCount - 1 : c.membersCount + 1,
+                              joined: willJoin,
+                              membersCount: willJoin ? c.membersCount + 1 : Math.max(1, c.membersCount - 1),
                             }
                           : c
                       )
-                    )
-                  }
+                    );
+                    if (willJoin) {
+                      void notifyCommunityUpdate({
+                        communityName: activeComm.name,
+                        summary: 'Te uniste a esta comunidad cultural. Te avisaremos ante nuevas publicaciones.',
+                        target: { sector: 'cultura', submenu: 'cultura-inicio' },
+                        cultureNav: 'comunidades-culturales',
+                        broadcast: false,
+                        triggerLocalPush: true,
+                      });
+                    }
+                  }}
                   className={`min-h-[40px] rounded-xl px-4 text-xs font-bold cursor-pointer ${
                     activeComm.joined
                       ? 'border fabro-border fabro-surface-elevated'
@@ -577,7 +652,8 @@ export const CultureCommunityAcademyLibrary: React.FC<CultureCommunityAcademyLib
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (!commPostDraft.trim()) return;
+                  const cleanText = commPostDraft.trim();
+                  if (!cleanText) return;
                   onSaveCommunities(
                     communities.map((c) =>
                       c.id === activeComm.id
@@ -587,7 +663,7 @@ export const CultureCommunityAcademyLibrary: React.FC<CultureCommunityAcademyLib
                               {
                                 id: `ccp-${Date.now()}`,
                                 author: currentAuthor,
-                                text: commPostDraft.trim(),
+                                text: cleanText,
                                 createdAt: 'Recién',
                               },
                               ...c.posts,
@@ -596,6 +672,14 @@ export const CultureCommunityAcademyLibrary: React.FC<CultureCommunityAcademyLib
                         : c
                     )
                   );
+                  void notifyCommunityUpdate({
+                    communityName: activeComm.name,
+                    summary: `${currentAuthor}: ${cleanText}`,
+                    target: { sector: 'cultura', submenu: 'cultura-inicio' },
+                    cultureNav: 'comunidades-culturales',
+                    broadcast: true,
+                    triggerLocalPush: false,
+                  });
                   setCommPostDraft('');
                 }}
                 className="flex gap-2"
@@ -638,6 +722,7 @@ export const CultureCommunityAcademyLibrary: React.FC<CultureCommunityAcademyLib
             </div>
           )}
         </div>
+      </div>
       </div>
     );
   }

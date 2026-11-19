@@ -33,11 +33,21 @@ import { StageScreenStudio } from './StageScreenStudio';
 import { VisualArtsStudio } from './VisualArtsStudio';
 
 export const SectorCulture: React.FC = () => {
-  const { addWallPost, authUser, profile } = useEcosystem();
-  const [activeNav, setActiveNav] = useState<CultureNavId>('inicio');
+  const { addWallPost, authUser, profile, pendingCultureNav, clearPendingCultureNav } = useEcosystem();
+  const [activeNav, setActiveNav] = useState<CultureNavId>(() =>
+    pendingCultureNav ? (pendingCultureNav as CultureNavId) : 'inicio'
+  );
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarFilter, setSidebarFilter] = useState('');
   const [state, setState] = useState<CultureStateSnapshot>(DEFAULT_CULTURE_STATE);
+
+  useEffect(() => {
+    if (!pendingCultureNav) return;
+    setActiveNav(pendingCultureNav as CultureNavId);
+    setMobileSidebarOpen(false);
+    clearPendingCultureNav();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [clearPendingCultureNav, pendingCultureNav]);
 
   useEffect(() => {
     let mounted = true;

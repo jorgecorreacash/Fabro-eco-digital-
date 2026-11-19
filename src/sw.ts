@@ -293,8 +293,10 @@ self.addEventListener('message', (event) => {
     const body = typeof data.body === 'string' ? data.body : 'Tenés un aviso pendiente en FABRO.';
     const sector = typeof data.sector === 'string' ? data.sector : 'inicio';
     const submenu = typeof data.submenu === 'string' ? data.submenu : 'dashboard';
+    const cultureNav = typeof data.cultureNav === 'string' ? data.cultureNav : undefined;
     const tag = typeof data.tag === 'string' ? data.tag : `fabro-${Date.now()}`;
     const vibrate = Array.isArray(data.vibrate) ? (data.vibrate as number[]) : [180, 80, 180];
+    const cultureParam = cultureNav ? `&cultureNav=${encodeURIComponent(cultureNav)}` : '';
 
     event.waitUntil(
       self.registration.showNotification(title, {
@@ -307,7 +309,8 @@ self.addEventListener('message', (event) => {
         data: {
           sector,
           submenu,
-          url: `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}`,
+          cultureNav,
+          url: `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}${cultureParam}`,
         },
       })
     );
@@ -328,6 +331,8 @@ self.addEventListener('push', (event) => {
   const body = typeof payload.body === 'string' ? payload.body : 'Nuevo aviso en segundo plano.';
   const sector = typeof payload.sector === 'string' ? payload.sector : 'inicio';
   const submenu = typeof payload.submenu === 'string' ? payload.submenu : 'dashboard';
+  const cultureNav = typeof payload.cultureNav === 'string' ? payload.cultureNav : undefined;
+  const cultureParam = cultureNav ? `&cultureNav=${encodeURIComponent(cultureNav)}` : '';
 
   event.waitUntil(
     self.registration.showNotification(title, {
@@ -340,7 +345,8 @@ self.addEventListener('push', (event) => {
       data: {
         sector,
         submenu,
-        url: `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}`,
+        cultureNav,
+        url: `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}${cultureParam}`,
       },
     })
   );
@@ -351,10 +357,12 @@ self.addEventListener('notificationclick', (event) => {
   const notifData = (event.notification.data || {}) as Record<string, unknown>;
   const sector = typeof notifData.sector === 'string' ? notifData.sector : 'inicio';
   const submenu = typeof notifData.submenu === 'string' ? notifData.submenu : 'dashboard';
+  const cultureNav = typeof notifData.cultureNav === 'string' ? notifData.cultureNav : undefined;
+  const cultureParam = cultureNav ? `&cultureNav=${encodeURIComponent(cultureNav)}` : '';
   const targetUrl =
     typeof notifData.url === 'string'
       ? notifData.url
-      : `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}`;
+      : `/?sector=${encodeURIComponent(sector)}&submenu=${encodeURIComponent(submenu)}${cultureParam}`;
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windowClients) => {
@@ -366,6 +374,7 @@ self.addEventListener('notificationclick', (event) => {
           type: 'FABRO_NOTIFICATION_NAVIGATE',
           sector,
           submenu,
+          cultureNav,
         });
         return;
       }

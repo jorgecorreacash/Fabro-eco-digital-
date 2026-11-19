@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Bell,
+  BellOff,
   Bookmark,
   BookmarkCheck,
   Clock,
@@ -10,6 +12,7 @@ import {
   RefreshCw,
   Search,
 } from 'lucide-react';
+import { useEcosystem } from '../../../context/EcosystemContext';
 import {
   CULTURE_NEWS_CATEGORIES,
   fetchCultureNews,
@@ -35,6 +38,14 @@ function formatCountdown(sec: number): string {
 }
 
 export const CultureNewsPanel: React.FC = () => {
+  const {
+    notificationPrefs,
+    updateNotificationPrefs,
+    notificationPermission,
+    requestNotificationPermission,
+    notifyFreshCultureNews,
+  } = useEcosystem();
+
   const [articles, setArticles] = useState<CultureNewsArticle[]>([]);
   const [sources, setSources] = useState<string[]>([]);
   const [savedArticles, setSavedArticles] = useState<CultureNewsArticle[]>([]);
@@ -43,6 +54,7 @@ export const CultureNewsPanel: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [freshCount, setFreshCount] = useState(0);
+  const [pushFeedback, setPushFeedback] = useState<string | null>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<CultureNewsCategory | 'guardadas'>(
     'todas'
@@ -55,32 +67,58 @@ export const CultureNewsPanel: React.FC = () => {
 
   const knownIdsRef = useRef<Set<string>>(new Set());
 
-  const loadNews = useCallback(async (forceRefresh = false, silent = false) => {
-    if (!silent) setRefreshing(true);
-    setErrorMsg(null);
-    try {
-      const res = await fetchCultureNews(forceRefresh);
-      if (res.articles.length > 0) {
-        if (knownIdsRef.current.size > 0) {
-          const added = res.articles.filter((a) => !knownIdsRef.current.has(a.id)).length;
-          if (added > 0) setFreshCount((c) => c + added);
-        }
-        knownIdsRef.current = new Set(res.articles.map((a) => a.id));
-        setArticles(res.articles);
-        setSources(res.sources);
-        setUpdatedAt(res.updatedAt);
-      } else {
-        setErrorMsg(
-          'No se pudieron obtener noticias culturales en este momento. Reintentá en unos segundos.'
+  const culturePushActive = notificationPrefs.enabled && notificationPrefs.cultureNews;
+
+  const handleToggleCulturePush = async () => {
+    if (!culturePushActive) {
+      updateNotificationPrefs({ enabled: true, cultureNews: true });
+      if (notificationPermission === 'default') {
+        const res = await requestNotificationPermission();
+        setPushFeedback(
+          res.permission === 'granted'
+            ? 'Alertas push activadas para nuevas noticias de FABRO Cultura.'
+            : 'Alertas dentro de la app activadas. Podés habilitar el permiso del navegador cuando quieras.'
         );
+      } else {
+        setPushFeedback('Alertas push activadas para nuevas noticias de FABRO Cultura.');
       }
-    } catch {
-      setErrorMsg('No se pudo conectar con las fuentes culturales. Verificá tu conexión.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    } else {
+      updateNotificationPrefs({ cultureNews: false });
+      setPushFeedback('Alertas push de noticias culturales pausadas.');
     }
-  }, []);
+    window.setTimeout(() => setPushFeedback(null), 5000);
+  };
+
+  const loadNews = useCallback(
+    async (forceRefresh = false, silent = false) => {
+      if (!silent) setRefreshing(true);
+      setErrorMsg(null);
+      try {
+        const res = await fetchCultureNews(forceRefresh);
+        if (res.articles.length > 0) {
+          if (knownIdsRef.current.size > 0) {
+            const added = res.articles.filter((a) => !knownIdsRef.current.has(a.id)).length;
+            if (added > 0) setFreshCount((c) => c + added);
+          }
+          knownIdsRef.current = new Set(res.articles.map((a) => a.id));
+          setArticles(res.articles);
+          setSources(res.sources);
+          setUpdatedAt(res.updatedAt);
+          void notifyFreshCultureNews(res.articles);
+        } else {
+          setErrorMsg(
+            'No se pudieron obtener noticias culturales en este momento. Reintentá en unos segundos.'
+          );
+        }
+      } catch {
+        setErrorMsg('No se pudo conectar con las fuentes culturales. Verificá tu conexión.');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [notifyFreshCultureNews]
+  );
 
   useEffect(() => {
     void loadNews(false, false);
@@ -177,6 +215,33 @@ export const CultureNewsPanel: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
+              onClick={() => void handleToggleCulturePush()}
+              className={`min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold cursor-pointer whitespace-nowrap ${
+                culturePushActive
+                  ? 'border-[#9A3412]/40 bg-[#9A3412]/10 text-[#9A3412] dark:text-[#FDBA74]'
+                  : 'fabro-border fabro-surface-elevated fabro-muted'
+              }`}
+              title={
+                culturePushActive
+                  ? 'Recibís alertas push ante nuevas noticias culturales'
+                  : 'Activar alertas push de noticias culturales'
+              }
+            >
+              {culturePushActive ? (
+                <>
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>Alertas push activas</span>
+                </>
+              ) : (
+                <>
+                  <BellOff className="w-3.5 h-3.5" />
+                  <span>Activar alertas push</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={() => {
                 setAutoEnabled((v) => !v);
                 if (!autoEnabled && intervalSec === 0) setIntervalSec(180);
@@ -216,6 +281,12 @@ export const CultureNewsPanel: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {pushFeedback && (
+          <p className="rounded-xl border border-[#9A3412]/30 bg-[#9A3412]/10 px-3.5 py-2 text-xs font-semibold text-[#9A3412] dark:text-[#FDBA74]">
+            {pushFeedback}
+          </p>
+        )}
 
         {/* Operational Strip: Updated time + Interval + Search + Source */}
         <div className="pt-4 border-t fabro-border flex flex-col gap-3">

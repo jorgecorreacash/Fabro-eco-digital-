@@ -14,7 +14,9 @@ import {
   Image as ImageIcon,
   ImagePlus,
   Lightbulb,
+  Loader2,
   Lock,
+  LogIn,
   MessageCircle,
   Music,
   Plus,
@@ -23,6 +25,7 @@ import {
   Sparkles,
   Trash2,
   User,
+  UserPlus,
   Users,
   Utensils,
 } from 'lucide-react';
@@ -72,6 +75,8 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
     reactToWallPost,
     navigateTo,
     openAuthModal,
+    signInWithGoogle,
+    needsProfileSetup,
   } = useEcosystem();
   const { myRestriction, openParticipationModal } = useAdmin();
 
@@ -80,6 +85,18 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
   const [manageResourcesOpen, setManageResourcesOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploadingQuick, setUploadingQuick] = useState<'avatar' | 'cover' | null>(null);
+  const [googleSigningIn, setGoogleSigningIn] = useState(false);
+  const [googleAuthError, setGoogleAuthError] = useState<string | null>(null);
+
+  const handleDirectGoogleSignIn = async () => {
+    setGoogleSigningIn(true);
+    setGoogleAuthError(null);
+    const res = await signInWithGoogle();
+    setGoogleSigningIn(false);
+    if (!res.ok && res.error) {
+      setGoogleAuthError(res.error);
+    }
+  };
 
   const myHandle = profile.username || authUser?.username || profile.fabroId.toLowerCase();
 
@@ -250,18 +267,29 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-slate-950/15 to-transparent" />
           <div className="absolute top-3 right-3 flex items-center gap-2">
-            <label className="min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-white/25 bg-slate-950/70 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-xs cursor-pointer hover:bg-slate-900">
-              <ImagePlus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">
-                {uploadingQuick === 'cover' ? 'Optimizando...' : 'Cambiar portada'}
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleQuickCoverUpload}
-                className="hidden"
-              />
-            </label>
+            {authUser ? (
+              <label className="min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-white/25 bg-slate-950/70 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-xs cursor-pointer hover:bg-slate-900">
+                <ImagePlus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">
+                  {uploadingQuick === 'cover' ? 'Optimizando...' : 'Cambiar portada'}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleQuickCoverUpload}
+                  className="hidden"
+                />
+              </label>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openAuthModal('crear tu perfil en FABRO con tu cuenta de Google', 'login')}
+                className="min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/95 px-3.5 py-1.5 text-xs font-bold text-slate-900 shadow-sm cursor-pointer hover:bg-white"
+              >
+                <LogIn className="w-3.5 h-3.5 text-[#7C3AED]" />
+                <span>Iniciar sesión</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -283,57 +311,101 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
                     <User className="w-10 h-10" />
                   </div>
                 )}
-                <label
-                  title="Cambiar foto de perfil"
-                  className="absolute -bottom-1.5 -right-1.5 h-8 w-8 rounded-xl border-2 border-[var(--fabro-surface)] bg-[#7C3AED] text-white flex items-center justify-center shadow-md cursor-pointer hover:brightness-110"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleQuickAvatarUpload}
-                    className="hidden"
-                  />
-                </label>
+                {authUser && (
+                  <label
+                    title="Cambiar foto de perfil"
+                    className="absolute -bottom-1.5 -right-1.5 h-8 w-8 rounded-xl border-2 border-[var(--fabro-surface)] bg-[#7C3AED] text-white flex items-center justify-center shadow-md cursor-pointer hover:brightness-110"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleQuickAvatarUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
 
               <div className="pb-1 min-w-0">
                 <h2 className="font-display text-lg sm:text-xl font-extrabold truncate">
-                  {profile.displayName}
+                  {authUser ? profile.displayName : 'Bienvenido a FABRO'}
                 </h2>
                 <p className="text-xs font-mono fabro-muted truncate">
-                  @{myHandle} · {profile.fabroId}
-                  {authUser ? ' · Sincronizado' : ' · Invitado local'}
+                  {authUser
+                    ? `@${myHandle} · ${profile.fabroId}${needsProfileSetup ? ' · Completá tu perfil' : ' · Cuenta Google verificada'}`
+                    : 'Iniciá sesión con Google para crear tu perfil en FABRO'}
                 </p>
               </div>
             </div>
 
             {/* Primary Actions */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setEditSocialProfileOpen(true)}
-                className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] px-3.5 py-1.5 text-xs font-semibold text-white cursor-pointer active:scale-95"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                Editar Perfil
-              </button>
-              <button
-                type="button"
-                onClick={handleShareWhatsApp}
-                className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-emerald-600/50 bg-emerald-600/12 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 cursor-pointer active:scale-95"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                WhatsApp
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleCopyProfileLink()}
-                className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3 py-1.5 text-xs font-semibold cursor-pointer active:scale-95"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                Enlace
-              </button>
+              {authUser ? (
+                <button
+                  type="button"
+                  onClick={() => setEditSocialProfileOpen(true)}
+                  className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] px-4 py-1.5 text-xs font-bold text-white cursor-pointer active:scale-95 whitespace-nowrap"
+                >
+                  {needsProfileSetup ? (
+                    <>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Crear mi perfil en FABRO</span>
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Editar Perfil</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={googleSigningIn}
+                    onClick={() => void handleDirectGoogleSignIn()}
+                    className="min-h-[42px] inline-flex items-center gap-2 rounded-xl border-2 border-[#7C3AED] bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 text-xs font-bold text-white shadow-sm cursor-pointer active:scale-95 whitespace-nowrap disabled:opacity-60"
+                  >
+                    {googleSigningIn ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <LogIn className="w-4 h-4" />
+                    )}
+                    <span>{googleSigningIn ? 'Conectando con Google...' : 'Iniciar sesión con Google'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAuthModal('crear tu perfil en FABRO con tu cuenta de Google', 'login')
+                    }
+                    className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-2 text-xs font-semibold cursor-pointer active:scale-95 whitespace-nowrap"
+                  >
+                    <span>Iniciar sesión</span>
+                  </button>
+                </>
+              )}
+
+              {authUser && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleShareWhatsApp}
+                    className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-emerald-600/50 bg-emerald-600/12 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 cursor-pointer active:scale-95"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyProfileLink()}
+                    className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3 py-1.5 text-xs font-semibold cursor-pointer active:scale-95"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Enlace
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -364,6 +436,72 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
               </button>
             </div>
           </div>
+
+          {googleAuthError && (
+            <p className="mt-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+              {googleAuthError}
+            </p>
+          )}
+
+          {!authUser && (
+            <div className="mt-4 rounded-xl border border-[#7C3AED]/35 bg-[#7C3AED]/8 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1 text-xs">
+                <p className="font-bold text-sm text-[var(--fabro-text)]">
+                  Creá tu perfil en FABRO con tu cuenta de Google
+                </p>
+                <p className="fabro-muted leading-relaxed">
+                  Al iniciar sesión con Google vas a poder crear tu perfil personal en FABRO, elegir tu <strong>@usuario</strong>, subir tu foto, publicar en el muro y sincronizar tus sectores gratis.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={googleSigningIn}
+                onClick={() => void handleDirectGoogleSignIn()}
+                className="min-h-[42px] inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-4 py-2 text-xs font-bold shadow-xs hover:border-[#4285F4] cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60"
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" aria-hidden="true">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+                  />
+                </svg>
+                <span>{googleSigningIn ? 'Entrando...' : 'Entrar con Google'}</span>
+              </button>
+            </div>
+          )}
+
+          {authUser && needsProfileSetup && (
+            <div className="mt-4 rounded-xl border border-emerald-600/40 bg-emerald-600/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1 text-xs">
+                <p className="font-bold text-sm text-emerald-800 dark:text-emerald-200">
+                  ¡Cuenta de Google conectada! Ahora creá tu perfil en FABRO
+                </p>
+                <p className="fabro-muted">
+                  Elegí tu nombre visible, tu <strong>@usuario</strong> único y tu biografía para activar tu identidad completa en FABRO.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditSocialProfileOpen(true)}
+                className="min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Crear mi perfil en FABRO</span>
+              </button>
+            </div>
+          )}
 
           {shareFeedback && (
             <p className="mt-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
@@ -441,7 +579,13 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => void saveFullSocialProfile({ privacyMode: opt.id })}
+                    onClick={() => {
+                      if (!authUser) {
+                        openAuthModal('crear tu perfil en FABRO con tu cuenta de Google', 'login');
+                        return;
+                      }
+                      void saveFullSocialProfile({ privacyMode: opt.id });
+                    }}
                     className={`min-h-[32px] inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold cursor-pointer transition-all ${
                       active
                         ? 'bg-[#7C3AED] text-white'
@@ -456,18 +600,9 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
             </div>
           </div>
 
-          {!authUser && (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#7C3AED]/30 bg-[#7C3AED]/8 px-3.5 py-2 text-xs">
-              <span>
-                Tu perfil funciona 100% en <strong>Modo Invitado (IndexedDB)</strong>. Iniciá sesión si querés respaldarlo en la nube.
-              </span>
-              <button
-                type="button"
-                onClick={() => openAuthModal('sincronizar tu Perfil Social FABRO', 'register')}
-                className="font-bold text-[#6D28D9] dark:text-[#C4B5FD] hover:underline cursor-pointer"
-              >
-                Sincronizar ahora
-              </button>
+          {authUser && (
+            <div className="mt-3 text-[11px] fabro-muted">
+              Sesión conectada con Google ({authUser.email || `@${myHandle}`})
             </div>
           )}
         </div>

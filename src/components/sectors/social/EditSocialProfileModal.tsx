@@ -47,6 +47,8 @@ export const EditSocialProfileModal: React.FC = () => {
     editSocialProfileOpen,
     setEditSocialProfileOpen,
     saveFullSocialProfile,
+    signInWithGoogle,
+    needsProfileSetup,
   } = useEcosystem();
 
   const [displayName, setDisplayName] = useState(profile.displayName);
@@ -70,6 +72,7 @@ export const EditSocialProfileModal: React.FC = () => {
   >('idle');
   const [processingMedia, setProcessingMedia] = useState<'avatar' | 'cover' | null>(null);
   const [saving, setSaving] = useState(false);
+  const [googleSigningIn, setGoogleSigningIn] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
@@ -233,6 +236,65 @@ export const EditSocialProfileModal: React.FC = () => {
     }
   };
 
+  if (!authUser) {
+    return (
+      <div
+        className="no-print fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-slate-950/65 backdrop-blur-xs p-0 sm:p-4"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setEditSocialProfileOpen(false);
+        }}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Iniciá sesión con Google para crear tu perfil en FABRO"
+          className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border fabro-border fabro-surface p-6 shadow-2xl space-y-4"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h2 className="font-display text-lg font-bold">Creá tu perfil en FABRO</h2>
+              <p className="text-xs fabro-muted leading-relaxed">
+                Primero iniciá sesión con tu cuenta de Google. Una vez que entres, vas a poder crear y personalizar tu perfil en FABRO.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditSocialProfileOpen(false)}
+              aria-label="Cerrar"
+              className="min-h-[38px] min-w-[38px] rounded-xl border fabro-border flex items-center justify-center cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {feedback && (
+            <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+              {feedback.text}
+            </p>
+          )}
+
+          <button
+            type="button"
+            disabled={googleSigningIn}
+            onClick={async () => {
+              setGoogleSigningIn(true);
+              setFeedback(null);
+              const res = await signInWithGoogle();
+              setGoogleSigningIn(false);
+              if (!res.ok && res.error) {
+                setFeedback({ type: 'err', text: res.error });
+              }
+            }}
+            className="w-full min-h-[46px] inline-flex items-center justify-center gap-2.5 rounded-xl border-2 border-[#7C3AED] bg-[#7C3AED] text-white font-bold text-xs px-4 cursor-pointer active:scale-95 disabled:opacity-60"
+          >
+            {googleSigningIn ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            <span>{googleSigningIn ? 'Conectando con Google...' : 'Iniciar sesión con Google'}</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="no-print fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-slate-950/65 backdrop-blur-xs p-0 sm:p-4"
@@ -243,16 +305,17 @@ export const EditSocialProfileModal: React.FC = () => {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Editar Mi Perfil Social FABRO"
+        aria-label={needsProfileSetup ? 'Crear mi perfil en FABRO' : 'Editar Mi Perfil Social FABRO'}
         className="w-full sm:max-w-2xl max-h-[92dvh] flex flex-col rounded-t-3xl sm:rounded-2xl border fabro-border fabro-surface shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b fabro-border px-5 py-3.5 shrink-0">
           <div>
-            <h2 className="font-display text-base font-bold">Editar Mi Perfil Social</h2>
+            <h2 className="font-display text-base font-bold">
+              {needsProfileSetup ? 'Creá tu perfil en FABRO' : 'Editar Mi Perfil en FABRO'}
+            </h2>
             <p className="text-xs fabro-muted">
-              Fotos optimizadas en Canvas · Guardado local offline-first
-              {authUser ? ' y sincronización Firebase' : ' (Modo Invitado)'}
+              Cuenta de Google conectada{authUser.email ? `: ${authUser.email}` : ''} · Sincronización gratuita en FABRO
             </p>
           </div>
           <button
@@ -634,7 +697,7 @@ export const EditSocialProfileModal: React.FC = () => {
               ) : (
                 <Check className="w-4 h-4" />
               )}
-              Guardar Perfil Social
+              {needsProfileSetup ? 'Crear mi perfil en FABRO' : 'Guardar Perfil FABRO'}
             </button>
           </div>
         </form>

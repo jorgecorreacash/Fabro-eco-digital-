@@ -91,6 +91,16 @@ import {
   vaultSet,
   vaultSetIdbOnly,
 } from '../services/localVault';
+import { fetchCultureNews } from '../services/cultureNewsService';
+import { loadCultureState } from '../services/cultureVault';
+import {
+  broadcastEcosystemPushEvent,
+  detectFreshCommunityWallPosts,
+  detectFreshCultureNews,
+  ECOSYSTEM_PUSH_CHANNEL,
+  formatCultureNewsPushPayload,
+  type CrossTabPushBroadcast,
+} from '../services/ecosystemPushService';
 import {
   activateMediaSession,
   stopMediaSession,
@@ -101,6 +111,7 @@ import { clearShareFromLocation, readShareFromLocation } from '../services/share
 import { playCalendarAlarmTone } from '../services/calendarAlarmAudio';
 import { playSoftBell } from '../services/webAudioPtt';
 import { DEFAULT_WELLNESS_PHYSICAL_PROFILE } from '../services/wellnessAiService';
+import type { CultureNewsArticle } from '../types/culture';
 import type {
   AcademicAgendaTask,
   ActiveCalendarAlarmAlert,
@@ -128,6 +139,7 @@ import type {
   MoodLogItem,
   NavDestination,
   NetworkSnapshot,
+  NotificationCategory,
   NotificationEntry,
   NotificationPreferences,
   OrganizerTabId,
@@ -136,6 +148,7 @@ import type {
   PinnedToolEntry,
   PinnedToolSize,
   PomodoroSessionLog,
+  PushToastItem,
   QuickActionType,
   QuickNoteItem,
   QuoteCategory,
@@ -293,7 +306,29 @@ interface EcosystemContextValue {
   unreadNotifications: number;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
-  pushInAppNotification: (title: string, detail: string, target: NavDestination) => void;
+  pushInAppNotification: (
+    title: string,
+    detail: string,
+    target: NavDestination,
+    meta?: { category?: NotificationCategory; cultureNav?: string }
+  ) => void;
+  pendingCultureNav: string | null;
+  navigateToCultureSection: (cultureNav: string) => void;
+  clearPendingCultureNav: () => void;
+  activePushToasts: PushToastItem[];
+  dismissPushToast: (id: string) => void;
+  notifyFreshCultureNews: (articles: CultureNewsArticle[]) => Promise<number>;
+  notifyCommunityUpdate: (params: {
+    communityName: string;
+    summary: string;
+    target?: NavDestination;
+    cultureNav?: string;
+    broadcast?: boolean;
+    triggerLocalPush?: boolean;
+  }) => Promise<void>;
+  checkCultureNewsForPushNow: () => Promise<{ freshCount: number; message: string }>;
+  triggerCultureNewsTestPush: () => Promise<{ delivered: boolean; note: string }>;
+  triggerCommunityTestPush: () => Promise<{ delivered: boolean; note: string }>;
   byokKeys: ByokProviderKey[];
   saveByokKey: (keyItem: ByokProviderKey, rawSecret?: string) => void;
   removeByokKey: (id: string) => void;
@@ -506,6 +541,7 @@ interface EcosystemContextValue {
   closeSocialProfileModal: () => void;
   editSocialProfileOpen: boolean;
   setEditSocialProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  needsProfileSetup: boolean;
   // Sector 2 — Bienestar IA (BYOK Gemini / ChatGPT) + Offline & Firestore Sync
   wellnessAiEngine: WellnessAiEngine;
   setWellnessAiEngine: (engine: WellnessAiEngine) => void;
@@ -615,6 +651,20 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [scheduledReminders, setScheduledReminders] = useState<ScheduledReminderItem[]>(
     DEFAULT_SCHEDULED_REMINDERS
   );
+  const [pendingCultureNav, setPendingCultureNav] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('cultureNav');
+    } catch {
+      return null;
+    }
+  });
+  const [activePushToasts, setActivePushToasts] = useState<PushToastItem[]>([]);
+  const pushTabIdRef = useRef<string>(`tab-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+  const lastCulturePollRef = useRef<number>(0);
+  const studyCommunitiesRef = useRef<StudyCommunityItem[]>(DEFAULT_STUDY_COMMUNITIES);
+  const notificationPrefsRef = useRef<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFS);
   const [userQuotes, setUserQuotes] = useState<UserQuoteItem[]>(DEFAULT_USER_QUOTES);
   const [selectedZodiac, setSelectedZodiacState] = useState<ZodiacSignId>(DEFAULT_ZODIAC_SIGN);
   const [floatingChatOpen, setFloatingChatOpen] = useState<boolean>(false);
@@ -669,6 +719,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     'publicaciones' | 'galeria' | 'recursos' | 'sobre-mi'
   >('publicaciones');
   const [editSocialProfileOpen, setEditSocialProfileOpen] = useState<boolean>(false);
+  const [needsProfileSetup, setNeedsProfileSetup] = useState<boolean>(false);
 
   // Sector 2 — Bienestar IA (BYOK Gemini / ChatGPT) State
   const [wellnessAiEngine, setWellnessAiEngineState] = useState<WellnessAiEngine>('gemini');
@@ -976,7 +1027,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setGlossaryTerms(
         savedGlossary !== null ? savedGlossary : savedCleared ? [] : DEFAULT_GLOSSARY_TERMS
       );
-      setNotificationPrefs(savedNotifPrefs);
+      setNotificationPrefs({
+        ...DEFAULT_NOTIFICATION_PREFS,
+        ...(savedNotifPrefs || {}),
+      });
       setScheduledReminders(savedReminders);
       setFriendsList(savedFriends);
       setFriendRequests(savedFriendRequests);
@@ -1347,7 +1401,12 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const pushInAppNotification = useCallback(
-    (title: string, detail: string, target: NavDestination) => {
+    (
+      title: string,
+      detail: string,
+      target: NavDestination,
+      meta?: { category?: NotificationCategory; cultureNav?: string }
+    ) => {
       const entry: NotificationEntry = {
         id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
         title,
@@ -1355,15 +1414,82 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         read: false,
         createdAt: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
         target,
+        category: meta?.category || 'system',
+        cultureNav: meta?.cultureNav,
       };
       setNotifications((prev) => {
-        const next = [entry, ...prev].slice(0, 30);
+        const next = [entry, ...prev].slice(0, 35);
         void vaultSet('notifications', next);
         return next;
       });
     },
     []
   );
+
+  const navigateToCultureSection = useCallback(
+    (cultureNav: string) => {
+      setPendingCultureNav(cultureNav);
+      navigateTo('cultura', 'cultura-inicio');
+    },
+    [navigateTo]
+  );
+
+  const clearPendingCultureNav = useCallback(() => {
+    setPendingCultureNav(null);
+  }, []);
+
+  const dismissPushToast = useCallback((id: string) => {
+    setActivePushToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const enqueuePushToast = useCallback(
+    (toast: Omit<PushToastItem, 'id' | 'createdAt'>) => {
+      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+      const item: PushToastItem = {
+        ...toast,
+        id,
+        createdAt: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+      };
+      setActivePushToasts((prev) => [item, ...prev].slice(0, 2));
+      window.setTimeout(() => {
+        setActivePushToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 8500);
+    },
+    []
+  );
+
+  // Keep refs synced for background listeners
+  useEffect(() => {
+    notificationPrefsRef.current = notificationPrefs;
+  }, [notificationPrefs]);
+
+  useEffect(() => {
+    studyCommunitiesRef.current = studyCommunities;
+  }, [studyCommunities]);
+
+  // Honor ?sector=&submenu=&cultureNav= deep-link on initial page open (e.g. from OS push click)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const qSector = params.get('sector') as SectorId | null;
+      const qSubmenu = params.get('submenu') as SubmenuId | null;
+      const qCultureNav = params.get('cultureNav');
+      if (qCultureNav) {
+        setPendingCultureNav(qCultureNav);
+        navigateTo('cultura', 'cultura-inicio');
+      } else if (qSector) {
+        navigateTo(qSector, qSubmenu || undefined);
+      }
+      if (qSector || qSubmenu || qCultureNav) {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+      }
+    } catch {
+      // ignore invalid query params
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Service Worker notification click deep-link listener
   useEffect(() => {
@@ -1373,14 +1499,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         type?: string;
         sector?: SectorId;
         submenu?: SubmenuId;
+        cultureNav?: string;
       } | null;
       if (data?.type === 'FABRO_NOTIFICATION_NAVIGATE' && data.sector) {
-        navigateTo(data.sector, data.submenu);
+        if (data.sector === 'cultura' && data.cultureNav) {
+          navigateToCultureSection(data.cultureNav);
+        } else {
+          navigateTo(data.sector, data.submenu);
+        }
       }
     };
     navigator.serviceWorker.addEventListener('message', onSwMessage);
     return () => navigator.serviceWorker.removeEventListener('message', onSwMessage);
-  }, [navigateTo]);
+  }, [navigateTo, navigateToCultureSection]);
 
   const flushQueuedMessages = useCallback(
     (recipientId?: string): number => {
@@ -2153,22 +2284,342 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const triggerTestNotification = useCallback(async () => {
     pushInAppNotification(
-      '🔔 Aviso de prueba FABRO',
+      'Aviso de prueba FABRO',
       'Notificaciones en segundo plano operativas. Tocá para ir a Estudio.',
-      { sector: 'estudio', submenu: 'academico-panel' }
+      { sector: 'estudio', submenu: 'academico-panel' },
+      { category: 'system' }
     );
+    enqueuePushToast({
+      title: 'Aviso de prueba FABRO',
+      body: 'Las alertas push con sonido y vibración están operativas en todo el Ecosistema.',
+      category: 'system',
+      target: { sector: 'estudio', submenu: 'academico-panel' },
+      actionLabel: 'Ir a Estudio',
+    });
     const res = await dispatchSystemNotification({
-      title: '🍀 FABRO — Aviso de prueba',
+      title: 'FABRO — Aviso de prueba',
       body: 'Las notificaciones con sonido y vibración están listas aunque estés en otra app.',
       sector: 'estudio',
       submenu: 'academico-panel',
       tag: `fabro-test-${Date.now()}`,
       soundType: 'focus-end',
       prefs: notificationPrefs,
-      onInAppFallback: (s, sub) => navigateTo(s, sub),
+      onInAppFallback: (s, sub, cNav) =>
+        s === 'cultura' && cNav ? navigateToCultureSection(cNav) : navigateTo(s, sub),
     });
     return { delivered: res.delivered, note: res.note };
-  }, [navigateTo, notificationPrefs, pushInAppNotification]);
+  }, [enqueuePushToast, navigateTo, navigateToCultureSection, notificationPrefs, pushInAppNotification]);
+
+  const sendEcosystemPushAlert = useCallback(
+    async (params: {
+      title: string;
+      body: string;
+      category: NotificationCategory;
+      target: NavDestination;
+      cultureNav?: string;
+      actionLabel?: string;
+      tag?: string;
+      forceTest?: boolean;
+    }): Promise<{ delivered: boolean; note: string }> => {
+      const prefs = notificationPrefsRef.current;
+      if (!params.forceTest) {
+        if (!prefs.enabled) {
+          return { delivered: false, note: 'Alertas push pausadas en Configuración.' };
+        }
+        if (params.category === 'culture-news' && !prefs.cultureNews) {
+          return { delivered: false, note: 'Alertas de noticias de Cultura desactivadas.' };
+        }
+        if (params.category === 'community' && !prefs.communityUpdates) {
+          return { delivered: false, note: 'Alertas de comunidades desactivadas.' };
+        }
+      }
+
+      pushInAppNotification(params.title, params.body, params.target, {
+        category: params.category,
+        cultureNav: params.cultureNav,
+      });
+
+      enqueuePushToast({
+        title: params.title,
+        body: params.body,
+        category: params.category,
+        target: params.target,
+        cultureNav: params.cultureNav,
+        actionLabel:
+          params.actionLabel ||
+          (params.category === 'culture-news' ? 'Leer en Cultura' : 'Ver comunidad'),
+      });
+
+      const res = await dispatchSystemNotification({
+        title: params.title,
+        body: params.body,
+        sector: params.target.sector,
+        submenu: params.target.submenu,
+        cultureNav: params.cultureNav,
+        tag: params.tag || `fabro-${params.category}-${Date.now()}`,
+        soundType: params.category === 'culture-news' ? 'interval' : 'break-end',
+        prefs: params.forceTest ? { ...prefs, enabled: true } : prefs,
+        onInAppFallback: (s, sub, cNav) =>
+          s === 'cultura' && cNav ? navigateToCultureSection(cNav) : navigateTo(s, sub),
+      });
+
+      return { delivered: res.delivered, note: res.note };
+    },
+    [enqueuePushToast, navigateTo, navigateToCultureSection, pushInAppNotification]
+  );
+
+  const notifyFreshCultureNews = useCallback(
+    async (articles: CultureNewsArticle[]): Promise<number> => {
+      if (!articles.length) return 0;
+      const { freshArticles } = await detectFreshCultureNews(articles);
+      if (freshArticles.length === 0) return 0;
+      const formatted = formatCultureNewsPushPayload(freshArticles);
+      await sendEcosystemPushAlert({
+        title: formatted.title,
+        body: formatted.body,
+        category: 'culture-news',
+        target: { sector: 'cultura', submenu: 'cultura-inicio' },
+        cultureNav: 'noticias-culturales',
+        actionLabel: 'Leer noticias de Cultura',
+        tag: formatted.tag,
+      });
+      return freshArticles.length;
+    },
+    [sendEcosystemPushAlert]
+  );
+
+  const checkCultureNewsForPushNow = useCallback(async (): Promise<{
+    freshCount: number;
+    message: string;
+  }> => {
+    try {
+      const res = await fetchCultureNews(true);
+      lastCulturePollRef.current = Date.now();
+      if (!res.articles.length) {
+        return {
+          freshCount: 0,
+          message: 'No se pudieron consultar nuevas noticias culturales en este momento.',
+        };
+      }
+      const { freshArticles, seeded } = await detectFreshCultureNews(res.articles);
+      if (seeded) {
+        return {
+          freshCount: 0,
+          message: `Monitor de Cultura sincronizado con ${res.articles.length} noticias actuales. Te avisaremos al instante ante nuevas publicaciones.`,
+        };
+      }
+      if (freshArticles.length > 0) {
+        const formatted = formatCultureNewsPushPayload(freshArticles);
+        await sendEcosystemPushAlert({
+          title: formatted.title,
+          body: formatted.body,
+          category: 'culture-news',
+          target: { sector: 'cultura', submenu: 'cultura-inicio' },
+          cultureNav: 'noticias-culturales',
+          actionLabel: 'Leer noticias de Cultura',
+          tag: formatted.tag,
+        });
+        return {
+          freshCount: freshArticles.length,
+          message: `Se detectaron ${freshArticles.length} nuevas noticias en FABRO Cultura y se envió la alerta push.`,
+        };
+      }
+      return {
+        freshCount: 0,
+        message: 'Estás al día: no hay titulares culturales nuevos desde tu última revisión.',
+      };
+    } catch {
+      return {
+        freshCount: 0,
+        message: 'Sin conexión para verificar novedades culturales.',
+      };
+    }
+  }, [sendEcosystemPushAlert]);
+
+  const notifyCommunityUpdate = useCallback(
+    async (params: {
+      communityName: string;
+      summary: string;
+      target?: NavDestination;
+      cultureNav?: string;
+      broadcast?: boolean;
+      triggerLocalPush?: boolean;
+    }) => {
+      const target: NavDestination = params.target || {
+        sector: 'social',
+        submenu: 'comunidades-seguridad',
+      };
+      const title = `Novedad en ${params.communityName}`;
+      const body = params.summary.trim().slice(0, 160);
+      const actionLabel = params.cultureNav ? 'Abrir comunidad cultural' : 'Ver comunidad';
+
+      if (params.broadcast !== false) {
+        broadcastEcosystemPushEvent({
+          type: 'FABRO_ECOSYSTEM_PUSH_EVENT',
+          originTabId: pushTabIdRef.current,
+          category: 'community',
+          title,
+          body,
+          target,
+          cultureNav: params.cultureNav,
+          actionLabel,
+          tag: `fabro-comm-${Date.now()}`,
+        });
+      }
+
+      if (params.triggerLocalPush) {
+        await sendEcosystemPushAlert({
+          title,
+          body,
+          category: 'community',
+          target,
+          cultureNav: params.cultureNav,
+          actionLabel,
+          tag: `fabro-comm-local-${Date.now()}`,
+        });
+      }
+    },
+    [sendEcosystemPushAlert]
+  );
+
+  const triggerCultureNewsTestPush = useCallback(async () => {
+    let headline = 'Nuevas agendas de museos, cine independiente, música y literatura en español.';
+    let sourceLabel = 'Redacción FABRO Cultura';
+    try {
+      const res = await fetchCultureNews(false);
+      if (res.articles.length > 0) {
+        headline = res.articles[0].title;
+        sourceLabel = res.articles[0].source;
+      }
+    } catch {
+      // use editorial fallback
+    }
+    return sendEcosystemPushAlert({
+      title: `FABRO Cultura · Última noticia`,
+      body: `${headline} (${sourceLabel})`,
+      category: 'culture-news',
+      target: { sector: 'cultura', submenu: 'cultura-inicio' },
+      cultureNav: 'noticias-culturales',
+      actionLabel: 'Abrir Noticias Culturales',
+      tag: `fabro-culture-test-${Date.now()}`,
+      forceTest: true,
+    });
+  }, [sendEcosystemPushAlert]);
+
+  const triggerCommunityTestPush = useCallback(async () => {
+    let communityName = 'Comunidades FABRO';
+    let target: NavDestination = { sector: 'social', submenu: 'comunidades-seguridad' };
+    let cultureNav: string | undefined;
+
+    try {
+      const cultureSnap = await loadCultureState();
+      const joinedCultural = cultureSnap.communities.find((c) => c.joined);
+      if (joinedCultural) {
+        communityName = joinedCultural.name;
+        target = { sector: 'cultura', submenu: 'cultura-inicio' };
+        cultureNav = 'comunidades-culturales';
+      } else {
+        const joinedStudy = studyCommunitiesRef.current.find((c) => c.joined);
+        if (joinedStudy) {
+          communityName = joinedStudy.name;
+          target = { sector: 'estudio', submenu: 'muro-estudio' };
+        }
+      }
+    } catch {
+      const joinedStudy = studyCommunitiesRef.current.find((c) => c.joined);
+      if (joinedStudy) {
+        communityName = joinedStudy.name;
+        target = { sector: 'estudio', submenu: 'muro-estudio' };
+      }
+    }
+
+    return sendEcosystemPushAlert({
+      title: `Actualización en ${communityName}`,
+      body: 'Nuevo intercambio publicado en tu comunidad. Tocá para ver los comentarios y participar.',
+      category: 'community',
+      target,
+      cultureNav,
+      actionLabel: cultureNav ? 'Ir a Comunidades Culturales' : 'Ir a mi Comunidad',
+      tag: `fabro-community-test-${Date.now()}`,
+      forceTest: true,
+    });
+  }, [sendEcosystemPushAlert]);
+
+  // Automatic background Cultura News Push watcher (polls every 3 min + on visibility return)
+  useEffect(() => {
+    if (!network.isOnline) return;
+    let cancelled = false;
+
+    const runCulturePoll = async (forceRefresh: boolean) => {
+      const prefs = notificationPrefsRef.current;
+      if (!prefs.enabled || !prefs.cultureNews) return;
+      try {
+        const res = await fetchCultureNews(forceRefresh);
+        if (cancelled || !res.articles.length) return;
+        lastCulturePollRef.current = Date.now();
+        await notifyFreshCultureNews(res.articles);
+      } catch {
+        // silent background check
+      }
+    };
+
+    // Initial silent seed after short startup delay so first paint stays snappy
+    const initTimer = window.setTimeout(() => {
+      void runCulturePoll(false);
+    }, 6000);
+
+    // Periodic check every 3 minutes
+    const intervalId = window.setInterval(() => {
+      void runCulturePoll(true);
+    }, 180000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastCulturePollRef.current > 90000) {
+        void runCulturePoll(true);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(initTimer);
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [network.isOnline, notifyFreshCultureNews]);
+
+  // Cross-tab BroadcastChannel listener for real-time community & culture push events
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(ECOSYSTEM_PUSH_CHANNEL);
+      channel.onmessage = (event: MessageEvent<CrossTabPushBroadcast>) => {
+        const data = event.data;
+        if (
+          !data ||
+          data.type !== 'FABRO_ECOSYSTEM_PUSH_EVENT' ||
+          data.originTabId === pushTabIdRef.current
+        ) {
+          return;
+        }
+        void sendEcosystemPushAlert({
+          title: data.title,
+          body: data.body,
+          category: data.category,
+          target: data.target,
+          cultureNav: data.cultureNav,
+          actionLabel: data.actionLabel,
+          tag: data.tag,
+        });
+      };
+    } catch {
+      // ignore unsupported contexts
+    }
+    return () => {
+      channel?.close();
+    };
+  }, [sendEcosystemPushAlert]);
 
   const addScheduledReminder = useCallback(
     (
@@ -2954,6 +3405,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setAuthUser(null);
         setAuthLoading(false);
         setSyncStatus('guest-local');
+        setNeedsProfileSetup(false);
         resetProfileToGuest();
         return;
       }
@@ -2971,6 +3423,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setAuthUser(null);
           setAuthLoading(false);
           setSyncStatus('guest-local');
+          setNeedsProfileSetup(false);
           resetProfileToGuest();
           void signOut(auth).catch(() => undefined);
           return;
@@ -2995,7 +3448,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             photoURL: summary.photoURL,
             birthDate: summary.birthDate,
             isMinor: summary.isMinor,
-            fabroIdConfigured: true,
+            fabroIdConfigured: Boolean(cloudProfile),
             ...(cloudProfile?.coverPhotoURL ? { coverPhotoURL: cloudProfile.coverPhotoURL } : {}),
             ...(cloudProfile?.bio ? { bio: cloudProfile.bio } : {}),
             ...(Array.isArray(cloudProfile?.interests) ? { interests: cloudProfile.interests } : {}),
@@ -3018,28 +3471,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }, 150);
 
           if (!cloudProfile) {
-            const loc = latestStateRef.current.profile;
-            await reserveUsernameAndSaveProfile(fbUser.uid, {
-              displayName: summary.displayName,
-              username: summary.username,
-              fabroId: summary.fabroId,
-              photoURL: summary.photoURL,
-              coverPhotoURL: loc.coverPhotoURL,
-              bio: loc.bio,
-              interests: loc.interests,
-              currentActivity: loc.currentActivity,
-              publicNoteIds: loc.publicNoteIds,
-              publicRoutineIds: loc.publicRoutineIds,
-              followingIds: loc.followingIds,
-              birthDate: summary.birthDate,
-              isMinor: summary.isMinor,
-              presenceStatus: summary.presenceStatus,
-              dailyPhrase: loc.dailyPhrase,
-              icebreaker: loc.icebreaker || '',
-              privacyMode: loc.privacyMode,
-              shareTastesPublicly: loc.shareTastesPublicly,
-              tastes: loc.tastes,
-            }).catch(() => undefined);
+            setNeedsProfileSetup(true);
+            setEditSocialProfileOpen(true);
+          } else {
+            setNeedsProfileSetup(false);
           }
 
           // Migrate Guest IndexedDB/LocalStorage work once without overwriting existing cloud data
@@ -3631,6 +4066,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   // Subscribe to cloud public wall posts when signed in & online, merging cleanly with local posts
+  // and automatically triggering push notifications for new posts in the user's joined communities.
   useEffect(() => {
     if (!authUser || !network.isOnline) return;
     const unsub = subscribeToPublicPosts(
@@ -3653,11 +4089,58 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           void vaultSetIdbOnly('wall_posts', next);
           return next;
         });
+
+        // Push notification detection for newly arrived community posts from other members
+        void (async () => {
+          const prefs = notificationPrefsRef.current;
+          if (!prefs.enabled || !prefs.communityUpdates) return;
+          const joinedStudyIds = new Set(
+            studyCommunitiesRef.current.filter((c) => c.joined).map((c) => c.id)
+          );
+          let joinedCultureNames = new Set<string>();
+          try {
+            const cultureSnap = await loadCultureState();
+            joinedCultureNames = new Set(
+              cultureSnap.communities.filter((c) => c.joined).map((c) => c.name)
+            );
+          } catch {
+            // ignore
+          }
+          const { freshPosts } = await detectFreshCommunityWallPosts({
+            cloudPosts,
+            joinedStudyCommunityIds: joinedStudyIds,
+            joinedCultureCommunityNames: joinedCultureNames,
+            myFabroId: authUser.fabroId || profile.fabroId,
+          });
+          if (freshPosts.length === 0) return;
+          const lead = freshPosts[0];
+          const isCulturePost =
+            Boolean(lead.spaces?.includes('cultura')) || lead.communityId === 'cultura-both';
+          const communityLabel =
+            lead.communityName || (isCulturePost ? 'FABRO Cultura' : 'Tus comunidades FABRO');
+          const snippet = (lead.text || '').replace(/\s+/g, ' ').trim().slice(0, 115);
+          await sendEcosystemPushAlert({
+            title:
+              freshPosts.length === 1
+                ? `${lead.author} publicó en ${communityLabel}`
+                : `${freshPosts.length} novedades en ${communityLabel}`,
+            body: snippet || 'Nueva publicación compartida en tu comunidad.',
+            category: 'community',
+            target: isCulturePost
+              ? { sector: 'cultura', submenu: 'cultura-inicio' }
+              : lead.communityId && joinedStudyIds.has(lead.communityId)
+              ? { sector: 'estudio', submenu: 'muro-estudio' }
+              : { sector: 'social', submenu: 'comunidades-seguridad' },
+            cultureNav: isCulturePost ? 'comunidades-culturales' : undefined,
+            actionLabel: isCulturePost ? 'Ver en Cultura' : 'Abrir comunidad',
+            tag: `fabro-comm-cloud-${lead.id}`,
+          });
+        })();
       },
       () => undefined
     );
     return () => unsub();
-  }, [authUser, network.isOnline]);
+  }, [authUser, network.isOnline, profile.fabroId, sendEcosystemPushAlert]);
 
   // ------------------------------------------------------------------
   // Social Profile, Multimedia Wall, Ephemeral Stories & Groups Actions
@@ -3872,9 +4355,11 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     (roomId: string, text: string, media?: SocialMediaAttachment) => {
       const clean = text.trim();
       if (!clean && !media) return;
+      let roomTitle = 'Sala de Estudio';
       setStudyRooms((prev) => {
         const next = prev.map((r) => {
           if (r.id !== roomId) return r;
+          roomTitle = r.name;
           return {
             ...r,
             sharedNotes: [
@@ -3892,8 +4377,17 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         void vaultSetIdbOnly('study_rooms', next);
         return next;
       });
+      void notifyCommunityUpdate({
+        communityName: roomTitle,
+        summary: `${profile.displayName || 'Miembro FABRO'}: ${
+          clean || 'compartió un recurso multimedia'
+        }`,
+        target: { sector: 'social', submenu: 'comunidades-seguridad' },
+        broadcast: true,
+        triggerLocalPush: false,
+      });
     },
-    [profile.displayName]
+    [notifyCommunityUpdate, profile.displayName]
   );
 
   const syncExtendedProfileIfSignedIn = useCallback(
@@ -3946,6 +4440,12 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const saveFullSocialProfile = useCallback(
     async (patch: Partial<LocalUserProfile>): Promise<{ ok: boolean; error?: string }> => {
+      if (!authUser) {
+        return {
+          ok: false,
+          error: 'Iniciá sesión con tu cuenta de Google para crear y guardar tu perfil en FABRO.',
+        };
+      }
       const previousHandle = profile.username;
       const cleanUsername = patch.username ? normalizeHandle(patch.username) : profile.username;
       const nextProfile: LocalUserProfile = {
@@ -3959,11 +4459,12 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         tastes: patch.tastes ? { ...profile.tastes, ...patch.tastes } : profile.tastes,
       };
       setProfile(nextProfile);
-      if (!authUser || isInstalledDeviceApp()) {
+      setNeedsProfileSetup(false);
+      if (isInstalledDeviceApp()) {
         await vaultSet('profile', nextProfile);
       }
 
-      if (authUser && navigator.onLine) {
+      if (navigator.onLine) {
         try {
           await syncExtendedProfileIfSignedIn(nextProfile, previousHandle);
         } catch (err) {
@@ -4514,8 +5015,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return next;
       });
 
+      const commObj = studyCommunities.find((c) => c.id === communityId);
+      const resolvedName = commObj?.name || targetCommName || 'Comunidad de Estudio';
+
       if (alsoShareToWall) {
-        const commObj = studyCommunities.find((c) => c.id === communityId);
         void addWallPost({
           author: profile.displayName || 'Usuario FABRO',
           fabroId: profile.fabroId || 'FABRO',
@@ -4524,20 +5027,37 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           origin: 'comunidad',
           categoryTag: commObj?.careerOrSubject || 'Comunidad',
           communityId,
-          communityName: commObj?.name || targetCommName || 'Comunidad de Estudio',
+          communityName: resolvedName,
         });
       }
+
+      void notifyCommunityUpdate({
+        communityName: resolvedName,
+        summary: `${profile.displayName || 'Usuario FABRO'} abrió el tema «${cleanTitle}»`,
+        target: { sector: 'estudio', submenu: 'muro-estudio' },
+        broadcast: true,
+        triggerLocalPush: false,
+      });
     },
-    [addWallPost, profile.displayName, profile.fabroId, profile.photoURL, studyCommunities]
+    [
+      addWallPost,
+      notifyCommunityUpdate,
+      profile.displayName,
+      profile.fabroId,
+      profile.photoURL,
+      studyCommunities,
+    ]
   );
 
   const replyStudyCommunityThread = useCallback(
     (communityId: string, threadId: string, text: string) => {
       const cleanText = text.trim();
       if (!cleanText) return;
+      let targetCommName = 'Comunidad de Estudio';
       setStudyCommunities((prev) => {
         const next = prev.map((c) => {
           if (c.id !== communityId) return c;
+          targetCommName = c.name;
           return {
             ...c,
             threads: c.threads.map((t) =>
@@ -4562,8 +5082,15 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         void vaultSet('study_communities', next);
         return next;
       });
+      void notifyCommunityUpdate({
+        communityName: targetCommName,
+        summary: `${profile.displayName || 'Usuario FABRO'} respondió: ${cleanText}`,
+        target: { sector: 'estudio', submenu: 'muro-estudio' },
+        broadcast: true,
+        triggerLocalPush: false,
+      });
     },
-    [profile.displayName, profile.fabroId]
+    [notifyCommunityUpdate, profile.displayName, profile.fabroId]
   );
 
   const unreadNotifications = notifications.filter((n) => !n.read).length;
@@ -4609,6 +5136,16 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         markNotificationRead,
         markAllNotificationsRead,
         pushInAppNotification,
+        pendingCultureNav,
+        navigateToCultureSection,
+        clearPendingCultureNav,
+        activePushToasts,
+        dismissPushToast,
+        notifyFreshCultureNews,
+        notifyCommunityUpdate,
+        checkCultureNewsForPushNow,
+        triggerCultureNewsTestPush,
+        triggerCommunityTestPush,
         byokKeys,
         saveByokKey,
         removeByokKey,
@@ -4769,6 +5306,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         closeSocialProfileModal,
         editSocialProfileOpen,
         setEditSocialProfileOpen,
+        needsProfileSetup,
         wellnessAiEngine,
         setWellnessAiEngine,
         wellnessPhysicalProfile,

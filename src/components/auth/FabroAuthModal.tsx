@@ -310,8 +310,11 @@ export const FabroAuthModal: React.FC = () => {
               className="w-full min-h-[48px] rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-4 py-2.5 text-xs font-extrabold inline-flex items-center justify-center gap-3 shadow-sm hover:border-[#4285F4] cursor-pointer active:scale-[0.99] disabled:opacity-60"
             >
               <GoogleFourColorLogo />
-              <span>Continuar con Google (1 clic)</span>
+              <span>Iniciar sesión con Google</span>
             </button>
+            <p className="text-[11px] text-center fabro-muted">
+              Al entrar con tu cuenta de Google podrás crear y personalizar tu perfil en FABRO.
+            </p>
 
             <div className="flex items-center gap-2 text-[11px] fabro-muted">
               <div className="h-px flex-1 bg-[var(--fabro-border)]" />

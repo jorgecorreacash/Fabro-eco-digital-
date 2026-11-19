@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   CloudOff,
+  ExternalLink,
   Menu,
   RefreshCw,
   Trophy,
+  Tv,
   X,
 } from 'lucide-react';
 import {
@@ -248,6 +250,19 @@ export const SectorSports: React.FC<SectorSportsProps> = ({
         <p className="text-[11px] fabro-muted leading-snug">
           Centro deportivo · Fuentes públicas verificables ($0)
         </p>
+
+        <a
+          href="https://pelotalibres.st/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full min-h-[38px] rounded-xl bg-red-600 hover:bg-red-700 text-white px-3 text-xs font-bold inline-flex items-center justify-between gap-2 transition-colors"
+        >
+          <span className="inline-flex items-center gap-1.5 truncate">
+            <Tv className="w-3.5 h-3.5 shrink-0" />
+            <span>Ver partidos en vivo</span>
+          </span>
+          <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-90" />
+        </a>
 
         <div className="flex items-center justify-between gap-2 text-[10px] font-mono fabro-muted">
           <span className="truncate">

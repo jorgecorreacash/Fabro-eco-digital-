@@ -283,6 +283,8 @@ export const DEFAULT_NOTIFICATIONS: NotificationEntry[] = [
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   enabled: true,
+  cultureNews: true,
+  communityUpdates: true,
   pomodoroAndRoutines: true,
   chatMessages: true,
   scheduledReminders: true,

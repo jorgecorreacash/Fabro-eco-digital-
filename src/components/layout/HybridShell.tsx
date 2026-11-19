@@ -75,6 +75,10 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
     unreadNotifications,
     markNotificationRead,
     markAllNotificationsRead,
+    navigateToCultureSection,
+    notificationPermission,
+    requestNotificationPermission,
+    notificationPrefs,
     rightPanelOpen,
     setRightPanelOpen,
     swipeNextScreen,
@@ -1250,7 +1254,20 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   className="absolute right-0 mt-2 w-80 max-w-[90vw] rounded-xl border fabro-surface p-3.5 shadow-lg z-50 space-y-2.5"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold">Notificaciones</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold">Notificaciones</p>
+                      <span
+                        className={`text-[10px] font-semibold ${
+                          notificationPermission === 'granted' && notificationPrefs.enabled
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'fabro-muted'
+                        }`}
+                      >
+                        {notificationPermission === 'granted' && notificationPrefs.enabled
+                          ? 'Push activo'
+                          : 'En app'}
+                      </span>
+                    </div>
                     {unreadNotifications > 0 && (
                       <button
                         type="button"
@@ -1261,24 +1278,59 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                       </button>
                     )}
                   </div>
+
+                  {notificationPermission === 'default' && (
+                    <button
+                      type="button"
+                      onClick={() => void requestNotificationPermission()}
+                      className="w-full min-h-[34px] rounded-lg border border-[#0284C7]/40 bg-[#0284C7]/10 text-[#0369A1] dark:text-[#38BDF8] px-3 text-[11px] font-bold cursor-pointer hover:bg-[#0284C7]/15 text-left"
+                    >
+                      Activar push del dispositivo (Cultura y Comunidades)
+                    </button>
+                  )}
+
                   <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                    {notifications.map((n) => (
-                      <button
-                        key={n.id}
-                        type="button"
-                        onClick={() => {
-                          markNotificationRead(n.id);
-                          navigateTo(n.target.sector, n.target.submenu);
-                          setNotifOpen(false);
-                        }}
-                        className={`w-full text-left rounded-lg border fabro-border p-2.5 text-xs cursor-pointer ${
-                          !n.read ? 'fabro-accent-soft' : 'fabro-surface-elevated'
-                        }`}
-                      >
-                        <p className="font-semibold">{n.title}</p>
-                        <p className="text-[11px] fabro-muted mt-0.5">{n.detail}</p>
-                      </button>
-                    ))}
+                    {notifications.map((n) => {
+                      const catLabel =
+                        n.category === 'culture-news'
+                          ? 'Cultura · Noticias'
+                          : n.category === 'community'
+                          ? 'Comunidades'
+                          : 'Ecosistema';
+                      const catColor =
+                        n.category === 'culture-news'
+                          ? 'text-[#9A3412] dark:text-[#FDBA74]'
+                          : n.category === 'community'
+                          ? 'text-[#0284C7] dark:text-[#38BDF8]'
+                          : 'fabro-muted';
+                      return (
+                        <button
+                          key={n.id}
+                          type="button"
+                          onClick={() => {
+                            markNotificationRead(n.id);
+                            if (n.target.sector === 'cultura' && n.cultureNav) {
+                              navigateToCultureSection(n.cultureNav);
+                            } else {
+                              navigateTo(n.target.sector, n.target.submenu);
+                            }
+                            setNotifOpen(false);
+                          }}
+                          className={`w-full text-left rounded-lg border fabro-border p-2.5 text-xs cursor-pointer ${
+                            !n.read ? 'fabro-accent-soft' : 'fabro-surface-elevated'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 text-[10px] mb-0.5">
+                            <span className={`font-semibold uppercase tracking-wide ${catColor}`}>
+                              {catLabel}
+                            </span>
+                            <span className="font-mono tabular-nums fabro-muted">{n.createdAt}</span>
+                          </div>
+                          <p className="font-semibold leading-snug">{n.title}</p>
+                          <p className="text-[11px] fabro-muted mt-0.5 line-clamp-2">{n.detail}</p>
+                        </button>
+                      );
+                    })}
                   </div>
                   <div className="pt-2 border-t fabro-border flex items-center justify-between gap-2">
                     <button
@@ -1289,7 +1341,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                       }}
                       className="text-[11px] font-bold text-[#0284C7] dark:text-[#38BDF8] hover:underline cursor-pointer"
                     >
-                      Configurar avisos y segundo plano
+                      Configurar push de Cultura y Comunidades
                     </button>
                   </div>
                 </div>
@@ -1336,11 +1388,13 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
             ) : (
               <button
                 type="button"
-                onClick={() => openAuthModal('sincronizar tus datos en la nube', 'login')}
-                className="min-h-[40px] lg:min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] text-white px-3 text-xs font-semibold cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
+                onClick={() =>
+                  openAuthModal('crear tu perfil en FABRO con tu cuenta de Google', 'login')
+                }
+                className="min-h-[40px] lg:min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] hover:bg-[#6D28D9] text-white px-3.5 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap shrink-0 shadow-xs"
               >
                 <User className="w-3.5 h-3.5 shrink-0" />
-                <span>Entrar</span>
+                <span>Iniciar sesión</span>
               </button>
             )}
 

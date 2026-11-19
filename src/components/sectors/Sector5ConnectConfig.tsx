@@ -14,6 +14,7 @@ import {
   Link2,
   LogOut,
   MessageSquare,
+  Newspaper,
   PictureInPicture2,
   Plus,
   RefreshCw,
@@ -25,6 +26,7 @@ import {
   Trash2,
   User,
   UserCheck,
+  Users,
   Volume2,
 } from 'lucide-react';
 import { useAdmin } from '../../context/AdminContext';
@@ -56,6 +58,9 @@ export const Sector5ConnectConfig: React.FC = () => {
     notificationPermission,
     requestNotificationPermission,
     triggerTestNotification,
+    checkCultureNewsForPushNow,
+    triggerCultureNewsTestPush,
+    triggerCommunityTestPush,
     scheduledReminders,
     addScheduledReminder,
     deleteScheduledReminder,
@@ -554,16 +559,16 @@ export const Sector5ConnectConfig: React.FC = () => {
                     Notificaciones del Sistema y Segundo Plano
                   </h2>
                   <p className="fabro-muted mt-1 leading-relaxed">
-                    Recibí avisos con sonido y vibración al terminar un Pomodoro, completar una rutina, recibir mensajes o vencer un recordatorio.
+                    Recibí avisos push en tu dispositivo y dentro de FABRO ante nuevas noticias de Cultura, novedades en tus comunidades, mensajes, Pomodoros y recordatorios.
                   </p>
                 </div>
                 <span
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-bold shrink-0 ${
+                  className={`text-xs font-bold shrink-0 ${
                     notificationPermission === 'granted'
-                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      ? 'text-emerald-700 dark:text-emerald-300'
                       : notificationPermission === 'denied'
-                      ? 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300'
-                      : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                      ? 'text-rose-700 dark:text-rose-300'
+                      : 'text-amber-700 dark:text-amber-300'
                   }`}
                 >
                   {notificationPermission === 'granted'
@@ -590,7 +595,52 @@ export const Sector5ConnectConfig: React.FC = () => {
                   className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border-2 border-[#0284C7] bg-[#0284C7] text-white px-4 py-2 font-bold shadow-[0_6px_16px_-6px_rgba(2,132,199,0.5)] cursor-pointer active:scale-95"
                 >
                   <Bell className="w-4 h-4" />
-                  Solicitar permiso de notificaciones
+                  Solicitar permiso push
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await triggerCultureNewsTestPush();
+                    setNotifFeedback(
+                      res.delivered
+                        ? `Push de Cultura enviado (${res.note}). Tocá la alerta para abrir Noticias Culturales.`
+                        : `Alerta de Cultura mostrada en FABRO (${res.note}).`
+                    );
+                  }}
+                  className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border-2 border-[#9A3412]/50 bg-[#9A3412]/10 text-[#9A3412] dark:text-[#FDBA74] px-4 py-2 font-bold cursor-pointer active:scale-95"
+                >
+                  <Newspaper className="w-4 h-4" />
+                  Probar push Cultura
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await triggerCommunityTestPush();
+                    setNotifFeedback(
+                      res.delivered
+                        ? `Push de Comunidad enviado (${res.note}). Tocá la alerta para abrir tu comunidad.`
+                        : `Alerta de Comunidad mostrada en FABRO (${res.note}).`
+                    );
+                  }}
+                  className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border-2 border-[#0284C7]/50 bg-[#0284C7]/10 text-[#0369A1] dark:text-[#38BDF8] px-4 py-2 font-bold cursor-pointer active:scale-95"
+                >
+                  <Users className="w-4 h-4" />
+                  Probar push Comunidad
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setNotifFeedback('Buscando nuevas noticias en FABRO Cultura...');
+                    const res = await checkCultureNewsForPushNow();
+                    setNotifFeedback(res.message);
+                  }}
+                  className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface-elevated px-4 py-2 font-bold cursor-pointer active:scale-95"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Verificar noticias ahora
                 </button>
 
                 <button
@@ -606,7 +656,7 @@ export const Sector5ConnectConfig: React.FC = () => {
                   className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border-2 border-[#10B981] bg-[#10B981]/10 text-[#047857] dark:text-[#34D399] px-4 py-2 font-bold cursor-pointer active:scale-95"
                 >
                   <Volume2 className="w-4 h-4" />
-                  Probar aviso ahora
+                  Probar aviso general
                 </button>
 
                 <button
@@ -638,7 +688,7 @@ export const Sector5ConnectConfig: React.FC = () => {
                 Disparadores y alertas activas
               </h2>
               <p className="fabro-muted">
-                Elegí qué eventos pueden enviarte avisos del sistema, sonido y vibración.
+                Elegí qué eventos del Ecosistema pueden enviarte avisos push, sonido y vibración.
               </p>
 
               <div className="space-y-2">
@@ -646,8 +696,18 @@ export const Sector5ConnectConfig: React.FC = () => {
                   [
                     {
                       key: 'enabled',
-                      label: 'Activar notificaciones en segundo plano',
-                      desc: 'Interruptor maestro del sistema de avisos PWA.',
+                      label: 'Activar notificaciones push en el Ecosistema',
+                      desc: 'Interruptor maestro de avisos PWA, toast en app y segundo plano.',
+                    },
+                    {
+                      key: 'cultureNews',
+                      label: 'Noticias nuevas de FABRO Cultura',
+                      desc: 'Detecta automáticamente titulares nuevos de arte, cine, música, literatura y museos.',
+                    },
+                    {
+                      key: 'communityUpdates',
+                      label: 'Actualizaciones de tus comunidades',
+                      desc: 'Avisa sobre publicaciones e intercambios en tus comunidades culturales, de estudio y salas.',
                     },
                     {
                       key: 'pomodoroAndRoutines',

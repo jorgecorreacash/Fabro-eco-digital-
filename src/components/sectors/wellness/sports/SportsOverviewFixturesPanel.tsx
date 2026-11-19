@@ -459,15 +459,27 @@ export const SportsOverviewFixturesPanel: React.FC<SportsOverviewFixturesPanelPr
                 Calendarios, resultados, tablas, noticias RSS y herramientas de entrenamiento con fuentes públicas $0.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void onRefresh()}
-              disabled={loading}
-              className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-[#0284C7] text-white px-4 text-xs font-semibold cursor-pointer disabled:opacity-60 shrink-0"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Actualizar ahora
-            </button>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <a
+                href="https://pelotalibres.st/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white px-4 text-xs font-bold transition-colors whitespace-nowrap"
+              >
+                <Tv className="w-3.5 h-3.5" />
+                <span>Ver partidos en vivo</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-90" />
+              </a>
+              <button
+                type="button"
+                onClick={() => void onRefresh()}
+                disabled={loading}
+                className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-[#0284C7] text-white px-4 text-xs font-semibold cursor-pointer disabled:opacity-60 shrink-0"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                Actualizar ahora
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t fabro-border text-[11px] fabro-muted font-mono">
@@ -842,15 +854,29 @@ export const SportsOverviewFixturesPanel: React.FC<SportsOverviewFixturesPanelPr
                 : 'Resultados finalizados'}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={() => void onRefresh(buildDatesParam(calendarPreset, tz))}
-            disabled={loading || singleLoading}
-            className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-[#0284C7] text-white px-4 font-semibold cursor-pointer disabled:opacity-60"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading || singleLoading ? 'animate-spin' : ''}`} />
-            Actualizar
-          </button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {(section === 'partidos-en-vivo' || section === 'futbol') && (
+              <a
+                href="https://pelotalibres.st/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white px-4 font-bold transition-colors whitespace-nowrap"
+              >
+                <Tv className="w-3.5 h-3.5" />
+                <span>Ver partidos en vivo</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-90" />
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => void onRefresh(buildDatesParam(calendarPreset, tz))}
+              disabled={loading || singleLoading}
+              className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-[#0284C7] text-white px-4 font-semibold cursor-pointer disabled:opacity-60"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading || singleLoading ? 'animate-spin' : ''}`} />
+              Actualizar
+            </button>
+          </div>
         </div>
 
         {section === 'partidos-en-vivo' && (
@@ -978,7 +1004,7 @@ export const SportsOverviewFixturesPanel: React.FC<SportsOverviewFixturesPanelPr
       </section>
 
       {displayedMatches.length === 0 ? (
-        <div className="rounded-2xl border border-dashed fabro-border p-8 text-center space-y-1.5 fabro-muted">
+        <div className="rounded-2xl border border-dashed fabro-border p-8 text-center space-y-2.5 fabro-muted">
           <p className="font-semibold text-[var(--fabro-text)]">
             {section === 'partidos-en-vivo'
               ? 'No hay encuentros en juego en este momento en las competiciones conectadas.'
@@ -987,6 +1013,20 @@ export const SportsOverviewFixturesPanel: React.FC<SportsOverviewFixturesPanelPr
           <p>
             Probá cambiar el rango de fechas (por ejemplo «Próximos 7 días» o «Próximos 30 días») o elegir una liga específica.
           </p>
+          {section === 'partidos-en-vivo' && (
+            <div className="pt-1">
+              <a
+                href="https://pelotalibres.st/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white px-4 font-bold transition-colors"
+              >
+                <Tv className="w-3.5 h-3.5" />
+                <span>Abrir partidos en vivo</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-90" />
+              </a>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
