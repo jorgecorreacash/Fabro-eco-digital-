@@ -167,7 +167,7 @@ export async function vaultExportSnapshot(): Promise<Record<string, unknown>> {
     timeBlocks,
   ] = await Promise.all([
     vaultGet<LocalUserProfile>('profile', DEFAULT_LOCAL_PROFILE),
-    vaultGet<ThemeId>('theme', 'estandar'),
+    vaultGet<ThemeId>('theme', 'midnight-purple'),
     vaultGet<string[]>('favorites', DEFAULT_FAVORITES),
     vaultGet<ActivityEntry[]>('recents', []),
     vaultGet<NotificationEntry[]>('notifications', DEFAULT_NOTIFICATIONS),

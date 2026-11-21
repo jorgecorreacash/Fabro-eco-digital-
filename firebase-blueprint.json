@@ -45,7 +45,12 @@
         "weeklyGoalHours": { "type": "number" },
         "themePreference": { "type": "string", "enum": ["dark", "light", "system"] },
         "storageUsedBytes": { "type": "number" },
+        "storageQuota": { "type": "number" },
         "planTier": { "type": "string", "enum": ["free", "premium"] },
+        "plan": { "type": "string", "enum": ["free", "premium"] },
+        "provider": { "type": "string", "enum": ["google.com", "password", "firebase", "unknown"] },
+        "emailVerified": { "type": "boolean" },
+        "lastLoginAt": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -1406,6 +1411,19 @@
       },
       "required": ["id", "uid", "moodLogs", "guidedReflections", "balancedPlanner", "glossaryTerms", "updatedAt"]
     },
+    "FabroStudy2Workspace": {
+      "title": "FabroStudy2Workspace",
+      "description": "Private FABRO ESTUDIO 2.0 synced workspace (custom subjects, unified shift-style calendar, evaluations, library metadata, tools state) isolated per user UID.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "version": { "type": "number" },
+        "payloadJson": { "type": "string", "minLength": 2, "maxLength": 900000 },
+        "updatedAtIso": { "type": "string", "minLength": 10, "maxLength": 40 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "version", "payloadJson", "updatedAtIso", "updatedAt"]
+    },
     "PublicHandle": {
       "title": "PublicHandle",
       "description": "Unique username reservation registry mapping handle -> uid.",
@@ -1879,6 +1897,10 @@
     "/users/{userId}/wellness/{itemId}": {
       "schema": { "$ref": "#/entities/FabroWellnessState" },
       "description": "User-owned wellness logs, reflections, and glossary."
+    },
+    "/users/{userId}/study/{docId}": {
+      "schema": { "$ref": "#/entities/FabroStudy2Workspace" },
+      "description": "User-owned FABRO ESTUDIO 2.0 workspace snapshot (docId: workspace)."
     },
     "/publicHandles/{handle}": {
       "schema": { "$ref": "#/entities/PublicHandle" },

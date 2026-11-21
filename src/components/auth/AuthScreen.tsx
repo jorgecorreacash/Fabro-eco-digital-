@@ -1,27 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import {
-  browserPopupRedirectResolver,
-  createUserWithEmailAndPassword,
-  getRedirectResult,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signInWithRedirect,
-  signOut,
-  updateProfile,
-  type User,
-} from 'firebase/auth';
+import { type User } from 'firebase/auth';
 import { ArrowRight, CheckCircle2, KeyRound, Loader2, Mail, RefreshCw, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { hasPendingGoogleRedirect } from '../../lib/firebase';
 import {
-  auth,
-  clearPendingGoogleRedirect,
-  googleProvider,
-  hasPendingGoogleRedirect,
-  markPendingGoogleRedirect,
-  markWebSessionActive,
-  shouldUseGoogleRedirect,
-} from '../../lib/firebase';
+  loginWithEmailPassword,
+  registerWithEmailPassword,
+  resendVerificationEmailForCurrentUser,
+  resolveGoogleRedirectOnce,
+  sendFirebasePasswordReset,
+  signOutFirebaseSession,
+  startGoogleSignIn,
+} from '../../services/firebaseAuthService';
 import { FabroLogo } from '../brand/FabroLogo';
 import { PWAInstallButton } from '../pwa/PWAControls';
 
@@ -51,81 +40,30 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
   useEffect(() => {
     let active = true;
-    void getRedirectResult(auth, browserPopupRedirectResolver)
-      .then((res) => {
-        if (active && res?.user) {
-          markWebSessionActive();
-        }
-      })
-      .catch((err) => {
-        if (active) setError(mapFirebaseAuthError(err));
-      })
-      .finally(() => {
-        clearPendingGoogleRedirect();
-        if (active) setGoogleConnecting(false);
-      });
+    void resolveGoogleRedirectOnce().then((res) => {
+      if (!active) return;
+      if (res.error) setError(res.error.message);
+      setGoogleConnecting(false);
+    });
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const mapFirebaseAuthError = (err: unknown): string => {
-    const code = (err as { code?: string })?.code || '';
-    switch (code) {
-      case 'auth/operation-not-allowed':
-        return 'El acceso con correo y contraseña aún no está habilitado en tu consola de Firebase. Para activarlo: Firebase Console > Authentication > Sign-in method > Email/Password > Habilitar. Mientras tanto, podés ingresar directamente con Google.';
-      case 'auth/email-already-in-use':
-        return 'Ya existe una cuenta registrada con este correo electrónico.';
-      case 'auth/invalid-email':
-        return 'El formato del correo electrónico no es válido.';
-      case 'auth/weak-password':
-        return 'La contraseña debe tener al menos 6 caracteres.';
-      case 'auth/invalid-credential':
-      case 'auth/user-not-found':
-      case 'auth/wrong-password':
-        return 'Correo o contraseña incorrectos.';
-      case 'auth/popup-closed-by-user':
-        return 'Se cerró la ventana de inicio de sesión antes de completar el acceso.';
-      case 'auth/too-many-requests':
-        return 'Demasiados intentos seguidos. Esperá unos minutos antes de reintentar.';
-      default:
-        return err instanceof Error ? err.message : 'No se pudo completar la autenticación.';
-    }
-  };
 
   const handleGoogleLogin = async () => {
     setError('');
     setNotice('');
     setLoading(true);
     setGoogleConnecting(true);
-    markWebSessionActive();
-    try {
-      if (shouldUseGoogleRedirect()) {
-        markPendingGoogleRedirect();
-        await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
-        return;
-      }
-      await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+    const res = await startGoogleSignIn();
+    if (!res.redirectStarted) {
       setGoogleConnecting(false);
-    } catch (err) {
-      const code = (err as { code?: string })?.code || '';
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/popup-blocked') {
-        markPendingGoogleRedirect();
-        try {
-          await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
-          return;
-        } catch (redirectErr) {
-          clearPendingGoogleRedirect();
-          setGoogleConnecting(false);
-          setError(mapFirebaseAuthError(redirectErr));
-        }
-      } else {
-        setGoogleConnecting(false);
-        setError(mapFirebaseAuthError(err));
-      }
-    } finally {
       setLoading(false);
+    }
+    if (!res.ok) {
+      setGoogleConnecting(false);
+      setLoading(false);
+      setError(res.error || 'No se pudo completar el inicio de sesión con Google.');
     }
   };
 
@@ -136,20 +74,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setLoading(true);
     try {
       if (mode === 'login') {
-        await signInWithEmailAndPassword(auth, email.trim(), password);
+        const res = await loginWithEmailPassword(email, password);
+        if (!res.ok) setError(res.error || 'No se pudo iniciar sesión.');
       } else if (mode === 'register') {
-        const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-        if (fullName.trim()) {
-          await updateProfile(cred.user, { displayName: fullName.trim() });
+        const res = await registerWithEmailPassword({
+          email,
+          password,
+          displayName: fullName.trim() || email.split('@')[0] || 'Usuario FABRO',
+        });
+        if (!res.ok) {
+          setError(res.error || 'No se pudo crear la cuenta.');
+        } else {
+          setNotice('Te enviamos un enlace de verificación a tu correo para proteger tu cuenta.');
         }
-        await sendEmailVerification(cred.user);
-        setNotice('Te enviamos un enlace de verificación a tu correo para proteger tu cuenta.');
       } else {
-        await sendPasswordResetEmail(auth, email.trim());
-        setNotice('Enviamos un correo para restablecer tu contraseña. Revisá tu bandeja de entrada.');
+        const res = await sendFirebasePasswordReset(email);
+        if (!res.ok) {
+          setError(res.error || 'No se pudo enviar el correo de recuperación.');
+        } else {
+          setNotice('Enviamos un correo para restablecer tu contraseña. Revisá tu bandeja de entrada.');
+        }
       }
-    } catch (err) {
-      setError(mapFirebaseAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -160,15 +105,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setError('');
     setNotice('');
     setLoading(true);
-    try {
-      await sendEmailVerification(unverifiedUser);
+    const res = await resendVerificationEmailForCurrentUser();
+    setLoading(false);
+    if (res.ok) {
       setNotice('Reenviamos el correo de verificación. Revisá también la carpeta de spam.');
-    } catch (err) {
-      setError(mapFirebaseAuthError(err));
-    } finally {
-      setLoading(false);
+    } else {
+      setError(res.error || 'No se pudo reenviar el correo de verificación.');
     }
   };
+
+  const handleSignOutUnverified = () => {
+    void signOutFirebaseSession();
+  };
+  void handleSignOutUnverified;
 
   return (
     <div className="min-h-[100dvh] fabro-shell-bg fabro-hero-ambient text-slate-900 dark:text-[#FAF6EE] flex flex-col">
@@ -334,7 +283,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void signOut(auth)}
+                    onClick={handleSignOutUnverified}
                     className="w-full py-2 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
                   >
                     Usar otra cuenta

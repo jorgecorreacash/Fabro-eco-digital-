@@ -761,20 +761,11 @@ export const DashboardHome: React.FC = () => {
               <Inbox className="w-4 h-4" />
               Bandeja ({inboxItems.length})
             </button>
-            {!authUser ? (
-              <button
-                type="button"
-                onClick={() => openAuthModal('activar la sincronización en la nube entre dispositivos', 'register')}
-                className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-[#7C3AED] bg-[#7C3AED] text-white px-3.5 py-1.5 text-sm font-medium cursor-pointer active:scale-95 whitespace-nowrap"
-              >
-                <Cloud className="w-4 h-4" />
-                Activar sincronización en nube
-              </button>
-            ) : (
+            {authUser && (
               <button
                 type="button"
                 onClick={() => void syncNowToCloud()}
-                className="min-h-[42px] md:min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-1.5 text-sm font-medium cursor-pointer active:scale-95 whitespace-nowrap"
+                className="fabro-btn-secondary"
               >
                 <RefreshCw className={`w-4 h-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
                 Sincronizar

@@ -1,27 +1,16 @@
 export type ThemeId =
-  | 'estandar'
-  | 'futuro-azul-blanco'
-  | 'futuro-turquesa-verde'
-  | 'futuro-blanco-verde'
-  | 'futuro-cobalto-neon'
-  | 'ecologico'
-  | 'gotico'
-  | 'aura'
-  | 'floral'
-  | 'oro'
-  | 'metal'
-  | 'minimalista-claro'
-  | 'azul-noche-dorado'
-  | 'esmeralda-profundo'
-  | 'atardecer-coral'
-  | 'marino-nordico'
-  | 'violeta-obsidian'
-  | 'grafito-ambar'
-  | 'aurora-boreal'
-  | 'lavanda-serena'
-  | 'terracota-sol'
-  | 'medianoche-rubi'
-  | 'bosque-musgo';
+  | 'midnight-purple'
+  | 'cyber-blue'
+  | 'neon-green'
+  | 'galaxy'
+  | 'obsidian'
+  | 'arctic'
+  | 'minimal-white'
+  | 'sunset'
+  | 'emerald'
+  | 'gold-premium';
+
+export type GlowIntensity = 'low' | 'medium' | 'high';
 
 import type { CulturalProfileData } from './culture';
 
@@ -32,7 +21,14 @@ export type FiveSectorId =
   | 'ia'
   | 'configuracion';
 
-export type SectorId = 'inicio' | 'hoy' | 'herramientas' | 'cultura' | 'admin' | FiveSectorId;
+export type SectorId =
+  | 'inicio'
+  | 'hoy'
+  | 'herramientas'
+  | 'cultura'
+  | 'deportes'
+  | 'admin'
+  | FiveSectorId;
 
 export type StudySubmenuId =
   | 'academico-panel'
@@ -83,6 +79,7 @@ export type SubmenuId =
   | 'hoy-cosmos'
   | 'centro-herramientas'
   | 'cultura-inicio'
+  | 'deportes-panel'
   | 'admin-dashboard'
   | StudySubmenuId
   | WellnessSubmenuId
@@ -140,6 +137,7 @@ export interface ThemeMeta {
   name: string;
   isDark: boolean;
   description: string;
+  gradientCss: string;
   swatches: [string, string, string, string];
 }
 

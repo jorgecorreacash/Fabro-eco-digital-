@@ -30,6 +30,9 @@ import type {
   SportsNavId,
   SportsUserState,
 } from '../../../../types/sports';
+import { useEcosystem } from '../../../../context/EcosystemContext';
+import { DEFAULT_WELLNESS_STATE } from '../../../../data/wellnessCatalog';
+import { loadWellnessState, saveWellnessState } from '../../../../services/wellnessVault';
 import type { WellnessStateSnapshot } from '../../../../types/wellness';
 import { SportsFavoritesAiConfigPanel } from './SportsFavoritesAiConfigPanel';
 import { SportsOverviewFixturesPanel } from './SportsOverviewFixturesPanel';
@@ -37,9 +40,9 @@ import { SportsTablesProfilesNewsPanel } from './SportsTablesProfilesNewsPanel';
 import { SportsToolsTrainingCoachPanel } from './SportsToolsTrainingCoachPanel';
 
 interface SectorSportsProps {
-  wellnessState: WellnessStateSnapshot;
-  onUpdateWellnessState: (updater: (prev: WellnessStateSnapshot) => WellnessStateSnapshot) => void;
-  onBackToWellness: () => void;
+  wellnessState?: WellnessStateSnapshot;
+  onUpdateWellnessState?: (updater: (prev: WellnessStateSnapshot) => WellnessStateSnapshot) => void;
+  onBackToWellness?: () => void;
 }
 
 const DEFAULT_MULTI_LEAGUES = [
@@ -56,10 +59,42 @@ const DEFAULT_MULTI_LEAGUES = [
 ];
 
 export const SectorSports: React.FC<SectorSportsProps> = ({
-  wellnessState,
-  onUpdateWellnessState,
-  onBackToWellness,
+  wellnessState: wellnessStateProp,
+  onUpdateWellnessState: onUpdateWellnessStateProp,
+  onBackToWellness: onBackToWellnessProp,
 }) => {
+  const { navigateTo } = useEcosystem();
+  const [standaloneWellnessState, setStandaloneWellnessState] =
+    useState<WellnessStateSnapshot>(DEFAULT_WELLNESS_STATE);
+
+  useEffect(() => {
+    if (wellnessStateProp) return;
+    let mounted = true;
+    void loadWellnessState().then((loaded) => {
+      if (mounted) setStandaloneWellnessState(loaded);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [wellnessStateProp]);
+
+  const wellnessState = wellnessStateProp ?? standaloneWellnessState;
+  const onUpdateWellnessState = useCallback(
+    (updater: (prev: WellnessStateSnapshot) => WellnessStateSnapshot) => {
+      if (onUpdateWellnessStateProp) {
+        onUpdateWellnessStateProp(updater);
+        return;
+      }
+      setStandaloneWellnessState((prev) => {
+        const next = updater(prev);
+        void saveWellnessState(next);
+        return next;
+      });
+    },
+    [onUpdateWellnessStateProp]
+  );
+  const onBackToWellness = onBackToWellnessProp ?? (() => navigateTo('bienestar'));
+
   const [activeNav, setActiveNav] = useState<SportsNavId>('inicio-deportivo');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarFilter, setSidebarFilter] = useState('');

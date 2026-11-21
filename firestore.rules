@@ -162,7 +162,8 @@ service cloud.firestore {
           'specialty', 'experienceSummary', 'reputationPoints', 'presenceMode',
           'accountStatus', 'followedInstructorIds', 'blockedUserIds',
           'educationLevel', 'institution', 'career', 'weeklyGoalHours',
-          'themePreference', 'storageUsedBytes', 'planTier',
+          'themePreference', 'storageUsedBytes', 'storageQuota', 'planTier', 'plan',
+          'provider', 'emailVerified', 'lastLoginAt',
           'createdAt', 'updatedAt'
         ])
         && data.uid == userId
@@ -203,7 +204,12 @@ service cloud.firestore {
         && (data.weeklyGoalHours is number && data.weeklyGoalHours >= 1 && data.weeklyGoalHours <= 168)
         && (data.themePreference is string && data.themePreference in ['dark', 'light', 'system'])
         && (data.storageUsedBytes is number && data.storageUsedBytes >= 0 && data.storageUsedBytes <= 10737418240)
+        && (!('storageQuota' in data) || (data.storageQuota is number && data.storageQuota >= 0 && data.storageQuota <= 10737418240))
         && (data.planTier is string && data.planTier in ['free', 'premium'])
+        && (!('plan' in data) || (data.plan is string && data.plan in ['free', 'premium']))
+        && (!('provider' in data) || (data.provider is string && data.provider in ['google.com', 'password', 'firebase', 'unknown']))
+        && (!('emailVerified' in data) || data.emailVerified is bool)
+        && (!('lastLoginAt' in data) || data.lastLoginAt is timestamp)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -668,6 +674,8 @@ service cloud.firestore {
         && isOwner(userId)
         && isValidUserProfile(incoming(), userId)
         && incoming().planTier == 'free'
+        && (!('plan' in incoming()) || incoming().plan == 'free')
+        && (!('storageQuota' in incoming()) || incoming().storageQuota <= 524288000)
         && (!('verificationStatus' in incoming()) || incoming().verificationStatus == 'no_solicitado')
         && (!('accountStatus' in incoming()) || incoming().accountStatus == 'activo')
         && (!('reputationPoints' in incoming()) || incoming().reputationPoints == 0)
@@ -691,7 +699,7 @@ service cloud.firestore {
                 'instructorCategory', 'specialty', 'experienceSummary',
                 'presenceMode', 'followedInstructorIds', 'blockedUserIds',
                 'educationLevel', 'institution', 'career', 'weeklyGoalHours',
-                'themePreference', 'updatedAt'
+                'themePreference', 'provider', 'emailVerified', 'lastLoginAt', 'updatedAt'
               ]) ||
               incoming().diff(existing()).affectedKeys().hasOnly([
                 'storageUsedBytes', 'updatedAt'
@@ -702,7 +710,7 @@ service cloud.firestore {
             isAdmin() &&
             incoming().diff(existing()).affectedKeys().hasOnly([
               'verificationStatus', 'accountStatus', 'reputationPoints',
-              'isInstructor', 'instructorCategory', 'planTier', 'updatedAt'
+              'isInstructor', 'instructorCategory', 'planTier', 'plan', 'storageQuota', 'updatedAt'
             ])
           )
         );
@@ -3559,6 +3567,41 @@ service cloud.firestore {
           'updatedAt'
         ]);
       allow delete: if itemId == 'state' && isSignedInOwner(userId);
+    }
+
+    function isValidFabroStudy2Workspace(data, userId) {
+      return data.keys().hasAll([
+          'userId', 'version', 'payloadJson', 'updatedAtIso', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'version', 'payloadJson', 'updatedAtIso', 'updatedAt'
+        ])
+        && data.userId == userId
+        && isValidId(data.userId)
+        && data.version == 2
+        && isValidString(data.payloadJson, 2, 900000)
+        && isValidString(data.updatedAtIso, 10, 40)
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/study/{docId} {
+      allow get: if isValidId(userId) && docId == 'workspace' && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && docId == 'workspace'
+        && isOwner(userId)
+        && isValidFabroStudy2Workspace(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && docId == 'workspace'
+        && isOwner(userId)
+        && isValidFabroStudy2Workspace(incoming(), userId)
+        && incoming().userId == existing().userId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'version', 'payloadJson', 'updatedAtIso', 'updatedAt'
+        ]);
+      allow delete: if isValidId(userId) && docId == 'workspace' && isOwner(userId);
     }
 
     function isValidPublicHandleDoc(data, handle) {

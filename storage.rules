@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// FABRO — Firebase Storage Security Rules
+// Strict owner-only isolation under users/{userId}/** with default-deny elsewhere.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Global default-deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Private per-user storage space: only the authenticated & verified owner can read/write
+    match /users/{userId}/{allPaths=**} {
+      allow read: if request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.uid == userId;
+
+      allow write: if request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.uid == userId
+        && request.resource != null
+        && request.resource.size <= 25 * 1024 * 1024;
+
+      allow delete: if request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.uid == userId;
+    }
+  }
+}

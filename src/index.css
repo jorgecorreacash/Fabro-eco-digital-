@@ -1,432 +1,235 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *, [data-theme="estandar"], [data-theme="estandar"] *, [data-theme="futuro-turquesa-verde"], [data-theme="futuro-turquesa-verde"] *, [data-theme="futuro-cobalto-neon"], [data-theme="futuro-cobalto-neon"] *, [data-theme="gotico"], [data-theme="gotico"] *, [data-theme="aura"], [data-theme="aura"] *, [data-theme="oro"], [data-theme="oro"] *, [data-theme="metal"], [data-theme="metal"] *, [data-theme="azul-noche-dorado"], [data-theme="azul-noche-dorado"] *, [data-theme="esmeralda-profundo"], [data-theme="esmeralda-profundo"] *, [data-theme="violeta-obsidian"], [data-theme="violeta-obsidian"] *, [data-theme="grafito-ambar"], [data-theme="grafito-ambar"] *, [data-theme="aurora-boreal"], [data-theme="aurora-boreal"] *, [data-theme="medianoche-rubi"], [data-theme="medianoche-rubi"] *));
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="midnight-purple"], [data-theme="midnight-purple"] *, [data-theme="cyber-blue"], [data-theme="cyber-blue"] *, [data-theme="neon-green"], [data-theme="neon-green"] *, [data-theme="galaxy"], [data-theme="galaxy"] *, [data-theme="obsidian"], [data-theme="obsidian"] *, [data-theme="sunset"], [data-theme="sunset"] *, [data-theme="emerald"], [data-theme="emerald"] *, [data-theme="gold-premium"], [data-theme="gold-premium"] *));
 
 @layer base {
-  /* Tema Estándar (Visión Original FABRO: Azul Noche Intenso, Violeta Vibrante, Blanco Cálido y Oro) */
+  /* =========================================================================
+     TEMAS FABRO — 10 Plantillas Completas + Control de Intensidad de Brillo
+     ========================================================================= */
+
+  /* 1. Midnight Purple (Default: negro azulado, violeta y luces púrpuras) */
   :root,
-  html[data-theme="estandar"] {
+  html[data-theme="midnight-purple"] {
     --font-display: 'Outfit', system-ui, sans-serif;
     --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
 
-    --fabro-bg: #070C1A;
-    --fabro-surface: #0F172A;
-    --fabro-surface-2: #1B2842;
-    --fabro-border: #3B4E75;
+    --fabro-glow-opacity: 0.24;
+    --fabro-bg: #070A17;
+    --fabro-bg-ambient: radial-gradient(ellipse 80% 50% at 15% -10%, rgba(124, 58, 237, 0.20), transparent 60%), radial-gradient(ellipse 65% 45% at 88% 10%, rgba(56, 189, 248, 0.11), transparent 55%);
+    --fabro-surface: #0F1529;
+    --fabro-surface-2: #171F3A;
+    --fabro-border: #2C375E;
     --fabro-text: #F8FAFC;
-    --fabro-text-muted: #A5B4CF;
+    --fabro-text-muted: #9BAAC9;
     --fabro-accent: #8B5CF6;
+    --fabro-accent-2: #C084FC;
     --fabro-accent-hover: #7C3AED;
-    --fabro-accent-soft: rgba(139, 92, 246, 0.25);
+    --fabro-accent-soft: rgba(139, 92, 246, 0.20);
     --fabro-accent-text: #D8B4FE;
-    --fabro-gold: #F59E0B;
-    --fabro-gold-soft: rgba(245, 158, 11, 0.22);
-    --fabro-gold-text: #FDE047;
-    --fabro-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.65), 0 0 0 1px rgba(139, 92, 246, 0.18);
-  }
-
-  /* Futuro Azul y Blanco */
-  html[data-theme="futuro-azul-blanco"] {
-    --font-display: 'Outfit', system-ui, sans-serif;
-    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-
-    --fabro-bg: #EAF5FF;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #DCF0FC;
-    --fabro-border: #7CC4EE;
-    --fabro-text: #061A2B;
-    --fabro-text-muted: #2B4E6B;
-    --fabro-accent: #0284C7;
-    --fabro-accent-hover: #0369A1;
-    --fabro-accent-soft: #CFEBFD;
-    --fabro-accent-text: #075985;
-    --fabro-gold: #059669;
-    --fabro-gold-soft: #BDF4DC;
-    --fabro-gold-text: #047857;
-    --fabro-shadow: 0 6px 20px -4px rgba(2, 132, 199, 0.18);
-  }
-
-  /* Futuro Turquesa y Verde */
-  html[data-theme="futuro-turquesa-verde"] {
-    --fabro-bg: #021017;
-    --fabro-surface: #061C26;
-    --fabro-surface-2: #0B2E3D;
-    --fabro-border: #1A6880;
-    --fabro-text: #F0FDFA;
-    --fabro-text-muted: #93D1DE;
-    --fabro-accent: #06D6F2;
-    --fabro-accent-hover: #00B4D8;
-    --fabro-accent-soft: rgba(6, 214, 242, 0.22);
-    --fabro-accent-text: #67F3FF;
-    --fabro-gold: #10B981;
-    --fabro-gold-soft: rgba(16, 185, 129, 0.24);
-    --fabro-gold-text: #4ADE80;
-    --fabro-shadow: 0 8px 24px -4px rgba(6, 214, 242, 0.18);
-  }
-
-  /* Futuro Blanco y Verde */
-  html[data-theme="futuro-blanco-verde"] {
-    --fabro-bg: #ECFBF4;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #DAF5E8;
-    --fabro-border: #74D8B0;
-    --fabro-text: #062118;
-    --fabro-text-muted: #2E5D4D;
-    --fabro-accent: #059669;
-    --fabro-accent-hover: #047857;
-    --fabro-accent-soft: #C3F7DF;
-    --fabro-accent-text: #065F46;
-    --fabro-gold: #0284C7;
-    --fabro-gold-soft: #D1EEFE;
-    --fabro-gold-text: #0369A1;
-    --fabro-shadow: 0 6px 20px -4px rgba(5, 150, 105, 0.16);
-  }
-
-  /* Futuro Azul Profundo */
-  html[data-theme="futuro-cobalto-neon"] {
-    --fabro-bg: #030A18;
-    --fabro-surface: #0A1933;
-    --fabro-surface-2: #122A52;
-    --fabro-border: #26569C;
-    --fabro-text: #F8FAFC;
-    --fabro-text-muted: #99BEF0;
-    --fabro-accent: #0EA5E9;
-    --fabro-accent-hover: #0284C7;
-    --fabro-accent-soft: rgba(14, 165, 233, 0.25);
-    --fabro-accent-text: #7DD3FC;
-    --fabro-gold: #10B981;
-    --fabro-gold-soft: rgba(16, 185, 129, 0.22);
-    --fabro-gold-text: #5EEAD4;
-    --fabro-shadow: 0 8px 24px -4px rgba(14, 165, 233, 0.22);
-  }
-
-  /* Ecológico */
-  html[data-theme="ecologico"] {
-    --fabro-bg: #ECF5EB;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #DCECD9;
-    --fabro-border: #84C78D;
-    --fabro-text: #0B2113;
-    --fabro-text-muted: #355941;
-    --fabro-accent: #059669;
-    --fabro-accent-hover: #047857;
-    --fabro-accent-soft: #C8F7DB;
-    --fabro-accent-text: #065F46;
-    --fabro-gold: #65A30D;
-    --fabro-gold-soft: #E5FBBD;
-    --fabro-gold-text: #3F6212;
-    --fabro-shadow: 0 5px 18px -4px rgba(5, 150, 105, 0.15);
-  }
-
-  /* Gótico */
-  html[data-theme="gotico"] {
-    --fabro-bg: #08040A;
-    --fabro-surface: #140A17;
-    --fabro-surface-2: #241229;
-    --fabro-border: #632853;
-    --fabro-text: #FAF2EA;
-    --fabro-text-muted: #CFAEC0;
-    --fabro-accent: #F43F5E;
-    --fabro-accent-hover: #E11D48;
-    --fabro-accent-soft: rgba(244, 63, 94, 0.24);
-    --fabro-accent-text: #FDA4AF;
-    --fabro-gold: #EAB308;
-    --fabro-gold-soft: rgba(234, 179, 8, 0.20);
-    --fabro-gold-text: #FDE047;
-    --fabro-shadow: 0 8px 24px -4px rgba(244, 63, 94, 0.18);
-  }
-
-  /* Aura */
-  html[data-theme="aura"] {
-    --fabro-bg: #070B1A;
-    --fabro-surface: #101730;
-    --fabro-surface-2: #1A254B;
-    --fabro-border: #3E5394;
-    --fabro-text: #F4F7FF;
-    --fabro-text-muted: #A4B5E3;
-    --fabro-accent: #6366F1;
-    --fabro-accent-hover: #4F46E5;
-    --fabro-accent-soft: rgba(99, 102, 241, 0.25);
-    --fabro-accent-text: #C7D2FE;
     --fabro-gold: #38BDF8;
-    --fabro-gold-soft: rgba(56, 189, 248, 0.22);
+    --fabro-gold-soft: rgba(56, 189, 248, 0.18);
     --fabro-gold-text: #7DD3FC;
-    --fabro-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.24);
+    --fabro-shadow: 0 10px 28px -8px rgba(4, 6, 18, 0.72), 0 0 0 1px rgba(139, 92, 246, 0.16);
   }
 
-  /* Floral */
-  html[data-theme="floral"] {
-    --fabro-bg: #FDF2F5;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #FCE4EC;
-    --fabro-border: #EA9AB6;
-    --fabro-text: #290E19;
-    --fabro-text-muted: #6A3D50;
-    --fabro-accent: #DB2777;
-    --fabro-accent-hover: #BE185D;
-    --fabro-accent-soft: #FCE0EF;
-    --fabro-accent-text: #9D174D;
-    --fabro-gold: #059669;
-    --fabro-gold-soft: #C8F7DC;
-    --fabro-gold-text: #047857;
-    --fabro-shadow: 0 5px 18px -4px rgba(219, 39, 119, 0.15);
-  }
-
-  /* Oro */
-  html[data-theme="oro"] {
-    --fabro-bg: #0F0A03;
-    --fabro-surface: #1B1306;
-    --fabro-surface-2: #2C200B;
-    --fabro-border: #73541D;
-    --fabro-text: #FEF9EC;
-    --fabro-text-muted: #D8C190;
-    --fabro-accent: #F59E0B;
-    --fabro-accent-hover: #D97706;
-    --fabro-accent-soft: rgba(245, 158, 11, 0.24);
-    --fabro-accent-text: #FDE047;
-    --fabro-gold: #FBBF24;
-    --fabro-gold-soft: rgba(251, 191, 36, 0.22);
-    --fabro-gold-text: #FEF08A;
-    --fabro-shadow: 0 8px 24px -4px rgba(245, 158, 11, 0.20);
-  }
-
-  /* Metal */
-  html[data-theme="metal"] {
-    --fabro-bg: #080C12;
-    --fabro-surface: #121924;
-    --fabro-surface-2: #1D2838;
-    --fabro-border: #435773;
-    --fabro-text: #F1F5F9;
-    --fabro-text-muted: #9DB1C9;
-    --fabro-accent: #38BDF8;
-    --fabro-accent-hover: #0EA5E9;
-    --fabro-accent-soft: rgba(56, 189, 248, 0.20);
-    --fabro-accent-text: #BAE6FD;
-    --fabro-gold: #94A3B8;
-    --fabro-gold-soft: rgba(148, 163, 184, 0.22);
-    --fabro-gold-text: #E2E8F0;
-    --fabro-shadow: 0 8px 24px -4px rgba(56, 189, 248, 0.16);
-  }
-
-  /* Tema Claro Profesional */
-  html[data-theme="minimalista-claro"] {
-    --font-display: 'Outfit', system-ui, sans-serif;
-    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-
-    --fabro-bg: #F3F7FC;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #E8F0FA;
-    --fabro-border: #9EB9DC;
-    --fabro-text: #0F172A;
-    --fabro-text-muted: #42536B;
+  /* 2. Cyber Blue (azul eléctrico y negro) */
+  html[data-theme="cyber-blue"] {
+    --fabro-bg: #040814;
+    --fabro-bg-ambient: radial-gradient(ellipse 80% 50% at 18% -10%, rgba(37, 99, 235, 0.24), transparent 60%), radial-gradient(ellipse 60% 45% at 85% 8%, rgba(56, 189, 248, 0.16), transparent 55%);
+    --fabro-surface: #0A1224;
+    --fabro-surface-2: #111D38;
+    --fabro-border: #1E3A6E;
+    --fabro-text: #F0F7FF;
+    --fabro-text-muted: #8EB2DA;
     --fabro-accent: #2563EB;
+    --fabro-accent-2: #38BDF8;
     --fabro-accent-hover: #1D4ED8;
-    --fabro-accent-soft: #DBEAFE;
-    --fabro-accent-text: #1D4ED8;
-    --fabro-gold: #D97706;
-    --fabro-gold-soft: #FEF3C7;
-    --fabro-gold-text: #B45309;
-    --fabro-shadow: 0 5px 18px -4px rgba(37, 99, 235, 0.14);
+    --fabro-accent-soft: rgba(37, 99, 235, 0.22);
+    --fabro-accent-text: #7DD3FC;
+    --fabro-gold: #06B6D4;
+    --fabro-gold-soft: rgba(6, 182, 212, 0.20);
+    --fabro-gold-text: #67E8F9;
+    --fabro-shadow: 0 10px 28px -8px rgba(2, 8, 26, 0.78), 0 0 0 1px rgba(56, 189, 248, 0.18);
   }
 
-  /* Tema 2: Oscuro Noche */
-  html[data-theme="azul-noche-dorado"] {
-    --fabro-bg: #070D1B;
-    --fabro-surface: #0F172A;
-    --fabro-surface-2: #1B2842;
-    --fabro-border: #334B73;
+  /* 3. Neon Green (negro y verde tecnológico) */
+  html[data-theme="neon-green"] {
+    --fabro-bg: #040D09;
+    --fabro-bg-ambient: radial-gradient(ellipse 75% 50% at 16% -10%, rgba(34, 197, 94, 0.20), transparent 60%), radial-gradient(ellipse 55% 40% at 86% 12%, rgba(16, 185, 129, 0.14), transparent 55%);
+    --fabro-surface: #091711;
+    --fabro-surface-2: #10261C;
+    --fabro-border: #1D4D37;
+    --fabro-text: #ECFDF5;
+    --fabro-text-muted: #86C5A7;
+    --fabro-accent: #22C55E;
+    --fabro-accent-2: #4ADE80;
+    --fabro-accent-hover: #16A34A;
+    --fabro-accent-soft: rgba(34, 197, 94, 0.19);
+    --fabro-accent-text: #86EFAC;
+    --fabro-gold: #14B8A6;
+    --fabro-gold-soft: rgba(20, 184, 166, 0.18);
+    --fabro-gold-text: #5EEAD4;
+    --fabro-shadow: 0 10px 28px -8px rgba(2, 12, 7, 0.80), 0 0 0 1px rgba(34, 197, 94, 0.18);
+  }
+
+  /* 4. Galaxy (azul profundo, violeta y degradados cósmicos) */
+  html[data-theme="galaxy"] {
+    --fabro-bg: #07071C;
+    --fabro-bg-ambient: radial-gradient(ellipse 80% 55% at 12% -10%, rgba(99, 102, 241, 0.26), transparent 60%), radial-gradient(ellipse 65% 48% at 88% 12%, rgba(236, 72, 153, 0.18), transparent 55%);
+    --fabro-surface: #111132;
+    --fabro-surface-2: #1A1947;
+    --fabro-border: #363278;
     --fabro-text: #F8FAFC;
-    --fabro-text-muted: #9DB2CE;
-    --fabro-accent: #3B82F6;
-    --fabro-accent-hover: #2563EB;
-    --fabro-accent-soft: rgba(59, 130, 246, 0.24);
-    --fabro-accent-text: #93C5FD;
-    --fabro-gold: #F59E0B;
-    --fabro-gold-soft: rgba(245, 158, 11, 0.22);
-    --fabro-gold-text: #FCD34D;
-    --fabro-shadow: 0 8px 24px -4px rgba(59, 130, 246, 0.20);
+    --fabro-text-muted: #A9AED6;
+    --fabro-accent: #6366F1;
+    --fabro-accent-2: #EC4899;
+    --fabro-accent-hover: #4F46E5;
+    --fabro-accent-soft: rgba(99, 102, 241, 0.24);
+    --fabro-accent-text: #C7D2FE;
+    --fabro-gold: #EC4899;
+    --fabro-gold-soft: rgba(236, 72, 153, 0.20);
+    --fabro-gold-text: #F9A8D4;
+    --fabro-shadow: 0 10px 30px -8px rgba(6, 5, 28, 0.78), 0 0 0 1px rgba(129, 140, 248, 0.20);
   }
 
-  /* Tema 3: Esmeralda */
-  html[data-theme="esmeralda-profundo"] {
-    --fabro-bg: #04120F;
-    --fabro-surface: #0A1F1A;
-    --fabro-surface-2: #12332B;
-    --fabro-border: #256153;
+  /* 5. Obsidian (negro elegante con detalles plateados) */
+  html[data-theme="obsidian"] {
+    --fabro-bg: #08090C;
+    --fabro-bg-ambient: radial-gradient(ellipse 75% 45% at 20% -10%, rgba(148, 163, 184, 0.16), transparent 60%), radial-gradient(ellipse 60% 40% at 85% 10%, rgba(226, 232, 240, 0.08), transparent 55%);
+    --fabro-surface: #12141A;
+    --fabro-surface-2: #1B1F28;
+    --fabro-border: #333A4A;
     --fabro-text: #F8FAFC;
-    --fabro-text-muted: #98C2B7;
-    --fabro-accent: #10B981;
-    --fabro-accent-hover: #059669;
-    --fabro-accent-soft: rgba(16, 185, 129, 0.24);
-    --fabro-accent-text: #6EE7B7;
-    --fabro-gold: #F59E0B;
-    --fabro-gold-soft: rgba(245, 158, 11, 0.22);
-    --fabro-gold-text: #FCD34D;
-    --fabro-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.20);
+    --fabro-text-muted: #9CA3AF;
+    --fabro-accent: #94A3B8;
+    --fabro-accent-2: #E2E8F0;
+    --fabro-accent-hover: #CBD5E1;
+    --fabro-accent-soft: rgba(148, 163, 184, 0.20);
+    --fabro-accent-text: #E2E8F0;
+    --fabro-gold: #CBD5E1;
+    --fabro-gold-soft: rgba(203, 213, 225, 0.16);
+    --fabro-gold-text: #F1F5F9;
+    --fabro-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.82), 0 0 0 1px rgba(203, 213, 225, 0.14);
   }
 
-  /* Tema 4: Atardecer Coral */
-  html[data-theme="atardecer-coral"] {
-    --fabro-bg: #FFF5EE;
+  /* 6. Arctic (blanco, gris claro y azul hielo) */
+  html[data-theme="arctic"] {
+    --fabro-bg: #F1F7FD;
+    --fabro-bg-ambient: radial-gradient(ellipse 80% 50% at 15% -10%, rgba(14, 165, 233, 0.14), transparent 60%), radial-gradient(ellipse 60% 45% at 88% 10%, rgba(56, 189, 248, 0.10), transparent 55%);
     --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #FFE8DB;
-    --fabro-border: #F2A88B;
-    --fabro-text: #1F1210;
-    --fabro-text-muted: #6B4B45;
-    --fabro-accent: #E11D48;
-    --fabro-accent-hover: #BE123C;
-    --fabro-accent-soft: #FFE0E6;
-    --fabro-accent-text: #BE123C;
-    --fabro-gold: #EA580C;
-    --fabro-gold-soft: #FFEDD5;
-    --fabro-gold-text: #C2410C;
-    --fabro-shadow: 0 6px 20px -4px rgba(225, 29, 72, 0.16);
+    --fabro-surface-2: #E6F2FC;
+    --fabro-border: #B8D9F3;
+    --fabro-text: #0B192C;
+    --fabro-text-muted: #46627D;
+    --fabro-accent: #0284C7;
+    --fabro-accent-2: #38BDF8;
+    --fabro-accent-hover: #0369A1;
+    --fabro-accent-soft: #DBEFFE;
+    --fabro-accent-text: #0369A1;
+    --fabro-gold: #0EA5E9;
+    --fabro-gold-soft: #E0F2FE;
+    --fabro-gold-text: #0284C7;
+    --fabro-shadow: 0 8px 24px -8px rgba(2, 132, 199, 0.14), 0 1px 2px rgba(15, 23, 42, 0.05);
   }
 
-  /* Tema 5: Marino Nórdico */
-  html[data-theme="marino-nordico"] {
-    --fabro-bg: #EBF5FA;
+  /* 7. Minimal White (blanco puro, gris y detalles en negro) */
+  html[data-theme="minimal-white"] {
+    --fabro-bg: #F8FAFC;
+    --fabro-bg-ambient: none;
     --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #DCEEF7;
-    --fabro-border: #82BAD9;
-    --fabro-text: #0C1E2B;
-    --fabro-text-muted: #395B72;
-    --fabro-accent: #0D9488;
-    --fabro-accent-hover: #0F766E;
-    --fabro-accent-soft: #C8FBF0;
-    --fabro-accent-text: #0F766E;
-    --fabro-gold: #0284C7;
-    --fabro-gold-soft: #D6F0FE;
-    --fabro-gold-text: #0369A1;
-    --fabro-shadow: 0 6px 20px -4px rgba(13, 148, 136, 0.16);
+    --fabro-surface-2: #F1F5F9;
+    --fabro-border: #CBD5E1;
+    --fabro-text: #0F172A;
+    --fabro-text-muted: #475569;
+    --fabro-accent: #0F172A;
+    --fabro-accent-2: #334155;
+    --fabro-accent-hover: #1E293B;
+    --fabro-accent-soft: #E2E8F0;
+    --fabro-accent-text: #0F172A;
+    --fabro-gold: #334155;
+    --fabro-gold-soft: #F1F5F9;
+    --fabro-gold-text: #1E293B;
+    --fabro-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
   }
 
-  /* Tema 6: Violeta Obsidiana */
-  html[data-theme="violeta-obsidian"] {
-    --fabro-bg: #0D0919;
-    --fabro-surface: #161029;
-    --fabro-surface-2: #21193D;
-    --fabro-border: #46357D;
-    --fabro-text: #F8F7FC;
-    --fabro-text-muted: #B6ABD8;
-    --fabro-accent: #8B5CF6;
-    --fabro-accent-hover: #7C3AED;
-    --fabro-accent-soft: rgba(139, 92, 246, 0.25);
-    --fabro-accent-text: #DDD6FE;
+  /* 8. Sunset (naranja, magenta y violeta) */
+  html[data-theme="sunset"] {
+    --fabro-bg: #140916;
+    --fabro-bg-ambient: radial-gradient(ellipse 80% 50% at 15% -10%, rgba(249, 115, 22, 0.22), transparent 60%), radial-gradient(ellipse 65% 48% at 88% 12%, rgba(236, 72, 153, 0.20), transparent 55%);
+    --fabro-surface: #211024;
+    --fabro-surface-2: #2F1733;
+    --fabro-border: #592C5E;
+    --fabro-text: #FFF7F9;
+    --fabro-text-muted: #D1A6C7;
+    --fabro-accent: #F97316;
+    --fabro-accent-2: #EC4899;
+    --fabro-accent-hover: #EA580C;
+    --fabro-accent-soft: rgba(249, 115, 22, 0.22);
+    --fabro-accent-text: #FDBA74;
     --fabro-gold: #EC4899;
     --fabro-gold-soft: rgba(236, 72, 153, 0.22);
     --fabro-gold-text: #F9A8D4;
-    --fabro-shadow: 0 8px 24px -4px rgba(139, 92, 246, 0.22);
+    --fabro-shadow: 0 10px 28px -8px rgba(18, 4, 20, 0.78), 0 0 0 1px rgba(249, 115, 22, 0.18);
   }
 
-  /* Tema 7: Grafito Ámbar */
-  html[data-theme="grafito-ambar"] {
-    --fabro-bg: #111114;
-    --fabro-surface: #1B1B20;
-    --fabro-surface-2: #25252C;
-    --fabro-border: #474759;
-    --fabro-text: #FAFAFA;
-    --fabro-text-muted: #ADADB8;
-    --fabro-accent: #F59E0B;
-    --fabro-accent-hover: #D97706;
-    --fabro-accent-soft: rgba(245, 158, 11, 0.22);
-    --fabro-accent-text: #FDE047;
-    --fabro-gold: #38BDF8;
-    --fabro-gold-soft: rgba(56, 189, 248, 0.20);
-    --fabro-gold-text: #7DD3FC;
-    --fabro-shadow: 0 8px 24px -4px rgba(245, 158, 11, 0.18);
+  /* 9. Emerald (verde esmeralda y negro) */
+  html[data-theme="emerald"] {
+    --fabro-bg: #05110E;
+    --fabro-bg-ambient: radial-gradient(ellipse 75% 50% at 18% -10%, rgba(16, 185, 129, 0.22), transparent 60%), radial-gradient(ellipse 60% 45% at 85% 10%, rgba(5, 150, 105, 0.16), transparent 55%);
+    --fabro-surface: #0A1D18;
+    --fabro-surface-2: #112D26;
+    --fabro-border: #1D5748;
+    --fabro-text: #ECFDF5;
+    --fabro-text-muted: #8AC2B2;
+    --fabro-accent: #10B981;
+    --fabro-accent-2: #34D399;
+    --fabro-accent-hover: #059669;
+    --fabro-accent-soft: rgba(16, 185, 129, 0.21);
+    --fabro-accent-text: #6EE7B7;
+    --fabro-gold: #2DD4BF;
+    --fabro-gold-soft: rgba(45, 212, 191, 0.18);
+    --fabro-gold-text: #99F6E4;
+    --fabro-shadow: 0 10px 28px -8px rgba(3, 14, 11, 0.80), 0 0 0 1px rgba(16, 185, 129, 0.18);
   }
 
-  /* Tema 8: Aurora Boreal (Oscuro Polar) */
-  html[data-theme="aurora-boreal"] {
-    --fabro-bg: #031019;
-    --fabro-surface: #081D2B;
-    --fabro-surface-2: #102F44;
-    --fabro-border: #255D7E;
-    --fabro-text: #F0FDFA;
-    --fabro-text-muted: #93C4D8;
-    --fabro-accent: #06D6F2;
-    --fabro-accent-hover: #0891B2;
-    --fabro-accent-soft: rgba(6, 214, 242, 0.22);
-    --fabro-accent-text: #67F3FF;
-    --fabro-gold: #A855F7;
-    --fabro-gold-soft: rgba(168, 85, 247, 0.22);
-    --fabro-gold-text: #E9D5FF;
-    --fabro-shadow: 0 8px 24px -4px rgba(6, 214, 242, 0.20);
-  }
-
-  /* Tema 9: Lavanda Serena (Claro Suave) */
-  html[data-theme="lavanda-serena"] {
-    --fabro-bg: #F3EEFF;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #E8DFFF;
-    --fabro-border: #B39FF8;
-    --fabro-text: #1E1338;
-    --fabro-text-muted: #524378;
-    --fabro-accent: #7C3AED;
-    --fabro-accent-hover: #6D28D9;
-    --fabro-accent-soft: #E8DCFF;
-    --fabro-accent-text: #5B21B6;
-    --fabro-gold: #DB2777;
-    --fabro-gold-soft: #FCE0EF;
-    --fabro-gold-text: #BE185D;
-    --fabro-shadow: 0 6px 20px -4px rgba(124, 58, 237, 0.16);
-  }
-
-  /* Tema 10: Terracota Solar (Claro Editorial) */
-  html[data-theme="terracota-sol"] {
-    --fabro-bg: #FBF8F3;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #F7EFE4;
-    --fabro-border: #E7D2BC;
-    --fabro-text: #241810;
-    --fabro-text-muted: #6E5544;
-    --fabro-accent: #C2410C;
-    --fabro-accent-hover: #9A3412;
-    --fabro-accent-soft: #FFEDD5;
-    --fabro-accent-text: #9A3412;
-    --fabro-gold: #B45309;
-    --fabro-gold-soft: #FEF3C7;
-    --fabro-gold-text: #92400E;
-    --fabro-shadow: 0 2px 10px 0 rgba(194, 65, 12, 0.06);
-  }
-
-  /* Tema 11: Medianoche Rubí (Oscuro Alto Contraste) */
-  html[data-theme="medianoche-rubi"] {
-    --fabro-bg: #12090D;
-    --fabro-surface: #1D1016;
-    --fabro-surface-2: #2B1821;
-    --fabro-border: #492836;
-    --fabro-text: #FFF5F7;
-    --fabro-text-muted: #CCA3B3;
-    --fabro-accent: #F43F5E;
-    --fabro-accent-hover: #E11D48;
-    --fabro-accent-soft: rgba(244, 63, 94, 0.18);
-    --fabro-accent-text: #FDA4AF;
+  /* 10. Gold Premium (negro y dorado) */
+  html[data-theme="gold-premium"] {
+    --fabro-bg: #0A0805;
+    --fabro-bg-ambient: radial-gradient(ellipse 75% 50% at 18% -10%, rgba(217, 119, 6, 0.22), transparent 60%), radial-gradient(ellipse 60% 45% at 86% 12%, rgba(251, 191, 36, 0.14), transparent 55%);
+    --fabro-surface: #15110B;
+    --fabro-surface-2: #211A10;
+    --fabro-border: #4D3B1E;
+    --fabro-text: #FEFCE8;
+    --fabro-text-muted: #CBB994;
+    --fabro-accent: #D97706;
+    --fabro-accent-2: #FBBF24;
+    --fabro-accent-hover: #B45309;
+    --fabro-accent-soft: rgba(217, 119, 6, 0.22);
+    --fabro-accent-text: #FDE68A;
     --fabro-gold: #FBBF24;
-    --fabro-gold-soft: rgba(251, 191, 36, 0.16);
-    --fabro-gold-text: #FCD34D;
-    --fabro-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.45);
+    --fabro-gold-soft: rgba(251, 191, 36, 0.20);
+    --fabro-gold-text: #FEF08A;
+    --fabro-shadow: 0 10px 28px -8px rgba(8, 5, 1, 0.82), 0 0 0 1px rgba(245, 158, 11, 0.20);
   }
 
-  /* Tema 12: Bosque Musgo (Claro Botánico) */
-  html[data-theme="bosque-musgo"] {
-    --fabro-bg: #F3F8F4;
-    --fabro-surface: #FFFFFF;
-    --fabro-surface-2: #E4F0E7;
-    --fabro-border: #BED8C5;
-    --fabro-text: #0F2317;
-    --fabro-text-muted: #456350;
-    --fabro-accent: #15803D;
-    --fabro-accent-hover: #166534;
-    --fabro-accent-soft: #DCFCE7;
-    --fabro-accent-text: #166534;
-    --fabro-gold: #B45309;
-    --fabro-gold-soft: #FEF3C7;
-    --fabro-gold-text: #92400E;
-    --fabro-shadow: 0 2px 10px 0 rgba(21, 128, 61, 0.06);
+  /* Control de intensidad de brillo / efectos visuales */
+  html[data-glow="low"] {
+    --fabro-glow-strength: 0.35;
+    --fabro-border-glow-pct: 18%;
+    --fabro-shadow-glow-pct: 12%;
+  }
+
+  html[data-glow="medium"],
+  :root {
+    --fabro-glow-strength: 1;
+    --fabro-border-glow-pct: 36%;
+    --fabro-shadow-glow-pct: 28%;
+  }
+
+  html[data-glow="high"] {
+    --fabro-glow-strength: 1.5;
+    --fabro-border-glow-pct: 58%;
+    --fabro-shadow-glow-pct: 46%;
   }
 
   html,
@@ -437,11 +240,13 @@
   body {
     font-family: var(--font-sans);
     background-color: var(--fabro-bg);
+    background-image: var(--fabro-bg-ambient);
+    background-attachment: fixed;
     color: var(--fabro-text);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
-    transition: background-color 180ms ease, color 180ms ease;
+    transition: background-color 220ms ease, color 220ms ease;
   }
 
   h1,
@@ -471,31 +276,31 @@
 
   .fabro-surface {
     background-color: var(--fabro-surface);
-    border-color: color-mix(in srgb, var(--fabro-accent) 44%, var(--fabro-border));
+    border-color: color-mix(in srgb, var(--fabro-accent) var(--fabro-border-glow-pct), var(--fabro-border));
     color: var(--fabro-text);
     box-shadow:
-      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 32%, rgba(255, 255, 255, 0.16)),
+      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 20%, rgba(255, 255, 255, 0.10)),
       var(--fabro-shadow);
-    transition: border-color 180ms ease, box-shadow 180ms ease;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
   }
 
   .fabro-surface-elevated {
     background-color: var(--fabro-surface-2);
-    border-color: color-mix(in srgb, var(--fabro-accent) 36%, var(--fabro-border));
+    border-color: color-mix(in srgb, var(--fabro-accent) 24%, var(--fabro-border));
     color: var(--fabro-text);
     box-shadow:
-      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 20%, rgba(255, 255, 255, 0.1)),
-      0 2px 10px -4px color-mix(in srgb, var(--fabro-accent) 18%, transparent);
+      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 16%, rgba(255, 255, 255, 0.08)),
+      0 2px 10px -4px color-mix(in srgb, var(--fabro-accent) var(--fabro-shadow-glow-pct), transparent);
   }
 
   .fabro-glass {
-    background-color: color-mix(in srgb, var(--fabro-surface) 92%, transparent);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-color: color-mix(in srgb, var(--fabro-accent) 40%, var(--fabro-border));
+    background-color: color-mix(in srgb, var(--fabro-surface) 88%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-color: color-mix(in srgb, var(--fabro-accent) var(--fabro-border-glow-pct), var(--fabro-border));
     box-shadow:
-      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 26%, rgba(255, 255, 255, 0.14)),
-      0 6px 20px -6px color-mix(in srgb, var(--fabro-accent) 28%, transparent);
+      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 22%, rgba(255, 255, 255, 0.12)),
+      0 8px 24px -8px color-mix(in srgb, var(--fabro-accent) var(--fabro-shadow-glow-pct), transparent);
   }
 
   .fabro-muted {
@@ -503,26 +308,30 @@
   }
 
   .fabro-border {
-    border-color: color-mix(in srgb, var(--fabro-accent) 34%, var(--fabro-border));
+    border-color: color-mix(in srgb, var(--fabro-accent) 26%, var(--fabro-border));
   }
 
   .fabro-accent-bg {
     background: linear-gradient(
       135deg,
       var(--fabro-accent) 0%,
-      color-mix(in srgb, var(--fabro-accent) 70%, var(--fabro-gold)) 100%
+      color-mix(in srgb, var(--fabro-accent) 62%, var(--fabro-accent-2, var(--fabro-gold))) 100%
     );
     color: #FFFFFF;
     box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.30),
-      0 6px 18px -4px color-mix(in srgb, var(--fabro-accent) 56%, transparent);
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+      0 6px 18px -4px color-mix(in srgb, var(--fabro-accent) var(--fabro-shadow-glow-pct), transparent);
+  }
+
+  html[data-theme="obsidian"] .fabro-accent-bg {
+    color: #090B0E;
   }
 
   .fabro-accent-bg:hover:not(:disabled) {
-    filter: brightness(1.09) saturate(1.12);
+    filter: brightness(1.08) saturate(1.1);
     box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.40),
-      0 10px 26px -4px color-mix(in srgb, var(--fabro-accent) 72%, transparent);
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.36),
+      0 10px 26px -4px color-mix(in srgb, var(--fabro-accent) 60%, transparent);
   }
 
   .fabro-accent-soft {
@@ -536,7 +345,7 @@
   }
 
   .fabro-accent-border {
-    border-color: color-mix(in srgb, var(--fabro-accent) 88%, transparent);
+    border-color: color-mix(in srgb, var(--fabro-accent) 82%, transparent);
   }
 
   .fabro-gold-text {
@@ -551,7 +360,114 @@
   .fabro-input:focus {
     outline: none;
     border-color: var(--fabro-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--fabro-accent) 32%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--fabro-accent) 28%, transparent);
+  }
+
+  /* =========================================================================
+     UNIFIED FUTURISTIC BUTTON SYSTEM (Principales, Secundarios, Icono, Estados)
+     ========================================================================= */
+  .fabro-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 42px;
+    padding: 0.5rem 1rem;
+    border-radius: 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--fabro-accent-2, var(--fabro-accent)) 65%, transparent);
+    background: linear-gradient(
+      135deg,
+      var(--fabro-accent) 0%,
+      color-mix(in srgb, var(--fabro-accent) 55%, var(--fabro-accent-2, var(--fabro-gold))) 100%
+    );
+    color: #FFFFFF;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+      0 8px 22px -6px color-mix(in srgb, var(--fabro-accent) 54%, transparent);
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms ease, filter 180ms ease;
+  }
+
+  html[data-theme="obsidian"] .fabro-btn-primary {
+    color: #08090C;
+  }
+
+  .fabro-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.36),
+      0 12px 26px -6px color-mix(in srgb, var(--fabro-accent) 68%, transparent);
+  }
+
+  .fabro-btn-primary:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  .fabro-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .fabro-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 40px;
+    padding: 0.45rem 0.9rem;
+    border-radius: 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--fabro-accent) 32%, var(--fabro-border));
+    background-color: var(--fabro-surface-2);
+    color: var(--fabro-text);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .fabro-btn-secondary:hover:not(:disabled) {
+    border-color: var(--fabro-accent);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--fabro-accent) 34%, transparent);
+  }
+
+  .fabro-btn-secondary:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  .fabro-btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .fabro-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--fabro-accent) 28%, var(--fabro-border));
+    background-color: var(--fabro-surface-2);
+    color: var(--fabro-text);
+    cursor: pointer;
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .fabro-btn-icon:hover:not(:disabled) {
+    border-color: var(--fabro-accent);
+    box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--fabro-accent) 36%, transparent);
+  }
+
+  .fabro-btn-icon:active:not(:disabled) {
+    transform: scale(0.94);
   }
 
   /* Sector accent hook (overridden dynamically per active sector) */
@@ -559,16 +475,16 @@
     --fabro-sector-accent: var(--fabro-accent);
   }
 
-  /* Global Interactive Button Effects (Compact Proportions, Elevation, Sector Rim Glow & Diagonal Sheen) */
+  /* Global Interactive Button Effects (Compact Proportions, Elevation, Subtle Rim Glow) */
   button[class*="border"]:not(.fixed):not(.absolute):not(:disabled) {
     position: relative;
     overflow: hidden;
     transition:
-      transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 200ms ease,
-      border-color 200ms ease,
-      background-color 200ms ease,
-      filter 200ms ease;
+      transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 180ms ease,
+      border-color 180ms ease,
+      background-color 180ms ease,
+      filter 180ms ease;
   }
 
   button[class*="border"]:not(.fixed):not(.absolute):not(:disabled)::after {
@@ -577,22 +493,22 @@
     inset: 0;
     background: linear-gradient(
       115deg,
-      transparent 16%,
-      rgba(255, 255, 255, 0.28) 48%,
-      transparent 80%
+      transparent 18%,
+      rgba(255, 255, 255, 0.22) 48%,
+      transparent 78%
     );
     transform: translateX(-130%);
-    transition: transform 460ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 440ms cubic-bezier(0.16, 1, 0.3, 1);
     pointer-events: none;
   }
 
   @media (hover: hover) {
     button[class*="border"]:not(.fixed):not(.absolute):not(:disabled):hover {
-      transform: translateY(-2px);
-      border-color: color-mix(in srgb, var(--fabro-sector-accent) 78%, var(--fabro-border));
+      transform: translateY(-1.5px);
+      border-color: color-mix(in srgb, var(--fabro-sector-accent) 72%, var(--fabro-border));
       box-shadow:
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.24),
-        0 8px 20px -6px color-mix(in srgb, var(--fabro-sector-accent) 44%, transparent);
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.20),
+        0 8px 20px -6px color-mix(in srgb, var(--fabro-sector-accent) var(--fabro-shadow-glow-pct), transparent);
     }
 
     button[class*="border"]:not(.fixed):not(.absolute):not(:disabled):hover::after {
@@ -601,10 +517,9 @@
   }
 
   button[class*="border"]:not(.fixed):not(.absolute):not(:disabled):active {
-    transform: translateY(0) scale(0.95);
+    transform: translateY(0) scale(0.96);
   }
 
-  /* Tactile Compact Action Buttons (36-40px desktop, 42px comfortable mobile) */
   .fabro-btn {
     display: inline-flex;
     align-items: center;
@@ -615,37 +530,33 @@
     border-width: 1px;
     border-radius: 0.75rem;
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     line-height: 1.25rem;
     white-space: nowrap;
     cursor: pointer;
     box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
-      0 4px 14px -5px color-mix(in srgb, var(--fabro-sector-accent) 36%, transparent);
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+      0 4px 14px -5px color-mix(in srgb, var(--fabro-sector-accent) var(--fabro-shadow-glow-pct), transparent);
     transition:
-      transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 200ms ease,
-      background-color 200ms ease,
-      border-color 200ms ease,
-      filter 200ms ease;
+      transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 180ms ease,
+      background-color 180ms ease,
+      border-color 180ms ease,
+      filter 180ms ease;
   }
 
   @media (min-width: 768px) {
     .fabro-btn {
       min-height: 38px;
-      padding: 0.4375rem 0.875rem;
     }
   }
 
   .fabro-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.32),
-      0 10px 22px -6px color-mix(in srgb, var(--fabro-sector-accent) 52%, transparent);
+    transform: translateY(-1.5px);
   }
 
   .fabro-btn:active:not(:disabled) {
-    transform: scale(0.95);
+    transform: scale(0.96);
   }
 
   .fabro-btn:disabled {
@@ -653,9 +564,8 @@
     cursor: not-allowed;
   }
 
-  /* Widget Tiles & Swipeable Screen Transitions + Colorful Loaders */
   .fabro-widget-tile {
-    border-color: color-mix(in srgb, var(--fabro-accent) 46%, var(--fabro-border));
+    border-color: color-mix(in srgb, var(--fabro-accent) var(--fabro-border-glow-pct), var(--fabro-border));
     transition:
       transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
       box-shadow 180ms ease,
@@ -666,12 +576,47 @@
     transform: translateY(-2px);
     border-color: var(--fabro-accent);
     box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.24),
-      0 12px 28px -6px color-mix(in srgb, var(--fabro-accent) 46%, transparent);
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+      0 12px 28px -6px color-mix(in srgb, var(--fabro-accent) var(--fabro-shadow-glow-pct), transparent);
   }
 
   .fabro-widget-tile:active {
-    transform: scale(0.96);
+    transform: scale(0.97);
+  }
+
+  /* Futuristic Precision Instrument Surface (adapts cleanly across all 10 themes) */
+  .fabro-futuristic-panel {
+    background:
+      radial-gradient(
+        circle at 92% 8%,
+        color-mix(in srgb, var(--fabro-accent) 20%, transparent) 0%,
+        transparent 48%
+      ),
+      radial-gradient(
+        circle at 12% 92%,
+        color-mix(in srgb, var(--fabro-accent-2, var(--fabro-gold)) 14%, transparent) 0%,
+        transparent 45%
+      ),
+      var(--fabro-surface);
+    border-color: color-mix(in srgb, var(--fabro-accent) var(--fabro-border-glow-pct), var(--fabro-border));
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 40%, rgba(255, 255, 255, 0.18)),
+      0 12px 30px -8px color-mix(in srgb, var(--fabro-accent) var(--fabro-shadow-glow-pct), transparent);
+  }
+
+  .fabro-futuristic-grid {
+    background-image:
+      linear-gradient(
+        to right,
+        color-mix(in srgb, var(--fabro-accent) 12%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--fabro-accent) 12%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 28px 28px;
   }
 }
 
@@ -722,11 +667,11 @@
 .fabro-logo-text {
   background: linear-gradient(
     110deg,
-    var(--fabro-gold) 0%,
-    color-mix(in srgb, var(--fabro-gold) 55%, #ffffff) 22%,
+    var(--fabro-accent-2, var(--fabro-gold)) 0%,
+    color-mix(in srgb, var(--fabro-accent-2, var(--fabro-gold)) 55%, #ffffff) 22%,
     var(--fabro-accent) 48%,
     color-mix(in srgb, var(--fabro-accent) 55%, #ffffff) 68%,
-    var(--fabro-gold) 100%
+    var(--fabro-accent-2, var(--fabro-gold)) 100%
   );
   background-size: 220% auto;
   -webkit-background-clip: text;
@@ -821,43 +766,6 @@
   animation: fabroSlideFromLeft 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@layer components {
-  /* Futuristic Precision Instrument Surface (adapts cleanly across all themes) */
-  .fabro-futuristic-panel {
-    background:
-      radial-gradient(
-        circle at 92% 8%,
-        color-mix(in srgb, var(--fabro-accent) 24%, transparent) 0%,
-        transparent 48%
-      ),
-      radial-gradient(
-        circle at 12% 92%,
-        color-mix(in srgb, var(--fabro-gold) 18%, transparent) 0%,
-        transparent 45%
-      ),
-      var(--fabro-surface);
-    border-color: color-mix(in srgb, var(--fabro-accent) 60%, var(--fabro-border));
-    box-shadow:
-      inset 0 1px 0 0 color-mix(in srgb, var(--fabro-accent) 52%, rgba(255, 255, 255, 0.28)),
-      0 12px 30px -8px color-mix(in srgb, var(--fabro-accent) 36%, transparent);
-  }
-
-  .fabro-futuristic-grid {
-    background-image:
-      linear-gradient(
-        to right,
-        color-mix(in srgb, var(--fabro-accent) 16%, transparent) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        to bottom,
-        color-mix(in srgb, var(--fabro-accent) 16%, transparent) 1px,
-        transparent 1px
-      );
-    background-size: 28px 28px;
-  }
-}
-
 /* Hide scrollbars on horizontal mobile pill tabs & swipeable card rails */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
@@ -890,4 +798,3 @@ netlify-drawer {
   opacity: 0 !important;
   pointer-events: none !important;
 }
-

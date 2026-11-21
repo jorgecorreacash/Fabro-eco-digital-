@@ -1,16 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   browserPopupRedirectResolver,
-  createUserWithEmailAndPassword,
   deleteUser,
-  getRedirectResult,
   linkWithPopup,
   onAuthStateChanged,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signInWithRedirect,
-  signOut,
   updatePassword,
   updateProfile as updateFirebaseProfile,
   type User,
@@ -18,23 +11,36 @@ import {
 import {
   ALL_SUBMENUS,
   FABRO_THEMES,
+  normalizeThemeId,
   PRIMARY_SCREENS_ORDER,
   SECTORS_CATALOG,
 } from '../data/ecosystemCatalog';
 import {
   auth,
   clearPendingGoogleRedirect,
-  clearWebSessionActive,
-  enforceDeviceSessionPersistence,
+  ensureAuthPersistence,
   googleProvider,
   hasPendingGoogleRedirect,
-  hasWebSessionActive,
-  isEmbeddedIframe,
   isInstalledDeviceApp,
-  markPendingGoogleRedirect,
-  markWebSessionActive,
-  shouldUseGoogleRedirect,
+  testFirestoreConnectionOnce,
 } from '../lib/firebase';
+import {
+  AUTH_OPERATION_TIMEOUT_MS,
+  ensureCanonicalUserProfile,
+  loginWithEmailPassword,
+  mapFirebaseAuthError as mapAuthErrorCode,
+  registerWithEmailPassword,
+  reloadCurrentUserVerificationStatus,
+  requiresEmailVerification,
+  resendVerificationEmailForCurrentUser,
+  resolveAuthStateFromUser,
+  resolveGoogleRedirectOnce,
+  sendFirebasePasswordReset,
+  signOutFirebaseSession,
+  startGoogleRedirectSignIn,
+  startGoogleSignIn,
+  type AuthMachineState,
+} from '../services/firebaseAuthService';
 import {
   emitAndroidBubbleEvent,
   isDocumentPiPSupported,
@@ -142,6 +148,7 @@ import type {
   FriendContact,
   FriendRequestItem,
   GlossaryTermItem,
+  GlowIntensity,
   GuidedReflectionItem,
   IdeaVaultItem,
   InboxCaptureItem,
@@ -281,6 +288,10 @@ interface SendChatOptions {
 interface EcosystemContextValue {
   theme: ThemeId;
   setTheme: (theme: ThemeId) => void;
+  glowIntensity: GlowIntensity;
+  setGlowIntensity: (level: GlowIntensity) => void;
+  themeAutoSystem: boolean;
+  setThemeAutoSystem: (enabled: boolean) => void;
   sector: SectorId;
   submenu: SubmenuId;
   navigateTo: (sector: SectorId, submenu?: SubmenuId) => void;
@@ -491,6 +502,9 @@ interface EcosystemContextValue {
   saveNightReflection: (reflection: string, gratitude: string) => void;
   rolloverPendingTasksToTomorrow: () => number;
   // Firebase Auth & Cloud Firestore Sync
+  authState: AuthMachineState;
+  authError: { code: string; message: string } | null;
+  pendingVerificationEmail: string | null;
   authUser: AuthUserSummary | null;
   authLoading: boolean;
   googleRedirectPending: boolean;
@@ -501,19 +515,23 @@ interface EcosystemContextValue {
   authModalDefaultTab: 'login' | 'register';
   openAuthModal: (reason?: string, defaultTab?: 'login' | 'register') => void;
   closeAuthModal: () => void;
-  signInWithGoogle: () => Promise<{ ok: boolean; error?: string; code?: string }>;
-  signInWithGoogleRedirect: () => Promise<{ ok: boolean; error?: string; code?: string }>;
+  clearAuthError: () => void;
+  cancelAuthLoading: () => void;
+  signInWithGoogle: () => Promise<{ ok: boolean; error?: string; code?: string; redirectStarted?: boolean }>;
+  signInWithGoogleRedirect: () => Promise<{ ok: boolean; error?: string; code?: string; redirectStarted?: boolean }>;
   signInWithEmail: (
     email: string,
     password: string
-  ) => Promise<{ ok: boolean; error?: string; code?: string }>;
+  ) => Promise<{ ok: boolean; error?: string; code?: string; requiresEmailVerification?: boolean }>;
   signUpWithEmail: (params: {
     displayName: string;
     username: string;
     email: string;
     password: string;
     birthDate: string;
-  }) => Promise<{ ok: boolean; error?: string; code?: string }>;
+  }) => Promise<{ ok: boolean; error?: string; code?: string; requiresEmailVerification?: boolean }>;
+  resendVerificationEmail: () => Promise<{ ok: boolean; error?: string }>;
+  checkEmailVerificationStatus: () => Promise<{ ok: boolean; verified: boolean; error?: string }>;
   sendPasswordReset: (email: string) => Promise<{ ok: boolean; error?: string }>;
   signOutAccount: () => Promise<void>;
   updateAccountAliasAndPhoto: (patch: {
@@ -612,7 +630,9 @@ interface EcosystemContextValue {
 const EcosystemContext = createContext<EcosystemContextValue | null>(null);
 
 export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<ThemeId>('estandar');
+  const [theme, setThemeState] = useState<ThemeId>('midnight-purple');
+  const [glowIntensity, setGlowIntensityState] = useState<GlowIntensity>('medium');
+  const [themeAutoSystem, setThemeAutoSystemState] = useState<boolean>(false);
   const [sector, setSector] = useState<SectorId>('social');
   const [submenu, setSubmenu] = useState<SubmenuId>('perfil-social');
   const [history, setHistory] = useState<NavDestination[]>([]);
@@ -714,6 +734,9 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [organizerActiveTab, setOrganizerActiveTab] = useState<OrganizerTabId>('inbox');
 
   // Firebase Auth & Cloud Firestore Sync State
+  const [authState, setAuthState] = useState<AuthMachineState>('INITIALIZING');
+  const [authError, setAuthError] = useState<{ code: string; message: string } | null>(null);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
   const [authUser, setAuthUser] = useState<AuthUserSummary | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [syncStatus, setSyncStatus] = useState<SyncStatusState>('guest-local');
@@ -912,7 +935,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         savedPaintedCalendar,
         savedStudyCommunities,
       ] = await Promise.all([
-        vaultGet<ThemeId>('theme', 'estandar'),
+        vaultGet<string>('theme', 'midnight-purple'),
         vaultGet<LocalUserProfile>('profile', DEFAULT_LOCAL_PROFILE),
         vaultGet<string[]>('favorites', DEFAULT_FAVORITES),
         vaultGet<ActivityEntry[]>('recents', []),
@@ -960,10 +983,16 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ]);
 
       if (!active) return;
-      setThemeState(savedTheme);
-      // Never leak a previously signed-in user's name/identity before authentication is confirmed.
-      // In regular web browsers without an active tab session, always reset any cached account profile.
-      const hasActiveWebSession = hasWebSessionActive();
+      setThemeState(normalizeThemeId(savedTheme));
+      const [savedGlow, savedAutoSys] = await Promise.all([
+        vaultGet<GlowIntensity>('theme_glow_intensity', 'medium'),
+        vaultGet<boolean>('theme_auto_system', false),
+      ]);
+      if (active) {
+        setGlowIntensityState(savedGlow || 'medium');
+        setThemeAutoSystemState(Boolean(savedAutoSys));
+      }
+      // Never leak a previously signed-in user's name/identity before Firebase Auth confirms an active user.
       const savedLooksLikeAccount = Boolean(
         savedProfile?.authUid ||
           savedProfile?.fabroIdConfigured ||
@@ -973,8 +1002,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             savedProfile.displayName !== DEFAULT_LOCAL_PROFILE.displayName)
       );
       const canHydrateSavedProfile =
-        !savedLooksLikeAccount ||
-        (Boolean(auth.currentUser) && (isInstalledDeviceApp() || hasActiveWebSession));
+        !savedLooksLikeAccount || Boolean(auth.currentUser);
 
       if (canHydrateSavedProfile) {
         setProfile({
@@ -996,7 +1024,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
       } else {
         setProfile(DEFAULT_LOCAL_PROFILE);
-        if (!isInstalledDeviceApp() && !hasActiveWebSession) {
+        if (!auth.currentUser) {
           void vaultSet('profile', DEFAULT_LOCAL_PROFILE);
         }
       }
@@ -1080,11 +1108,17 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, []);
 
-  // Apply theme attribute & .dark class cleanly on <html>
+  // Apply theme attribute, glow intensity & .dark class cleanly on <html>
   useEffect(() => {
-    const meta = FABRO_THEMES.find((t) => t.id === theme) || FABRO_THEMES[0];
+    const resolvedId: ThemeId = themeAutoSystem
+      ? typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches
+        ? 'arctic'
+        : 'midnight-purple'
+      : normalizeThemeId(theme);
+    const meta = FABRO_THEMES.find((t) => t.id === resolvedId) || FABRO_THEMES[0];
     const root = document.documentElement;
     root.setAttribute('data-theme', meta.id);
+    root.setAttribute('data-glow', glowIntensity);
     if (meta.isDark) {
       root.classList.add('dark');
     } else {
@@ -1094,11 +1128,43 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (themeColorMeta) {
       themeColorMeta.setAttribute('content', meta.swatches[0]);
     }
-  }, [theme]);
+  }, [theme, glowIntensity, themeAutoSystem]);
+
+  // Listen to OS color-scheme changes when themeAutoSystem is active
+  useEffect(() => {
+    if (!themeAutoSystem || typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const applyFromSystem = () => {
+      const targetId: ThemeId = mq.matches ? 'arctic' : 'midnight-purple';
+      const meta = FABRO_THEMES.find((t) => t.id === targetId) || FABRO_THEMES[0];
+      document.documentElement.setAttribute('data-theme', meta.id);
+      if (meta.isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+    applyFromSystem();
+    mq.addEventListener?.('change', applyFromSystem);
+    return () => mq.removeEventListener?.('change', applyFromSystem);
+  }, [themeAutoSystem]);
 
   const setTheme = useCallback((nextTheme: ThemeId) => {
-    setThemeState(nextTheme);
-    void vaultSet('theme', nextTheme);
+    const normalized = normalizeThemeId(nextTheme);
+    setThemeAutoSystemState(false);
+    setThemeState(normalized);
+    void vaultSet('theme_auto_system', false);
+    void vaultSet('theme', normalized);
+  }, []);
+
+  const setGlowIntensity = useCallback((level: GlowIntensity) => {
+    setGlowIntensityState(level);
+    void vaultSet('theme_glow_intensity', level);
+  }, []);
+
+  const setThemeAutoSystem = useCallback((enabled: boolean) => {
+    setThemeAutoSystemState(enabled);
+    void vaultSet('theme_auto_system', enabled);
   }, []);
 
   const triggerTransitionEffect = useCallback(() => {
@@ -1114,23 +1180,33 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const navigateTo = useCallback(
     (nextSector: SectorId, nextSubmenu?: SubmenuId) => {
+      // Redirect legacy bienestar -> fabro-deportes cleanly into top-level deportes sector
+      const effectiveSector: SectorId =
+        nextSector === 'bienestar' && nextSubmenu === 'fabro-deportes'
+          ? 'deportes'
+          : nextSector;
+
       const resolvedSubmenu: SubmenuId =
-        nextSector === 'inicio'
+        effectiveSector === 'inicio'
           ? 'dashboard'
-          : nextSector === 'hoy'
+          : effectiveSector === 'hoy'
           ? 'hoy-cosmos'
-          : nextSector === 'herramientas'
+          : effectiveSector === 'herramientas'
           ? 'centro-herramientas'
+          : effectiveSector === 'deportes'
+          ? 'deportes-panel'
+          : effectiveSector === 'cultura'
+          ? 'cultura-inicio'
           : nextSubmenu ||
-            SECTORS_CATALOG.find((s) => s.id === nextSector)?.defaultSubmenu ||
+            SECTORS_CATALOG.find((s) => s.id === effectiveSector)?.defaultSubmenu ||
             'dashboard';
 
-      if (nextSector !== sector || resolvedSubmenu !== submenu) {
+      if (effectiveSector !== sector || resolvedSubmenu !== submenu) {
         setHistory((prev) => [...prev.slice(-14), { sector, submenu }]);
         triggerTransitionEffect();
       }
 
-      setSector(nextSector);
+      setSector(effectiveSector);
       setSubmenu(resolvedSubmenu);
 
       if (nextSector !== 'inicio' && nextSector !== 'hoy' && nextSector !== 'herramientas') {
@@ -2977,7 +3053,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         // Mirror theme & Tailwind stylesheets cleanly inside Document PiP window
         const isDark = document.documentElement.classList.contains('dark');
-        const activeTheme = document.documentElement.getAttribute('data-theme') || 'estandar';
+        const activeTheme = document.documentElement.getAttribute('data-theme') || 'midnight-purple';
         pipWin.document.documentElement.setAttribute('data-theme', activeTheme);
         if (isDark) pipWin.document.documentElement.classList.add('dark');
 
@@ -3322,69 +3398,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setAuthModalReason(null);
   }, []);
 
+  const clearAuthError = useCallback(() => {
+    setAuthError(null);
+    setAuthState((prev) => (prev === 'ERROR' ? 'UNAUTHENTICATED' : prev));
+  }, []);
+
   const mapFirebaseAuthError = useCallback((err: unknown): { message: string; code: string } => {
-    const code =
-      typeof err === 'object' && err !== null && 'code' in err
-        ? String((err as { code?: unknown }).code || '')
-        : '';
-    if (code === 'auth/operation-not-allowed') {
-      return {
-        code,
-        message:
-          'El método Correo/Contraseña aún no está habilitado en Firebase Console (Authentication > Sign-in method). Podés activarlo en 1 clic o entrar con Google ahora mismo.',
-      };
-    }
-    if (code === 'auth/email-already-in-use') {
-      return { code, message: 'Ese correo ya está registrado. Probá iniciar sesión o recuperar tu clave.' };
-    }
-    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
-      return { code, message: 'Correo o contraseña incorrectos. Verificá los datos e intentá de nuevo.' };
-    }
-    if (code === 'auth/weak-password') {
-      return { code, message: 'La contraseña debe tener al menos 6 caracteres.' };
-    }
-    if (code === 'auth/popup-closed-by-user') {
-      return {
-        code,
-        message: isEmbeddedIframe()
-          ? 'El navegador o la vista previa bloqueó o cerró la ventana de Google antes de completar el ingreso. Probá reintentar o abrir FABRO en una pestaña nueva.'
-          : 'La ventana de Google se cerró antes de completar el ingreso. Si no la cerraste manualmente, probá el ingreso por redirección de Google.',
-      };
-    }
-    if (code === 'auth/cancelled-popup-request') {
-      return {
-        code,
-        message: 'Ya había una ventana de Google abierta. Esperá un segundo e intentá nuevamente.',
-      };
-    }
-    if (code === 'auth/popup-blocked') {
-      return {
-        code,
-        message: isEmbeddedIframe()
-          ? 'El navegador bloqueó la ventana emergente de Google. Permití popups o abrí FABRO en una pestaña nueva.'
-          : 'El navegador bloqueó la ventana emergente de Google. Permití popups o usá el ingreso por redirección.',
-      };
-    }
-    if (code === 'auth/unauthorized-domain') {
-      return {
-        code,
-        message:
-          'Este dominio no está autorizado aún en Firebase Authentication (Settings > Authorized domains).',
-      };
-    }
-    if (code === 'auth/requires-recent-login') {
-      return {
-        code,
-        message: 'Por seguridad, cerrá sesión y volvé a ingresar antes de hacer este cambio sensible.',
-      };
-    }
-    if (code === 'auth/network-request-failed') {
-      return { code, message: 'Sin conexión estable a internet. Seguís trabajando 100% offline en tu dispositivo.' };
-    }
-    return {
-      code,
-      message: err instanceof Error ? err.message : 'No pudimos completar la autenticación.',
-    };
+    return mapAuthErrorCode(err);
   }, []);
 
   const buildAuthSummaryFromUser = useCallback(
@@ -3421,296 +3441,404 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   const googleSignInInFlightRef = useRef<boolean>(false);
+  const authTimeoutRef = useRef<number | null>(null);
+  const pendingRegistrationMetaRef = useRef<{
+    displayName: string;
+    username: string;
+    fabroId: string;
+    birthDate: string;
+    isMinor: boolean;
+  } | null>(null);
+
   const [googleRedirectPending, setGoogleRedirectPending] = useState<boolean>(() =>
     hasPendingGoogleRedirect()
   );
 
-  // Resolve any pending Google redirect sign-in on startup (mobile, PWA, APK, and desktop fallback)
-  useEffect(() => {
-    let active = true;
-    const wasPending = hasPendingGoogleRedirect();
-    if (wasPending) {
-      setGoogleRedirectPending(true);
-      markWebSessionActive();
+  const clearAuthTimeout = useCallback(() => {
+    if (authTimeoutRef.current !== null && typeof window !== 'undefined') {
+      window.clearTimeout(authTimeoutRef.current);
+      authTimeoutRef.current = null;
     }
-    void getRedirectResult(auth, browserPopupRedirectResolver)
-      .then((res) => {
-        if (!active) return;
-        if (res?.user) {
-          markWebSessionActive();
-          setAuthModalOpen(false);
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        clearPendingGoogleRedirect();
-        if (active) setGoogleRedirectPending(false);
-      });
-    return () => {
-      active = false;
-    };
   }, []);
 
-  // Listen to Firebase Auth state and connect Firestore ONLY when authenticated
-  useEffect(() => {
-    let workspaceUnsub: (() => void) | null = null;
-    const unsubAuth = onAuthStateChanged(auth, (fbUser) => {
-      if (workspaceUnsub) {
-        workspaceUnsub();
-        workspaceUnsub = null;
-      }
-
-      if (!fbUser) {
-        setAuthUser(null);
-        setAuthLoading(false);
-        setSyncStatus('guest-local');
-        setNeedsProfileSetup(false);
-        resetProfileToGuest();
-        return;
-      }
-
-      // Security rule: sessions remain open ONLY in the installed device app (PWA/native).
-      // In a regular web browser, any leftover persisted session without an active tab marker is signed out immediately.
-      if (!isInstalledDeviceApp() && !hasWebSessionActive() && !hasPendingGoogleRedirect()) {
-        setAuthUser(null);
-        setAuthLoading(false);
-        setSyncStatus('guest-local');
-        setNeedsProfileSetup(false);
-        resetProfileToGuest();
-        void signOut(auth).catch(() => undefined);
-        return;
-      }
-
+  const armAuthTimeout = useCallback(() => {
+    clearAuthTimeout();
+    if (typeof window === 'undefined') return;
+    authTimeoutRef.current = window.setTimeout(() => {
+      googleSignInInFlightRef.current = false;
       clearPendingGoogleRedirect();
       setGoogleRedirectPending(false);
+      setAuthState((prev) => {
+        if (prev === 'AUTHENTICATING') {
+          setAuthError({
+            code: 'auth/timeout',
+            message:
+              'La autenticación tardó demasiado en responder. Verificá tu conexión o tocá «Reintentar».',
+          });
+          return 'ERROR';
+        }
+        return prev;
+      });
+    }, AUTH_OPERATION_TIMEOUT_MS);
+  }, [clearAuthTimeout]);
 
+  const cancelAuthLoading = useCallback(() => {
+    clearAuthTimeout();
+    googleSignInInFlightRef.current = false;
+    clearPendingGoogleRedirect();
+    setGoogleRedirectPending(false);
+    setAuthState((prev) => {
+      if (prev === 'AUTHENTICATING' || prev === 'INITIALIZING') {
+        return auth.currentUser ? resolveAuthStateFromUser(auth.currentUser, false) : 'UNAUTHENTICATED';
+      }
+      return prev;
+    });
+  }, [clearAuthTimeout]);
+
+  const hydrateVerifiedUserSession = useCallback(
+    async (fbUser: User): Promise<(() => void) | null> => {
+      clearAuthTimeout();
+      clearPendingGoogleRedirect();
+      setGoogleRedirectPending(false);
+      setPendingVerificationEmail(null);
+      setAuthError(null);
+      setAuthState('AUTHENTICATED');
       setAuthLoading(false);
       setSyncStatus(network.isOnline ? 'syncing' : 'local-offline');
 
-      void (async () => {
-        try {
-          const cloudProfile = await loadUserProfileDoc(fbUser.uid).catch(() => null);
-          const summary = buildAuthSummaryFromUser(fbUser, cloudProfile);
-          setAuthUser(summary);
+      void testFirestoreConnectionOnce();
 
+      const pendingMeta = pendingRegistrationMetaRef.current;
+
+      // Create or safely merge canonical users/{uid} without overwriting existing personal data
+      await ensureCanonicalUserProfile(
+        fbUser,
+        pendingMeta
+          ? {
+              displayName: pendingMeta.displayName,
+              username: pendingMeta.username,
+              customFabroId: pendingMeta.fabroId,
+              birthDate: pendingMeta.birthDate,
+              isMinor: pendingMeta.isMinor,
+            }
+          : undefined
+      ).catch((err) => {
+        console.warn('[FABRO Auth] No se pudo sincronizar users/{uid}:', err);
+      });
+
+      // If this user just finished email registration + verification, persist their chosen @handle once
+      if (pendingMeta) {
+        pendingRegistrationMetaRef.current = null;
+        await reserveUsernameAndSaveProfile(fbUser.uid, {
+          displayName: pendingMeta.displayName,
+          username: pendingMeta.username,
+          fabroId: pendingMeta.fabroId,
+          photoURL: fbUser.photoURL || '',
+          birthDate: pendingMeta.birthDate,
+          isMinor: pendingMeta.isMinor,
+          presenceStatus: 'online',
+          dailyPhrase: latestStateRef.current.profile.dailyPhrase,
+          icebreaker: latestStateRef.current.profile.icebreaker || '',
+          privacyMode: pendingMeta.isMinor ? 'grupo' : latestStateRef.current.profile.privacyMode,
+          shareTastesPublicly: !pendingMeta.isMinor && latestStateRef.current.profile.shareTastesPublicly,
+          tastes: latestStateRef.current.profile.tastes,
+        }).catch((err) => {
+          console.warn('[FABRO Auth] No se pudo guardar el perfil extendido inicial:', err);
+        });
+      }
+
+      const cloudProfile = await loadUserProfileDoc(fbUser.uid).catch(() => null);
+      const summary = buildAuthSummaryFromUser(fbUser, cloudProfile);
+      setAuthUser(summary);
+
+      applyingRemoteRef.current = true;
+      updateProfile({
+        authUid: summary.uid,
+        displayName: summary.displayName,
+        username: summary.username,
+        fabroId: summary.fabroId,
+        photoURL: summary.photoURL,
+        birthDate: summary.birthDate,
+        isMinor: summary.isMinor,
+        fabroIdConfigured: Boolean(cloudProfile),
+        ...(cloudProfile?.coverPhotoURL ? { coverPhotoURL: cloudProfile.coverPhotoURL } : {}),
+        ...(cloudProfile?.bio ? { bio: cloudProfile.bio } : {}),
+        ...(Array.isArray(cloudProfile?.interests) ? { interests: cloudProfile.interests } : {}),
+        ...(cloudProfile?.currentActivity ? { currentActivity: cloudProfile.currentActivity } : {}),
+        ...(Array.isArray(cloudProfile?.publicNoteIds)
+          ? { publicNoteIds: cloudProfile.publicNoteIds }
+          : {}),
+        ...(Array.isArray(cloudProfile?.publicRoutineIds)
+          ? { publicRoutineIds: cloudProfile.publicRoutineIds }
+          : {}),
+        ...(Array.isArray(cloudProfile?.followingIds)
+          ? { followingIds: cloudProfile.followingIds }
+          : {}),
+        ...(cloudProfile?.dailyPhrase ? { dailyPhrase: cloudProfile.dailyPhrase } : {}),
+        ...(cloudProfile?.icebreaker ? { icebreaker: cloudProfile.icebreaker } : {}),
+        ...(cloudProfile?.privacyMode ? { privacyMode: cloudProfile.privacyMode } : {}),
+      });
+      setTimeout(() => {
+        applyingRemoteRef.current = false;
+      }, 150);
+
+      if (!cloudProfile) {
+        setNeedsProfileSetup(true);
+      } else {
+        setNeedsProfileSetup(false);
+      }
+
+      // Migrate Guest IndexedDB/LocalStorage work once without overwriting existing cloud data
+      const snap = latestStateRef.current;
+      const migrated = await migrateGuestVaultToCloud(fbUser.uid, {
+        notes: snap.advancedNotes,
+        organizer: {
+          inboxItems: snap.inboxItems,
+          organizerTasks: snap.organizerTasks,
+          timeBlocks: snap.timeBlocks,
+          dailyReview: snap.dailyReview,
+        },
+        wellness: {
+          moodLogs: snap.moodLogs,
+          guidedReflections: snap.guidedReflections,
+          balancedPlanner: snap.balancedPlanner,
+          glossaryTerms: snap.glossaryTerms,
+        },
+      }).catch(() => false);
+
+      if (migrated) {
+        setImportNotice('Tus apuntes, organizador y reflexiones de invitado se sincronizaron con tu FABRO ID.');
+      }
+
+      setLastCloudSyncAt(
+        new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+      );
+      setSyncStatus(network.isOnline ? 'cloud-synced' : 'local-offline');
+
+      // Attach real-time Firestore listeners for multi-device continuity
+      return subscribeToUserCloudWorkspace(fbUser.uid, {
+        onProfile: (remoteProf) => {
           applyingRemoteRef.current = true;
+          setAuthUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  displayName: remoteProf.displayName || prev.displayName,
+                  username: remoteProf.username || prev.username,
+                  fabroId: remoteProf.fabroId || prev.fabroId,
+                  photoURL: remoteProf.photoURL ?? prev.photoURL,
+                  presenceStatus: remoteProf.presenceStatus || prev.presenceStatus,
+                }
+              : prev
+          );
           updateProfile({
-            authUid: summary.uid,
-            displayName: summary.displayName,
-            username: summary.username,
-            fabroId: summary.fabroId,
-            photoURL: summary.photoURL,
-            birthDate: summary.birthDate,
-            isMinor: summary.isMinor,
-            fabroIdConfigured: Boolean(cloudProfile),
-            ...(cloudProfile?.coverPhotoURL ? { coverPhotoURL: cloudProfile.coverPhotoURL } : {}),
-            ...(cloudProfile?.bio ? { bio: cloudProfile.bio } : {}),
-            ...(Array.isArray(cloudProfile?.interests) ? { interests: cloudProfile.interests } : {}),
-            ...(cloudProfile?.currentActivity ? { currentActivity: cloudProfile.currentActivity } : {}),
-            ...(Array.isArray(cloudProfile?.publicNoteIds)
-              ? { publicNoteIds: cloudProfile.publicNoteIds }
+            displayName: remoteProf.displayName,
+            username: remoteProf.username,
+            fabroId: remoteProf.fabroId,
+            photoURL: remoteProf.photoURL,
+            ...(remoteProf.coverPhotoURL !== undefined
+              ? { coverPhotoURL: remoteProf.coverPhotoURL }
               : {}),
-            ...(Array.isArray(cloudProfile?.publicRoutineIds)
-              ? { publicRoutineIds: cloudProfile.publicRoutineIds }
+            ...(remoteProf.bio !== undefined ? { bio: remoteProf.bio } : {}),
+            ...(Array.isArray(remoteProf.interests) ? { interests: remoteProf.interests } : {}),
+            ...(remoteProf.currentActivity !== undefined
+              ? { currentActivity: remoteProf.currentActivity }
               : {}),
-            ...(Array.isArray(cloudProfile?.followingIds)
-              ? { followingIds: cloudProfile.followingIds }
+            ...(Array.isArray(remoteProf.publicNoteIds)
+              ? { publicNoteIds: remoteProf.publicNoteIds }
               : {}),
-            ...(cloudProfile?.dailyPhrase ? { dailyPhrase: cloudProfile.dailyPhrase } : {}),
-            ...(cloudProfile?.icebreaker ? { icebreaker: cloudProfile.icebreaker } : {}),
-            ...(cloudProfile?.privacyMode ? { privacyMode: cloudProfile.privacyMode } : {}),
+            ...(Array.isArray(remoteProf.publicRoutineIds)
+              ? { publicRoutineIds: remoteProf.publicRoutineIds }
+              : {}),
+            ...(Array.isArray(remoteProf.followingIds)
+              ? { followingIds: remoteProf.followingIds }
+              : {}),
+            birthDate: remoteProf.birthDate,
+            isMinor: remoteProf.isMinor,
+            dailyPhrase: remoteProf.dailyPhrase,
+            icebreaker: remoteProf.icebreaker,
+            privacyMode: remoteProf.privacyMode,
+            shareTastesPublicly: remoteProf.shareTastesPublicly,
+            tastes: remoteProf.tastes,
+            fabroIdConfigured: true,
           });
           setTimeout(() => {
             applyingRemoteRef.current = false;
           }, 150);
-
-          if (!cloudProfile) {
-            setNeedsProfileSetup(true);
-            setEditSocialProfileOpen(true);
-          } else {
-            setNeedsProfileSetup(false);
-          }
-
-          // Migrate Guest IndexedDB/LocalStorage work once without overwriting existing cloud data
-          const snap = latestStateRef.current;
-          const migrated = await migrateGuestVaultToCloud(fbUser.uid, {
-            notes: snap.advancedNotes,
-            organizer: {
-              inboxItems: snap.inboxItems,
-              organizerTasks: snap.organizerTasks,
-              timeBlocks: snap.timeBlocks,
-              dailyReview: snap.dailyReview,
-            },
-            wellness: {
-              moodLogs: snap.moodLogs,
-              guidedReflections: snap.guidedReflections,
-              balancedPlanner: snap.balancedPlanner,
-              glossaryTerms: snap.glossaryTerms,
-            },
-          }).catch(() => false);
-
-          if (migrated) {
-            setImportNotice('Tus apuntes, organizador y reflexiones de invitado se sincronizaron con tu FABRO ID.');
-          }
-
-          setLastCloudSyncAt(
-            new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-          );
-          setSyncStatus(network.isOnline ? 'cloud-synced' : 'local-offline');
-
-          // Attach real-time Firestore listeners for multi-device continuity
-          workspaceUnsub = subscribeToUserCloudWorkspace(fbUser.uid, {
-            onProfile: (remoteProf) => {
-              applyingRemoteRef.current = true;
-              setAuthUser((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      displayName: remoteProf.displayName || prev.displayName,
-                      username: remoteProf.username || prev.username,
-                      fabroId: remoteProf.fabroId || prev.fabroId,
-                      photoURL: remoteProf.photoURL ?? prev.photoURL,
-                      presenceStatus: remoteProf.presenceStatus || prev.presenceStatus,
-                    }
-                  : prev
-              );
-              updateProfile({
-                displayName: remoteProf.displayName,
-                username: remoteProf.username,
-                fabroId: remoteProf.fabroId,
-                photoURL: remoteProf.photoURL,
-                ...(remoteProf.coverPhotoURL !== undefined
-                  ? { coverPhotoURL: remoteProf.coverPhotoURL }
-                  : {}),
-                ...(remoteProf.bio !== undefined ? { bio: remoteProf.bio } : {}),
-                ...(Array.isArray(remoteProf.interests) ? { interests: remoteProf.interests } : {}),
-                ...(remoteProf.currentActivity !== undefined
-                  ? { currentActivity: remoteProf.currentActivity }
-                  : {}),
-                ...(Array.isArray(remoteProf.publicNoteIds)
-                  ? { publicNoteIds: remoteProf.publicNoteIds }
-                  : {}),
-                ...(Array.isArray(remoteProf.publicRoutineIds)
-                  ? { publicRoutineIds: remoteProf.publicRoutineIds }
-                  : {}),
-                ...(Array.isArray(remoteProf.followingIds)
-                  ? { followingIds: remoteProf.followingIds }
-                  : {}),
-                dailyPhrase: remoteProf.dailyPhrase,
-                icebreaker: remoteProf.icebreaker,
-                privacyMode: remoteProf.privacyMode,
-                fabroIdConfigured: true,
-              });
-              setTimeout(() => {
-                applyingRemoteRef.current = false;
-              }, 120);
-            },
-            onNotes: (remoteNotes) => {
-              applyingRemoteRef.current = true;
-              setAdvancedNotes((prev) => {
-                const mergedMap = new Map<string, AdvancedNoteItem>();
-                prev.forEach((n) => mergedMap.set(n.id, n));
-                remoteNotes.forEach((rn) => {
-                  const local = mergedMap.get(rn.id);
-                  mergedMap.set(rn.id, {
-                    ...rn,
-                    audioClips: local?.audioClips || [],
-                  });
-                });
-                const next = Array.from(mergedMap.values());
-                void vaultSet('advanced_notes', next);
-                return next;
-              });
-              setTimeout(() => {
-                applyingRemoteRef.current = false;
-              }, 120);
-            },
-            onOrganizer: (remoteOrg) => {
-              applyingRemoteRef.current = true;
-              if (remoteOrg.inboxItems.length > 0) {
-                setInboxItems(remoteOrg.inboxItems);
-                void vaultSet('org_inbox_items', remoteOrg.inboxItems);
-              }
-              if (remoteOrg.organizerTasks.length > 0) {
-                setOrganizerTasks(remoteOrg.organizerTasks);
-                void vaultSet('org_tasks', remoteOrg.organizerTasks);
-              }
-              if (remoteOrg.timeBlocks.length > 0) {
-                setTimeBlocks(remoteOrg.timeBlocks);
-                void vaultSet('org_time_blocks', remoteOrg.timeBlocks);
-              }
-              if (remoteOrg.dailyReview) {
-                setDailyReview(remoteOrg.dailyReview);
-                void vaultSet('org_daily_review', remoteOrg.dailyReview);
-              }
-              if (Array.isArray(remoteOrg.calendarEvents) && remoteOrg.calendarEvents.length > 0) {
-                setPaintedCalendarEvents(remoteOrg.calendarEvents);
-                void vaultSet('painted_calendar_events', remoteOrg.calendarEvents);
-              }
-              setLastCloudSyncAt(
-                new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-              );
-              setTimeout(() => {
-                applyingRemoteRef.current = false;
-              }, 120);
-            },
-            onWellness: (remoteWell) => {
-              applyingRemoteRef.current = true;
-              if (remoteWell.physicalProfile) {
-                const merged = {
-                  ...DEFAULT_WELLNESS_PHYSICAL_PROFILE,
-                  ...remoteWell.physicalProfile,
-                };
-                setWellnessPhysicalProfile(merged);
-                void vaultSet('wellness_physical_profile', merged);
-              }
-              if (Array.isArray(remoteWell.aiDietPlans) && remoteWell.aiDietPlans.length > 0) {
-                setWellnessDietPlans(remoteWell.aiDietPlans);
-                void vaultSet('wellness_diet_plans', remoteWell.aiDietPlans);
-              }
-              if (Array.isArray(remoteWell.aiWorkoutPlans) && remoteWell.aiWorkoutPlans.length > 0) {
-                setWellnessWorkoutPlans(remoteWell.aiWorkoutPlans);
-                void vaultSet('wellness_workout_plans', remoteWell.aiWorkoutPlans);
-              }
-              if (Array.isArray(remoteWell.aiHabitPlans) && remoteWell.aiHabitPlans.length > 0) {
-                setWellnessHabitPlans(remoteWell.aiHabitPlans);
-                void vaultSet('wellness_habit_plans', remoteWell.aiHabitPlans);
-              }
-              if (Array.isArray(remoteWell.aiStoicSessions) && remoteWell.aiStoicSessions.length > 0) {
-                setWellnessStoicSessions(remoteWell.aiStoicSessions);
-                void vaultSet('wellness_stoic_sessions', remoteWell.aiStoicSessions);
-              }
-              if (Array.isArray(remoteWell.studyVideos) && remoteWell.studyVideos.length > 0) {
-                setStudyVideos(remoteWell.studyVideos);
-                void vaultSet('study_video_library', remoteWell.studyVideos);
-              }
-              if (Array.isArray(remoteWell.wellnessVideos) && remoteWell.wellnessVideos.length > 0) {
-                setWellnessVideos(remoteWell.wellnessVideos);
-                void vaultSet('wellness_video_library', remoteWell.wellnessVideos);
-              }
-              if (Array.isArray(remoteWell.studyCommunities) && remoteWell.studyCommunities.length > 0) {
-                setStudyCommunities(remoteWell.studyCommunities);
-                void vaultSet('study_communities', remoteWell.studyCommunities);
-              }
-              setTimeout(() => {
-                applyingRemoteRef.current = false;
-              }, 120);
-            },
-            onError: () => {
-              setSyncStatus(navigator.onLine ? 'sync-error' : 'local-offline');
-            },
+        },
+        onNotes: (remoteNotes) => {
+          if (remoteNotes.length === 0) return;
+          applyingRemoteRef.current = true;
+          setAdvancedNotes((prev) => {
+            const byId = new Map<string, AdvancedNoteItem>(prev.map((n) => [n.id, n]));
+            remoteNotes.forEach((rn) => byId.set(rn.id, rn));
+            return Array.from(byId.values());
           });
-        } catch {
+          setTimeout(() => {
+            applyingRemoteRef.current = false;
+          }, 150);
+        },
+        onOrganizer: (remoteOrg) => {
+          applyingRemoteRef.current = true;
+          if (Array.isArray(remoteOrg.inboxItems) && remoteOrg.inboxItems.length > 0) {
+            setInboxItems(remoteOrg.inboxItems);
+          }
+          if (Array.isArray(remoteOrg.organizerTasks) && remoteOrg.organizerTasks.length > 0) {
+            setOrganizerTasks(remoteOrg.organizerTasks);
+          }
+          if (Array.isArray(remoteOrg.timeBlocks) && remoteOrg.timeBlocks.length > 0) {
+            setTimeBlocks(remoteOrg.timeBlocks);
+          }
+          if (remoteOrg.dailyReview) {
+            setDailyReview(remoteOrg.dailyReview);
+          }
+          if (Array.isArray(remoteOrg.calendarEvents) && remoteOrg.calendarEvents.length > 0) {
+            setPaintedCalendarEvents(remoteOrg.calendarEvents);
+            void vaultSet('painted_calendar_events', remoteOrg.calendarEvents);
+          }
+          setTimeout(() => {
+            applyingRemoteRef.current = false;
+          }, 150);
+        },
+        onWellness: (remoteWell) => {
+          applyingRemoteRef.current = true;
+          if (Array.isArray(remoteWell.moodLogs) && remoteWell.moodLogs.length > 0) {
+            setMoodLogs(remoteWell.moodLogs);
+          }
+          if (Array.isArray(remoteWell.guidedReflections) && remoteWell.guidedReflections.length > 0) {
+            setGuidedReflections(remoteWell.guidedReflections);
+          }
+          if (Array.isArray(remoteWell.balancedPlanner) && remoteWell.balancedPlanner.length > 0) {
+            setBalancedPlanner(remoteWell.balancedPlanner);
+          }
+          if (Array.isArray(remoteWell.glossaryTerms) && remoteWell.glossaryTerms.length > 0) {
+            setGlossaryTerms(remoteWell.glossaryTerms);
+          }
+          if (remoteWell.physicalProfile) {
+            setWellnessPhysicalProfile(remoteWell.physicalProfile);
+          }
+          if (Array.isArray(remoteWell.aiDietPlans) && remoteWell.aiDietPlans.length > 0) {
+            setWellnessDietPlans(remoteWell.aiDietPlans);
+          }
+          if (Array.isArray(remoteWell.aiWorkoutPlans) && remoteWell.aiWorkoutPlans.length > 0) {
+            setWellnessWorkoutPlans(remoteWell.aiWorkoutPlans);
+          }
+          if (Array.isArray(remoteWell.aiHabitPlans) && remoteWell.aiHabitPlans.length > 0) {
+            setWellnessHabitPlans(remoteWell.aiHabitPlans);
+          }
+          if (Array.isArray(remoteWell.aiStoicSessions) && remoteWell.aiStoicSessions.length > 0) {
+            setWellnessStoicSessions(remoteWell.aiStoicSessions);
+          }
+          if (Array.isArray(remoteWell.studyVideos) && remoteWell.studyVideos.length > 0) {
+            setStudyVideos(remoteWell.studyVideos);
+          }
+          if (Array.isArray(remoteWell.wellnessVideos) && remoteWell.wellnessVideos.length > 0) {
+            setWellnessVideos(remoteWell.wellnessVideos);
+          }
+          if (Array.isArray(remoteWell.studyCommunities) && remoteWell.studyCommunities.length > 0) {
+            setStudyCommunities(remoteWell.studyCommunities);
+          }
+          setTimeout(() => {
+            applyingRemoteRef.current = false;
+          }, 150);
+        },
+        onError: () => {
           setSyncStatus(navigator.onLine ? 'sync-error' : 'local-offline');
+        },
+      });
+    },
+    [buildAuthSummaryFromUser, clearAuthTimeout, network.isOnline, updateProfile]
+  );
+
+  // Single orchestrated Firebase Auth bootstrap:
+  // 1) Enforces browserLocalPersistence
+  // 2) Resolves getRedirectResult() ONCE (no duplicate calls / no redirect loops)
+  // 3) Subscribes to onAuthStateChanged() as the single source of truth
+  useEffect(() => {
+    let active = true;
+    let workspaceUnsub: (() => void) | null = null;
+    let unsubAuth: (() => void) | null = null;
+
+    const bootstrapAuth = async () => {
+      setAuthState('INITIALIZING');
+      setAuthLoading(true);
+      await ensureAuthPersistence();
+      const redirectOutcome = await resolveGoogleRedirectOnce();
+      if (!active) return;
+
+      if (redirectOutcome.credential?.user) {
+        setAuthModalOpen(false);
+        setAuthError(null);
+      } else if (redirectOutcome.error) {
+        setAuthError(redirectOutcome.error);
+      }
+
+      setGoogleRedirectPending(false);
+
+      unsubAuth = onAuthStateChanged(auth, (fbUser) => {
+        if (!active) return;
+
+        if (workspaceUnsub) {
+          workspaceUnsub();
+          workspaceUnsub = null;
         }
-      })();
-    });
+
+        if (!fbUser) {
+          clearAuthTimeout();
+          setAuthUser(null);
+          setPendingVerificationEmail(null);
+          setAuthLoading(false);
+          setSyncStatus('guest-local');
+          setNeedsProfileSetup(false);
+          resetProfileToGuest();
+          setAuthState((prev) =>
+            prev === 'ERROR' || Boolean(redirectOutcome.error)
+              ? 'ERROR'
+              : 'UNAUTHENTICATED'
+          );
+          return;
+        }
+
+        if (requiresEmailVerification(fbUser)) {
+          clearAuthTimeout();
+          clearPendingGoogleRedirect();
+          setGoogleRedirectPending(false);
+          setAuthUser(null);
+          setPendingVerificationEmail(fbUser.email || null);
+          setAuthLoading(false);
+          setSyncStatus('guest-local');
+          setAuthState('EMAIL_VERIFICATION_REQUIRED');
+          setAuthModalOpen(true);
+          return;
+        }
+
+        void hydrateVerifiedUserSession(fbUser)
+          .then((unsub) => {
+            if (!active) {
+              unsub?.();
+              return;
+            }
+            workspaceUnsub = unsub;
+          })
+          .catch(() => {
+            if (active) {
+              setSyncStatus(navigator.onLine ? 'sync-error' : 'local-offline');
+            }
+          });
+      });
+    };
+
+    void bootstrapAuth();
 
     return () => {
-      if (workspaceUnsub) workspaceUnsub();
-      unsubAuth();
+      active = false;
+      clearAuthTimeout();
+      unsubAuth?.();
+      workspaceUnsub?.();
     };
-  }, [buildAuthSummaryFromUser, network.isOnline, updateProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   // Reflect offline/online transitions cleanly for authenticated sync badge
   useEffect(() => {
@@ -3848,114 +3976,96 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (googleSignInInFlightRef.current) {
       return {
         ok: false,
-        code: 'auth/cancelled-popup-request',
-        error: 'Ya se está conectando con Google. Esperá un segundo.',
+        code: 'auth/redirect-operation-pending',
+        error: 'Ya hay un proceso de inicio de sesión con Google en curso. Esperá un instante.',
       };
     }
     googleSignInInFlightRef.current = true;
-    markWebSessionActive();
+    setAuthError(null);
+    setAuthState('AUTHENTICATING');
+    setGoogleRedirectPending(true);
+    armAuthTimeout();
 
-    // 1. Mobile browsers (Android / iOS), installed PWAs, or APK/WebView wrappers:
-    // use signInWithRedirect directly to avoid OS-level popup closure errors.
-    if (shouldUseGoogleRedirect()) {
-      markPendingGoogleRedirect();
-      setGoogleRedirectPending(true);
-      try {
-        await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
-        return { ok: true };
-      } catch (err) {
-        clearPendingGoogleRedirect();
-        setGoogleRedirectPending(false);
-        if (!auth.currentUser) {
-          clearWebSessionActive();
-        }
-        const mapped = mapFirebaseAuthError(err);
-        return { ok: false, error: mapped.message, code: mapped.code };
-      } finally {
-        googleSignInInFlightRef.current = false;
-      }
-    }
-
-    // 2. Desktop browsers: try signInWithPopup synchronously on click; if popup is closed or blocked,
-    // automatically fall back to signInWithRedirect.
     try {
-      const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
-      if (cred?.user) {
-        markWebSessionActive();
+      const res = await startGoogleSignIn();
+      if (!res.ok) {
+        clearAuthTimeout();
+        setGoogleRedirectPending(false);
+        const errObj = {
+          code: res.code || 'auth/unknown',
+          message: res.error || 'No se pudo iniciar sesión con Google.',
+        };
+        setAuthError(errObj);
+        setAuthState('ERROR');
+        return res;
       }
-      closeAuthModal();
-      return { ok: true };
-    } catch (err) {
-      const code = (err as { code?: string })?.code || '';
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/popup-blocked') {
-        // Brief check in case auth actually completed before switching to redirect
-        await new Promise((resolve) => window.setTimeout(resolve, 250));
-        if (auth.currentUser) {
-          markWebSessionActive();
-          closeAuthModal();
-          return { ok: true };
-        }
-        // Automatically switch to signInWithRedirect
-        markPendingGoogleRedirect();
-        setGoogleRedirectPending(true);
-        try {
-          await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
-          return { ok: true };
-        } catch (redirectErr) {
-          clearPendingGoogleRedirect();
-          setGoogleRedirectPending(false);
-          if (!auth.currentUser) {
-            clearWebSessionActive();
-          }
-          const mappedRedirect = mapFirebaseAuthError(redirectErr);
-          return { ok: false, error: mappedRedirect.message, code: mappedRedirect.code };
-        }
+      if (!res.redirectStarted) {
+        clearAuthTimeout();
+        setGoogleRedirectPending(false);
+        closeAuthModal();
       }
-      if (!auth.currentUser) {
-        clearWebSessionActive();
-      }
-      const mapped = mapFirebaseAuthError(err);
-      return { ok: false, error: mapped.message, code: mapped.code };
+      return res;
     } finally {
       googleSignInInFlightRef.current = false;
     }
-  }, [closeAuthModal, mapFirebaseAuthError]);
+  }, [armAuthTimeout, clearAuthTimeout, closeAuthModal]);
 
   const signInWithGoogleRedirect = useCallback(async () => {
-    markWebSessionActive();
-    markPendingGoogleRedirect();
-    setGoogleRedirectPending(true);
-    try {
-      await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
-      return { ok: true };
-    } catch (err) {
-      clearPendingGoogleRedirect();
-      setGoogleRedirectPending(false);
-      if (!auth.currentUser) {
-        clearWebSessionActive();
-      }
-      const mapped = mapFirebaseAuthError(err);
-      return { ok: false, error: mapped.message, code: mapped.code };
+    if (googleSignInInFlightRef.current) {
+      return {
+        ok: false,
+        code: 'auth/redirect-operation-pending',
+        error: 'Ya se está redirigiendo a Google. Esperá un instante.',
+      };
     }
-  }, [mapFirebaseAuthError]);
+    googleSignInInFlightRef.current = true;
+    setAuthError(null);
+    setAuthState('AUTHENTICATING');
+    setGoogleRedirectPending(true);
+    armAuthTimeout();
+
+    try {
+      const res = await startGoogleRedirectSignIn();
+      if (!res.ok) {
+        clearAuthTimeout();
+        setGoogleRedirectPending(false);
+        const errObj = {
+          code: res.code || 'auth/unknown',
+          message: res.error || 'No se pudo iniciar la redirección con Google.',
+        };
+        setAuthError(errObj);
+        setAuthState('ERROR');
+      }
+      return res;
+    } finally {
+      googleSignInInFlightRef.current = false;
+    }
+  }, [armAuthTimeout, clearAuthTimeout]);
 
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
-      try {
-        await enforceDeviceSessionPersistence();
-        markWebSessionActive();
-        await signInWithEmailAndPassword(auth, email.trim(), password);
-        closeAuthModal();
-        return { ok: true };
-      } catch (err) {
-        if (!auth.currentUser) {
-          clearWebSessionActive();
-        }
-        const mapped = mapFirebaseAuthError(err);
-        return { ok: false, error: mapped.message, code: mapped.code };
+      setAuthError(null);
+      setAuthState('AUTHENTICATING');
+      armAuthTimeout();
+      const res = await loginWithEmailPassword(email, password);
+      clearAuthTimeout();
+      if (!res.ok) {
+        setAuthError({
+          code: res.code || 'auth/unknown',
+          message: res.error || 'No se pudo iniciar sesión.',
+        });
+        setAuthState('ERROR');
+        return res;
       }
+      if (res.requiresEmailVerification) {
+        setPendingVerificationEmail(res.user?.email || email.trim().toLowerCase());
+        setAuthState('EMAIL_VERIFICATION_REQUIRED');
+        return res;
+      }
+      closeAuthModal();
+      return res;
     },
-    [closeAuthModal, mapFirebaseAuthError]
+    [armAuthTimeout, clearAuthTimeout, closeAuthModal]
   );
 
   const signUpWithEmail = useCallback(
@@ -3975,62 +4085,101 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const cleanName = displayName.trim();
       const cleanHandle = normalizeHandle(username);
       if (cleanHandle.length < 3) {
-        return { ok: false, error: 'Elegí un @usuario FABRO ID de al menos 3 caracteres.' };
+        return {
+          ok: false,
+          code: 'auth/invalid-username',
+          error: 'Elegí un @usuario FABRO ID de al menos 3 caracteres.',
+        };
       }
-      try {
-        await enforceDeviceSessionPersistence();
-        markWebSessionActive();
-        const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-        await updateFirebaseProfile(cred.user, { displayName: cleanName });
-        const isMinor = computeIsMinorFromBirthDate(birthDate);
-        const fabroId = `FBR-${cleanHandle.slice(0, 10).toUpperCase()}`;
-        await reserveUsernameAndSaveProfile(cred.user.uid, {
-          displayName: cleanName,
-          username: cleanHandle,
-          fabroId,
-          photoURL: '',
-          birthDate,
-          isMinor,
-          presenceStatus: 'online',
-          dailyPhrase: latestStateRef.current.profile.dailyPhrase,
-          icebreaker: latestStateRef.current.profile.icebreaker || '',
-          privacyMode: isMinor ? 'grupo' : latestStateRef.current.profile.privacyMode,
-          shareTastesPublicly: !isMinor && latestStateRef.current.profile.shareTastesPublicly,
-          tastes: latestStateRef.current.profile.tastes,
+
+      setAuthError(null);
+      setAuthState('AUTHENTICATING');
+      armAuthTimeout();
+
+      const isMinor = computeIsMinorFromBirthDate(birthDate);
+      const fabroId = `FBR-${cleanHandle.slice(0, 10).toUpperCase()}`;
+      pendingRegistrationMetaRef.current = {
+        displayName: cleanName,
+        username: cleanHandle,
+        fabroId,
+        birthDate,
+        isMinor,
+      };
+
+      const res = await registerWithEmailPassword({
+        displayName: cleanName,
+        email,
+        password,
+      });
+      clearAuthTimeout();
+
+      if (!res.ok) {
+        pendingRegistrationMetaRef.current = null;
+        setAuthError({
+          code: res.code || 'auth/unknown',
+          message: res.error || 'No se pudo crear la cuenta.',
         });
-        closeAuthModal();
-        return { ok: true };
-      } catch (err) {
-        if (!auth.currentUser) {
-          clearWebSessionActive();
-        }
-        const mapped = mapFirebaseAuthError(err);
-        return { ok: false, error: mapped.message, code: mapped.code };
+        setAuthState('ERROR');
+        return res;
       }
+
+      if (res.requiresEmailVerification) {
+        setPendingVerificationEmail(res.user?.email || email.trim().toLowerCase());
+        setAuthState('EMAIL_VERIFICATION_REQUIRED');
+        return res;
+      }
+
+      closeAuthModal();
+      return res;
     },
-    [closeAuthModal, mapFirebaseAuthError]
+    [armAuthTimeout, clearAuthTimeout, closeAuthModal]
   );
 
-  const sendPasswordReset = useCallback(
-    async (email: string) => {
-      try {
-        await sendPasswordResetEmail(auth, email.trim());
-        return { ok: true };
-      } catch (err) {
-        const mapped = mapFirebaseAuthError(err);
-        return { ok: false, error: mapped.message };
-      }
-    },
-    [mapFirebaseAuthError]
-  );
+  const resendVerificationEmail = useCallback(async () => {
+    const res = await resendVerificationEmailForCurrentUser();
+    if (!res.ok) {
+      return { ok: false, error: res.error || 'No se pudo reenviar el correo de verificación.' };
+    }
+    return { ok: true };
+  }, []);
+
+  const checkEmailVerificationStatus = useCallback(async () => {
+    const res = await reloadCurrentUserVerificationStatus();
+    if (!res.ok) {
+      return { ok: false, verified: false, error: res.error };
+    }
+    if (res.verified && res.user) {
+      await hydrateVerifiedUserSession(res.user);
+      closeAuthModal();
+      return { ok: true, verified: true };
+    }
+    return {
+      ok: true,
+      verified: false,
+      error: 'Tu correo todavía figura como pendiente de verificación. Abrí el enlace enviado a tu bandeja y volvé a presionar este botón.',
+    };
+  }, [closeAuthModal, hydrateVerifiedUserSession]);
+
+  const sendPasswordReset = useCallback(async (email: string) => {
+    const res = await sendFirebasePasswordReset(email);
+    if (!res.ok) {
+      return { ok: false, error: res.error || 'No pudimos enviar el correo de recuperación.' };
+    }
+    return { ok: true };
+  }, []);
 
   const signOutAccount = useCallback(async () => {
-    clearWebSessionActive();
-    await signOut(auth);
+    clearAuthTimeout();
+    pendingRegistrationMetaRef.current = null;
+    await signOutFirebaseSession();
     setAuthUser(null);
+    setPendingVerificationEmail(null);
+    setAuthError(null);
+    setGoogleRedirectPending(false);
     setSyncStatus('guest-local');
+    setAuthState('UNAUTHENTICATED');
     resetProfileToGuest();
-  }, [resetProfileToGuest]);
+  }, [clearAuthTimeout, resetProfileToGuest]);
 
   const updateAccountAliasAndPhoto = useCallback(
     async (patch: { displayName?: string; username?: string; photoURL?: string }) => {
@@ -4648,7 +4797,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const resetLocalVault = useCallback(async () => {
     await vaultClearAll();
-    setThemeState('estandar');
+    setThemeState('midnight-purple');
     setProfile(DEFAULT_LOCAL_PROFILE);
     setFavorites(DEFAULT_FAVORITES);
     setPinnedTools(DEFAULT_PINNED_TOOLS);
@@ -5203,6 +5352,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       value={{
         theme,
         setTheme,
+        glowIntensity,
+        setGlowIntensity,
+        themeAutoSystem,
+        setThemeAutoSystem,
         sector,
         submenu,
         navigateTo,
@@ -5366,6 +5519,9 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateMorningIntention,
         saveNightReflection,
         rolloverPendingTasksToTomorrow,
+        authState,
+        authError,
+        pendingVerificationEmail,
         authUser,
         authLoading,
         googleRedirectPending,
@@ -5376,10 +5532,14 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         authModalDefaultTab,
         openAuthModal,
         closeAuthModal,
+        clearAuthError,
+        cancelAuthLoading,
         signInWithGoogle,
         signInWithGoogleRedirect,
         signInWithEmail,
         signUpWithEmail,
+        resendVerificationEmail,
+        checkEmailVerificationStatus,
         sendPasswordReset,
         signOutAccount,
         updateAccountAliasAndPhoto,

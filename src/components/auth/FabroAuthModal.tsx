@@ -7,19 +7,25 @@ import {
   EyeOff,
   Loader2,
   Lock,
+  LogOut,
   Mail,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
   UserCheck,
   X,
 } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
-import { isEmbeddedIframe, isInstalledDeviceApp } from '../../lib/firebase';
+import { isEmbeddedIframe } from '../../lib/firebase';
 import {
   checkUsernameAvailability,
   computeIsMinorFromBirthDate,
   normalizeHandle,
 } from '../../services/cloudSyncService';
+import {
+  validateEmailAddress,
+  validatePasswordInput,
+} from '../../services/firebaseAuthService';
 
 const GoogleFourColorLogo: React.FC = () => (
   <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0" aria-hidden="true">
@@ -56,16 +62,24 @@ function evaluatePasswordStrength(pw: string): { score: number; label: string; c
 
 export const FabroAuthModal: React.FC = () => {
   const {
+    authState,
+    authError,
+    pendingVerificationEmail,
     authModalOpen,
     authModalReason,
     authModalDefaultTab,
     closeAuthModal,
+    clearAuthError,
+    cancelAuthLoading,
     googleRedirectPending,
     signInWithGoogle,
     signInWithGoogleRedirect,
     signInWithEmail,
     signUpWithEmail,
+    resendVerificationEmail,
+    checkEmailVerificationStatus,
     sendPasswordReset,
+    signOutAccount,
   } = useEcosystem();
 
   const [tab, setTab] = useState<'login' | 'register'>(authModalDefaultTab);
@@ -96,11 +110,11 @@ export const FabroAuthModal: React.FC = () => {
     if (authModalOpen) {
       setTab(authModalDefaultTab);
       setResetMode(false);
-      setErrorMsg(null);
-      setErrorCode(null);
+      setErrorMsg(authError?.message || null);
+      setErrorCode(authError?.code || null);
       setInfoMsg(null);
     }
-  }, [authModalOpen, authModalDefaultTab]);
+  }, [authModalOpen, authModalDefaultTab, authError]);
 
   // Live @usuario availability check (debounced)
   useEffect(() => {
@@ -127,23 +141,49 @@ export const FabroAuthModal: React.FC = () => {
 
   const strength = evaluatePasswordStrength(password);
   const isMinorPreview = computeIsMinorFromBirthDate(birthDate);
+  const inIframe = isEmbeddedIframe();
+  const isBusy = submitting || googleRedirectPending || authState === 'AUTHENTICATING';
+
+  const activeErrorMsg = errorMsg || authError?.message || null;
+  const activeErrorCode = errorCode || authError?.code || null;
+
+  const isOAuthWindowOrRedirectIssue =
+    activeErrorCode === 'auth/popup-closed-by-user' ||
+    activeErrorCode === 'auth/popup-blocked' ||
+    activeErrorCode === 'auth/cancelled-popup-request' ||
+    activeErrorCode === 'auth/redirect-cancelled-by-user' ||
+    activeErrorCode === 'auth/timeout';
+
+  const handleRetryClear = () => {
+    setErrorMsg(null);
+    setErrorCode(null);
+    setInfoMsg(null);
+    clearAuthError();
+  };
 
   const handleGoogle = async () => {
     setSubmitting(true);
     setErrorMsg(null);
     setErrorCode(null);
+    setInfoMsg(null);
+    clearAuthError();
     const res = await signInWithGoogle();
-    setSubmitting(false);
+    if (!res.redirectStarted) {
+      setSubmitting(false);
+    }
     if (!res.ok) {
+      setSubmitting(false);
       setErrorMsg(res.error || 'No se pudo iniciar sesión con Google.');
       setErrorCode(res.code || null);
     }
   };
 
-  const handleGoogleRedirectFallback = async () => {
+  const handleGoogleRedirectExplicit = async () => {
     setSubmitting(true);
     setErrorMsg(null);
     setErrorCode(null);
+    setInfoMsg(null);
+    clearAuthError();
     const res = await signInWithGoogleRedirect();
     if (!res.ok) {
       setSubmitting(false);
@@ -152,26 +192,30 @@ export const FabroAuthModal: React.FC = () => {
     }
   };
 
-  const isPopupError =
-    errorCode === 'auth/popup-closed-by-user' ||
-    errorCode === 'auth/popup-blocked' ||
-    errorCode === 'auth/cancelled-popup-request';
-  const inIframe = isEmbeddedIframe();
-
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
-      setErrorMsg('Completá tu correo y contraseña.');
+    const emailCheck = validateEmailAddress(email);
+    if (!emailCheck.valid) {
+      setErrorMsg(emailCheck.error || 'Correo electrónico inválido.');
+      return;
+    }
+    const pwCheck = validatePasswordInput(password, 'login');
+    if (!pwCheck.valid) {
+      setErrorMsg(pwCheck.error || 'Ingresá tu contraseña.');
       return;
     }
     setSubmitting(true);
     setErrorMsg(null);
     setErrorCode(null);
-    const res = await signInWithEmail(email, password);
+    setInfoMsg(null);
+    clearAuthError();
+    const res = await signInWithEmail(emailCheck.clean, password);
     setSubmitting(false);
     if (!res.ok) {
       setErrorMsg(res.error || 'No se pudo iniciar sesión.');
       setErrorCode(res.code || null);
+    } else if (res.requiresEmailVerification) {
+      setInfoMsg('Tu cuenta requiere verificación de correo antes de sincronizar tus datos.');
     }
   };
 
@@ -190,8 +234,14 @@ export const FabroAuthModal: React.FC = () => {
       setErrorMsg('Ese @usuario ya está en uso. Elegí otro.');
       return;
     }
-    if (password.length < 6) {
-      setErrorMsg('La contraseña debe tener al menos 6 caracteres.');
+    const emailCheck = validateEmailAddress(email);
+    if (!emailCheck.valid) {
+      setErrorMsg(emailCheck.error || 'Correo electrónico inválido.');
+      return;
+    }
+    const pwCheck = validatePasswordInput(password, 'register');
+    if (!pwCheck.valid) {
+      setErrorMsg(pwCheck.error || 'La contraseña debe tener al menos 6 caracteres.');
       return;
     }
     if (!termsAccepted) {
@@ -201,10 +251,12 @@ export const FabroAuthModal: React.FC = () => {
     setSubmitting(true);
     setErrorMsg(null);
     setErrorCode(null);
+    setInfoMsg(null);
+    clearAuthError();
     const res = await signUpWithEmail({
       displayName,
       username: cleanHandle,
-      email,
+      email: emailCheck.clean,
       password,
       birthDate,
     });
@@ -212,37 +264,84 @@ export const FabroAuthModal: React.FC = () => {
     if (!res.ok) {
       setErrorMsg(res.error || 'No se pudo crear la cuenta.');
       setErrorCode(res.code || null);
+    } else if (res.requiresEmailVerification) {
+      setInfoMsg(
+        'Cuenta creada. Te enviamos un correo de verificación para activar tu acceso seguro.'
+      );
     }
   };
 
   const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) {
-      setErrorMsg('Escribí el correo de tu cuenta para enviarte el enlace.');
+    const emailCheck = validateEmailAddress(email);
+    if (!emailCheck.valid) {
+      setErrorMsg(emailCheck.error || 'Escribí un correo electrónico válido.');
       return;
     }
     setSubmitting(true);
     setErrorMsg(null);
-    const res = await sendPasswordReset(email);
+    setInfoMsg(null);
+    const res = await sendPasswordReset(emailCheck.clean);
     setSubmitting(false);
     if (res.ok) {
-      setInfoMsg('Te enviamos un correo para restablecer tu contraseña. Revisá tu bandeja o spam.');
+      setInfoMsg(
+        'Te enviamos un correo de Firebase para restablecer tu contraseña. Revisá tu bandeja de entrada o spam.'
+      );
     } else {
       setErrorMsg(res.error || 'No pudimos enviar el correo de recuperación.');
     }
+  };
+
+  const handleCheckVerification = async () => {
+    setSubmitting(true);
+    setErrorMsg(null);
+    setInfoMsg(null);
+    const res = await checkEmailVerificationStatus();
+    setSubmitting(false);
+    if (!res.ok) {
+      setErrorMsg(res.error || 'No pudimos verificar el estado de tu cuenta.');
+    } else if (!res.verified) {
+      setErrorMsg(
+        res.error ||
+          'Tu correo todavía no aparece verificado. Tocá el enlace del correo y volvé a presionar este botón.'
+      );
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setSubmitting(true);
+    setErrorMsg(null);
+    setInfoMsg(null);
+    const res = await resendVerificationEmail();
+    setSubmitting(false);
+    if (res.ok) {
+      setInfoMsg(
+        'Reenviamos el correo de verificación. Revisá tu bandeja principal y la carpeta de spam.'
+      );
+    } else {
+      setErrorMsg(res.error || 'No se pudo reenviar el correo de verificación.');
+    }
+  };
+
+  const handleSwitchAccount = async () => {
+    setSubmitting(true);
+    await signOutAccount();
+    setSubmitting(false);
+    setErrorMsg(null);
+    setInfoMsg(null);
   };
 
   return (
     <div
       className="no-print fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={(e) => {
-        if (e.target === e.currentTarget) closeAuthModal();
+        if (e.target === e.currentTarget && !isBusy) closeAuthModal();
       }}
     >
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="FABRO ID · Iniciar sesión o crear cuenta"
+        aria-label="FABRO ID · Autenticación con Firebase"
         className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border-2 border-[#7C3AED] fabro-surface p-5 sm:p-6 space-y-4 shadow-2xl max-h-[92dvh] overflow-y-auto fabro-screen-enter"
       >
         <div className="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto sm:hidden" />
@@ -252,10 +351,14 @@ export const FabroAuthModal: React.FC = () => {
           <div className="space-y-1">
             <p className="text-[11px] font-bold uppercase tracking-wider text-[#7C3AED] dark:text-[#C4B5FD] flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
-              FABRO ID · Sincronización Gratuita
+              FABRO ID · Firebase Authentication
             </p>
             <h2 className="font-display text-lg font-bold">
-              {resetMode
+              {authState === 'INITIALIZING'
+                ? 'Verificando tu sesión...'
+                : authState === 'EMAIL_VERIFICATION_REQUIRED'
+                ? 'Verificá tu correo electrónico'
+                : resetMode
                 ? 'Recuperar contraseña'
                 : tab === 'login'
                 ? 'Iniciá sesión en FABRO'
@@ -264,7 +367,10 @@ export const FabroAuthModal: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={closeAuthModal}
+            onClick={() => {
+              if (isBusy) cancelAuthLoading();
+              closeAuthModal();
+            }}
             aria-label="Cerrar ventana de acceso"
             className="min-h-[44px] min-w-[44px] rounded-xl border-2 fabro-border flex items-center justify-center cursor-pointer shrink-0"
           >
@@ -272,373 +378,506 @@ export const FabroAuthModal: React.FC = () => {
           </button>
         </div>
 
-        {authModalReason && (
-          <div className="rounded-xl border-2 border-[#0EA5E9]/45 bg-[#0EA5E9]/10 px-3.5 py-2.5 text-xs font-semibold text-[#0284C7] dark:text-[#38BDF8]">
-            Creá o iniciá sesión con tu FABRO ID para {authModalReason}. Tus apuntes y tareas locales se migrarán automáticamente.
-          </div>
-        )}
-
-        <div className="rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-2.5 text-[11px] fabro-muted flex items-start gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-          <span>
-            {isInstalledDeviceApp()
-              ? 'App instalada en tu dispositivo: tu sesión se mantendrá abierta hasta que toques «Cerrar sesión».'
-              : 'Navegador web: por seguridad, ninguna sesión queda abierta al cerrar la pestaña (solo permanece abierta en la app instalada).'}
-          </span>
-        </div>
-
-        {/* Tabs */}
-        {!resetMode && (
-          <div className="grid grid-cols-2 gap-2 p-1 rounded-xl border-2 fabro-border fabro-surface-elevated">
-            <button
-              type="button"
-              onClick={() => {
-                setTab('login');
-                setErrorMsg(null);
-              }}
-              className={`min-h-[42px] rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                tab === 'login'
-                  ? 'bg-[#7C3AED] text-white shadow-xs'
-                  : 'fabro-muted hover:opacity-100'
-              }`}
-            >
-              Iniciar Sesión
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTab('register');
-                setErrorMsg(null);
-              }}
-              className={`min-h-[42px] rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                tab === 'register'
-                  ? 'bg-[#7C3AED] text-white shadow-xs'
-                  : 'fabro-muted hover:opacity-100'
-              }`}
-            >
-              Crear Cuenta Nueva
-            </button>
-          </div>
-        )}
-
-        {/* Prominent Google Sign-In Button */}
-        {!resetMode && (
-          <>
-            <button
-              type="button"
-              disabled={submitting || googleRedirectPending}
-              onClick={() => void handleGoogle()}
-              className="w-full min-h-[48px] rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-4 py-2.5 text-xs font-extrabold inline-flex items-center justify-center gap-3 shadow-sm hover:border-[#4285F4] cursor-pointer active:scale-[0.99] disabled:opacity-60"
-            >
-              {submitting || googleRedirectPending ? (
-                <Loader2 className="w-4 h-4 animate-spin text-[#4285F4]" />
-              ) : (
-                <GoogleFourColorLogo />
-              )}
-              <span>
-                {submitting || googleRedirectPending
-                  ? 'Conectando con Google...'
-                  : 'Continuar con Google'}
-              </span>
-            </button>
-            <p className="text-[11px] text-center fabro-muted">
-              Al entrar con tu cuenta de Google podrás crear y personalizar tu perfil en FABRO.
+        {/* STATE 1: INITIALIZING */}
+        {authState === 'INITIALIZING' ? (
+          <div className="py-8 flex flex-col items-center justify-center gap-3 text-center">
+            <Loader2 className="w-7 h-7 animate-spin text-[#7C3AED]" />
+            <p className="text-sm font-bold">Comprobando sesión existente...</p>
+            <p className="text-xs fabro-muted max-w-xs">
+              Firebase Authentication está recuperando tu estado de sesión de forma segura.
             </p>
-
-            <div className="flex items-center gap-2 text-[11px] fabro-muted">
-              <div className="h-px flex-1 bg-[var(--fabro-border)]" />
-              <span>o con tu correo</span>
-              <div className="h-px flex-1 bg-[var(--fabro-border)]" />
+          </div>
+        ) : authState === 'EMAIL_VERIFICATION_REQUIRED' ? (
+          /* STATE 5: EMAIL_VERIFICATION_REQUIRED */
+          <div className="space-y-4">
+            <div className="rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 p-4 space-y-2 text-xs">
+              <p className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                <Mail className="w-4 h-4 shrink-0" />
+                Confirmación pendiente
+              </p>
+              <p className="leading-relaxed">
+                Enviamos un enlace de verificación a{' '}
+                <span className="font-mono font-bold">
+                  {pendingVerificationEmail || email || 'tu correo registrado'}
+                </span>
+                . Abrí ese enlace para proteger tu cuenta y habilitar la sincronización en la nube.
+              </p>
             </div>
-          </>
-        )}
 
-        {errorMsg && (
-          <div className="rounded-xl border-2 border-rose-500/50 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300 space-y-2.5">
-            <p className="font-bold flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
-            </p>
-            {isPopupError && (
-              <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                {inIframe ? (
-                  <a
-                    href={typeof window !== 'undefined' ? window.location.href : '/'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg bg-[#0284C7] text-white px-3 py-1.5 text-[11px] font-bold hover:bg-[#0369A1]"
-                  >
-                    <span>Abrir FABRO en pestaña nueva</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+            {activeErrorMsg && (
+              <div className="rounded-xl border-2 border-rose-500/50 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{activeErrorMsg}</span>
+              </div>
+            )}
+
+            {infoMsg && (
+              <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{infoMsg}</span>
+              </div>
+            )}
+
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => void handleCheckVerification()}
+                className="w-full min-h-[46px] rounded-xl border-2 border-[#7C3AED] bg-[#7C3AED] text-white font-bold text-xs inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
+                  <CheckCircle2 className="w-4 h-4" />
+                )}
+                Ya verifiqué mi correo · Entrar ahora
+              </button>
+
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => void handleResendVerification()}
+                className="w-full min-h-[44px] rounded-xl border-2 fabro-border fabro-surface-elevated font-bold text-xs inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Reenviar correo de verificación
+              </button>
+
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => void handleSwitchAccount()}
+                className="w-full min-h-[40px] rounded-xl text-xs font-semibold fabro-muted hover:underline inline-flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Cerrar sesión o usar otra cuenta
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* STATES: UNAUTHENTICATED | AUTHENTICATING | ERROR */
+          <>
+            {authModalReason && (
+              <div className="rounded-xl border-2 border-[#0EA5E9]/45 bg-[#0EA5E9]/10 px-3.5 py-2.5 text-xs font-semibold text-[#0284C7] dark:text-[#38BDF8]">
+                Creá o iniciá sesión con tu FABRO ID para {authModalReason}. Tus apuntes y tareas
+                locales se migrarán automáticamente.
+              </div>
+            )}
+
+            <div className="rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-2.5 text-[11px] fabro-muted flex items-start gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <span>
+                Sesión protegida exclusivamente con Firebase Authentication y persistencia oficial
+                segura. Tu contraseña nunca se guarda en Firestore ni en localStorage.
+              </span>
+            </div>
+
+            {/* Tabs */}
+            {!resetMode && (
+              <div className="grid grid-cols-2 gap-2 p-1 rounded-xl border-2 fabro-border fabro-surface-elevated">
+                <button
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => {
+                    setTab('login');
+                    handleRetryClear();
+                  }}
+                  className={`min-h-[42px] rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                    tab === 'login'
+                      ? 'bg-[#7C3AED] text-white shadow-xs'
+                      : 'fabro-muted hover:opacity-100'
+                  }`}
+                >
+                  Iniciar Sesión
+                </button>
+                <button
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => {
+                    setTab('register');
+                    handleRetryClear();
+                  }}
+                  className={`min-h-[42px] rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                    tab === 'register'
+                      ? 'bg-[#7C3AED] text-white shadow-xs'
+                      : 'fabro-muted hover:opacity-100'
+                  }`}
+                >
+                  Crear Cuenta Nueva
+                </button>
+              </div>
+            )}
+
+            {/* Primary Google Authentication Button (Redirect-first) */}
+            {!resetMode && (
+              <>
+                <button
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => void handleGoogle()}
+                  className="w-full min-h-[48px] rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-4 py-2.5 text-xs font-extrabold inline-flex items-center justify-center gap-3 shadow-sm hover:border-[#4285F4] cursor-pointer active:scale-[0.99] disabled:opacity-60"
+                >
+                  {isBusy ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-[#4285F4]" />
+                  ) : (
+                    <GoogleFourColorLogo />
+                  )}
+                  <span>
+                    {isBusy
+                      ? 'Redirigiendo a Google...'
+                      : 'Continuar con Google'}
+                  </span>
+                </button>
+
+                {isBusy && (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-[#7C3AED]/35 bg-[#7C3AED]/8 px-3 py-2 text-[11px]">
+                    <span className="font-semibold">Autenticando con Firebase...</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSubmitting(false);
+                        cancelAuthLoading();
+                      }}
+                      className="font-bold text-[#7C3AED] dark:text-[#C4B5FD] hover:underline cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-center fabro-muted">
+                  Acceso oficial con redirección segura de Google vía Firebase Authentication.
+                </p>
+
+                <div className="flex items-center gap-2 text-[11px] fabro-muted">
+                  <div className="h-px flex-1 bg-[var(--fabro-border)]" />
+                  <span>o con tu correo</span>
+                  <div className="h-px flex-1 bg-[var(--fabro-border)]" />
+                </div>
+              </>
+            )}
+
+            {/* STATE 6: ERROR banner with clear recovery actions */}
+            {activeErrorMsg && (
+              <div
+                role="alert"
+                className="rounded-xl border-2 border-rose-500/50 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300 space-y-2.5"
+              >
+                <p className="font-bold flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{activeErrorMsg}</span>
+                </p>
+
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
                   <button
                     type="button"
-                    disabled={submitting}
-                    onClick={() => void handleGoogleRedirectFallback()}
-                    className="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg bg-[#0284C7] text-white px-3 py-1.5 text-[11px] font-bold hover:bg-[#0369A1] cursor-pointer disabled:opacity-60"
+                    onClick={handleRetryClear}
+                    className="min-h-[34px] inline-flex items-center gap-1.5 rounded-lg border border-rose-500/50 px-3 py-1 text-[11px] font-bold hover:bg-rose-500/10 cursor-pointer"
                   >
-                    <span>Ingresar por redirección de Google</span>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Reintentar
                   </button>
+
+                  {isOAuthWindowOrRedirectIssue && inIframe && (
+                    <a
+                      href={typeof window !== 'undefined' ? window.location.href : '/'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[34px] inline-flex items-center gap-1.5 rounded-lg bg-[#0284C7] text-white px-3 py-1 text-[11px] font-bold hover:bg-[#0369A1]"
+                    >
+                      <span>Abrir FABRO en pestaña directa</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+
+                  {isOAuthWindowOrRedirectIssue && !inIframe && (
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => void handleGoogleRedirectExplicit()}
+                      className="min-h-[34px] inline-flex items-center gap-1.5 rounded-lg bg-[#0284C7] text-white px-3 py-1 text-[11px] font-bold hover:bg-[#0369A1] cursor-pointer disabled:opacity-60"
+                    >
+                      <span>Ingresar por redirección oficial</span>
+                    </button>
+                  )}
+                </div>
+
+                {activeErrorCode === 'auth/operation-not-allowed' && (
+                  <p className="text-[11px] leading-relaxed">
+                    Activá «Correo electrónico / contraseña» en Firebase Console &gt; Authentication
+                    &gt; Sign-in method (gratis, sin facturación), o ingresá con Google arriba.
+                  </p>
                 )}
               </div>
             )}
-            {errorCode === 'auth/operation-not-allowed' && (
-              <p className="text-[11px] leading-relaxed">
-                Tip técnico: En Firebase Console &gt; Authentication &gt; Sign-in method activá el proveedor «Correo electrónico/contraseña», o usá «Iniciar sesión con Google» arriba.
-              </p>
+
+            {infoMsg && (
+              <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{infoMsg}</span>
+              </div>
             )}
-          </div>
-        )}
 
-        {infoMsg && (
-          <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{infoMsg}</span>
-          </div>
-        )}
-
-        {resetMode ? (
-          <form onSubmit={handleResetSubmit} className="space-y-3 text-xs">
-            <label className="block space-y-1">
-              <span className="font-semibold">Correo electrónico registrado</span>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@correo.com"
-                className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3.5 py-2 fabro-input"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full min-h-[44px] rounded-xl border-2 border-[#7C3AED] bg-[#7C3AED] text-white font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              Enviar enlace de recuperación
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setResetMode(false);
-                setErrorMsg(null);
-              }}
-              className="w-full min-h-[40px] text-xs font-semibold fabro-muted hover:underline cursor-pointer"
-            >
-              Volver a Iniciar Sesión
-            </button>
-          </form>
-        ) : tab === 'login' ? (
-          <form onSubmit={handleLoginSubmit} className="space-y-3 text-xs">
-            <label className="block space-y-1">
-              <span className="font-semibold flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 fabro-muted" />
-                Correo electrónico
-              </span>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@correo.com"
-                className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3.5 py-2 fabro-input"
-              />
-            </label>
-
-            <label className="block space-y-1">
-              <span className="font-semibold flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 fabro-muted" />
-                Contraseña
-              </span>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated pl-3.5 pr-11 py-2 fabro-input"
-                />
+            {resetMode ? (
+              <form onSubmit={handleResetSubmit} className="space-y-3 text-xs">
+                <label className="block space-y-1">
+                  <span className="font-semibold">Correo electrónico registrado</span>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@correo.com"
+                    className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3.5 py-2 fabro-input"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={isBusy}
+                  className="w-full min-h-[44px] rounded-xl border-2 border-[#7C3AED] bg-[#7C3AED] text-white font-bold inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                >
+                  {isBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Enviar enlace de recuperación
+                </button>
                 <button
                   type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center fabro-muted cursor-pointer"
+                  onClick={() => {
+                    setResetMode(false);
+                    handleRetryClear();
+                  }}
+                  className="w-full min-h-[40px] text-xs font-semibold fabro-muted hover:underline cursor-pointer"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  Volver a Iniciar Sesión
                 </button>
-              </div>
-            </label>
+              </form>
+            ) : tab === 'login' ? (
+              <form onSubmit={handleLoginSubmit} className="space-y-3 text-xs">
+                <label className="block space-y-1">
+                  <span className="font-semibold flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 fabro-muted" />
+                    Correo electrónico
+                  </span>
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@correo.com"
+                    className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3.5 py-2 fabro-input"
+                  />
+                </label>
 
-            <div className="flex justify-end">
+                <label className="block space-y-1">
+                  <span className="font-semibold flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 fabro-muted" />
+                    Contraseña
+                  </span>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated pl-3.5 pr-11 py-2 fabro-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center fabro-muted cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </label>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetMode(true);
+                      handleRetryClear();
+                    }}
+                    className="text-[11px] font-bold text-[#7C3AED] dark:text-[#C4B5FD] hover:underline cursor-pointer"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isBusy}
+                  className="w-full min-h-[46px] rounded-xl border-2 border-[#7C3AED] bg-gradient-to-r from-[#7C3AED] to-[#EC4899] text-white font-bold inline-flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-60"
+                >
+                  {isBusy ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <UserCheck className="w-4 h-4" />
+                  )}
+                  Entrar con mi FABRO ID
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleRegisterSubmit} className="space-y-3 text-xs">
+                <label className="block space-y-1">
+                  <span className="font-semibold">Nombre completo o apodo</span>
+                  <input
+                    type="text"
+                    required
+                    autoComplete="name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Ej: Sofía Méndez"
+                    className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3.5 py-2 fabro-input"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">@usuario único (FABRO ID)</span>
+                    {handleState === 'checking' && (
+                      <span className="text-[11px] fabro-muted">Verificando...</span>
+                    )}
+                    {handleState === 'available' && (
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        Disponible
+                      </span>
+                    )}
+                    {handleState === 'taken' && (
+                      <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                        Ya ocupado
+                      </span>
+                    )}
+                    {handleState === 'invalid' && (
+                      <span className="text-[11px] text-amber-600 dark:text-amber-400">
+                        Mín. 3 caracteres
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-[#7C3AED]">
+                      @
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={username}
+                      onChange={(e) => setUsername(normalizeHandle(e.target.value))}
+                      placeholder="sofia.fabro"
+                      className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated pl-8 pr-3.5 py-2 font-mono fabro-input"
+                    />
+                  </div>
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="font-semibold">Correo electrónico</span>
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@correo.com"
+                    className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3.5 py-2 fabro-input"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Contraseña</span>
+                    <span className="text-[11px] font-semibold" style={{ color: strength.color }}>
+                      {strength.label}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated pl-3.5 pr-11 py-2 fabro-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center fabro-muted cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full transition-all"
+                      style={{ width: `${strength.score}%`, backgroundColor: strength.color }}
+                    />
+                  </div>
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="font-semibold">Fecha de nacimiento (protección de edad)</span>
+                  <input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3.5 py-2 fabro-input"
+                  />
+                  {isMinorPreview && (
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Protección automática activa: perfil oculto en directorios abiertos.
+                    </p>
+                  )}
+                </label>
+
+                <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 accent-[#7C3AED]"
+                  />
+                  <span className="text-[11px] fabro-muted leading-relaxed">
+                    Acepto los Términos de uso y la Política de Privacidad. Entiendo que mis claves
+                    API (BYOK) nunca se suben a la nube.
+                  </span>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={isBusy}
+                  className="w-full min-h-[46px] rounded-xl border-2 border-[#7C3AED] bg-gradient-to-r from-[#7C3AED] to-[#EC4899] text-white font-bold inline-flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-60"
+                >
+                  {isBusy ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <UserCheck className="w-4 h-4" />
+                  )}
+                  Crear FABRO ID y verificar correo
+                </button>
+              </form>
+            )}
+
+            <div className="pt-2 border-t fabro-border flex items-center justify-between gap-2 text-[11px]">
+              <span className="fabro-muted">¿Preferís seguir sin cuenta?</span>
               <button
                 type="button"
                 onClick={() => {
-                  setResetMode(true);
-                  setErrorMsg(null);
+                  if (isBusy) cancelAuthLoading();
+                  closeAuthModal();
                 }}
-                className="text-[11px] font-bold text-[#7C3AED] dark:text-[#C4B5FD] hover:underline cursor-pointer"
+                className="font-bold text-[#0284C7] dark:text-[#38BDF8] hover:underline cursor-pointer"
               >
-                ¿Olvidaste tu contraseña?
+                Continuar como Invitado
               </button>
             </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full min-h-[46px] rounded-xl border-2 border-[#7C3AED] bg-gradient-to-r from-[#7C3AED] to-[#EC4899] text-white font-bold inline-flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-60"
-            >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
-              Entrar con mi FABRO ID
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleRegisterSubmit} className="space-y-3 text-xs">
-            <label className="block space-y-1">
-              <span className="font-semibold">Nombre completo o apodo</span>
-              <input
-                type="text"
-                required
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Ej: Sofía Méndez"
-                className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3.5 py-2 fabro-input"
-              />
-            </label>
-
-            <label className="block space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold">@usuario único (FABRO ID)</span>
-                {handleState === 'checking' && (
-                  <span className="text-[11px] fabro-muted">Verificando...</span>
-                )}
-                {handleState === 'available' && (
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                    Disponible
-                  </span>
-                )}
-                {handleState === 'taken' && (
-                  <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400">
-                    Ya ocupado
-                  </span>
-                )}
-                {handleState === 'invalid' && (
-                  <span className="text-[11px] text-amber-600 dark:text-amber-400">
-                    Mín. 3 caracteres
-                  </span>
-                )}
-              </div>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-[#7C3AED]">
-                  @
-                </span>
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(normalizeHandle(e.target.value))}
-                  placeholder="sofia.fabro"
-                  className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated pl-8 pr-3.5 py-2 font-mono fabro-input"
-                />
-              </div>
-            </label>
-
-            <label className="block space-y-1">
-              <span className="font-semibold">Correo electrónico</span>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@correo.com"
-                className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3.5 py-2 fabro-input"
-              />
-            </label>
-
-            <label className="block space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold">Contraseña</span>
-                <span className="text-[11px] font-semibold" style={{ color: strength.color }}>
-                  {strength.label}
-                </span>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated pl-3.5 pr-11 py-2 fabro-input"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center fabro-muted cursor-pointer"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full transition-all"
-                  style={{ width: `${strength.score}%`, backgroundColor: strength.color }}
-                />
-              </div>
-            </label>
-
-            <label className="block space-y-1">
-              <span className="font-semibold">Fecha de nacimiento (protección de edad)</span>
-              <input
-                type="date"
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                className="min-h-[44px] w-full rounded-xl border-2 fabro-border fabro-surface-elevated px-3.5 py-2 fabro-input"
-              />
-              {isMinorPreview && (
-                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Protección automática activa: perfil oculto en directorios abiertos.
-                </p>
-              )}
-            </label>
-
-            <label className="flex items-start gap-2.5 cursor-pointer pt-1">
-              <input
-                type="checkbox"
-                checked={termsAccepted}
-                onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="w-4 h-4 mt-0.5 accent-[#7C3AED]"
-              />
-              <span className="text-[11px] fabro-muted leading-relaxed">
-                Acepto los Términos de uso y la Política de Privacidad. Entiendo que mis claves API (BYOK) nunca se suben a la nube.
-              </span>
-            </label>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full min-h-[46px] rounded-xl border-2 border-[#7C3AED] bg-gradient-to-r from-[#7C3AED] to-[#EC4899] text-white font-bold inline-flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-60"
-            >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
-              Crear FABRO ID y sincronizar
-            </button>
-          </form>
+          </>
         )}
-
-        <div className="pt-2 border-t fabro-border flex items-center justify-between gap-2 text-[11px]">
-          <span className="fabro-muted">¿Preferís seguir sin cuenta?</span>
-          <button
-            type="button"
-            onClick={closeAuthModal}
-            className="font-bold text-[#0284C7] dark:text-[#38BDF8] hover:underline cursor-pointer"
-          >
-            Continuar como Invitado
-          </button>
-        </div>
       </div>
     </div>
   );

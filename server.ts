@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createCultureRouter } from './server/cultureRouter';
 import { createSportsRouter } from './server/sportsRouter';
+import { createStudyResearchRouter } from './server/studyResearchRouter';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,6 +46,9 @@ async function startServer() {
 
   // FABRO CULTURA $0-cost Spanish cultural RSS news aggregator with TTL cache
   app.use('/api/culture', createCultureRouter());
+
+  // FABRO ESTUDIO 2.0 $0-cost academic research, dictionary, translation & spellcheck proxy
+  app.use('/api/study', createStudyResearchRouter());
 
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');

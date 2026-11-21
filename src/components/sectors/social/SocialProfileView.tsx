@@ -272,7 +272,7 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-slate-950/15 to-transparent" />
           <div className="absolute top-3 right-3 flex items-center gap-2">
-            {authUser ? (
+            {authUser && (
               <label className="min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-white/25 bg-slate-950/70 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-xs cursor-pointer hover:bg-slate-900">
                 <ImagePlus className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">
@@ -285,15 +285,6 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
                   className="hidden"
                 />
               </label>
-            ) : (
-              <button
-                type="button"
-                onClick={() => openAuthModal('crear tu perfil en FABRO con tu cuenta de Google', 'login')}
-                className="min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/95 px-3.5 py-1.5 text-xs font-bold text-slate-900 shadow-sm cursor-pointer hover:bg-white"
-              >
-                <LogIn className="w-3.5 h-3.5 text-[#7C3AED]" />
-                <span>Iniciar sesión</span>
-              </button>
             )}
           </div>
         </div>
@@ -365,34 +356,25 @@ export const SocialProfileView: React.FC<SocialProfileViewProps> = ({
                   )}
                 </button>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    disabled={googleSigningIn || googleRedirectPending}
-                    onClick={() => void handleDirectGoogleSignIn()}
-                    className="min-h-[42px] inline-flex items-center gap-2 rounded-xl border-2 border-[#7C3AED] bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 text-xs font-bold text-white shadow-sm cursor-pointer active:scale-95 whitespace-nowrap disabled:opacity-60"
-                  >
-                    {googleSigningIn || googleRedirectPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <LogIn className="w-4 h-4" />
-                    )}
-                    <span>
-                      {googleSigningIn || googleRedirectPending
-                        ? 'Conectando con Google...'
-                        : 'Iniciar sesión con Google'}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openAuthModal('crear tu perfil en FABRO con tu cuenta de Google', 'login')
-                    }
-                    className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl border fabro-border fabro-surface-elevated px-3.5 py-2 text-xs font-semibold cursor-pointer active:scale-95 whitespace-nowrap"
-                  >
-                    <span>Iniciar sesión</span>
-                  </button>
-                </>
+                <button
+                  type="button"
+                  disabled={googleSigningIn || googleRedirectPending}
+                  onClick={() =>
+                    openAuthModal('iniciar sesión y sincronizar tu perfil FABRO', 'login')
+                  }
+                  className="fabro-btn-primary"
+                >
+                  {googleSigningIn || googleRedirectPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <LogIn className="w-4 h-4" />
+                  )}
+                  <span>
+                    {googleSigningIn || googleRedirectPending
+                      ? 'Conectando...'
+                      : 'Iniciar sesión / FABRO ID'}
+                  </span>
+                </button>
               )}
 
               {authUser && (

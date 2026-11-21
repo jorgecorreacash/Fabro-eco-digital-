@@ -119,6 +119,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
       sector === 'hoy' ||
       sector === 'herramientas' ||
       sector === 'cultura' ||
+      sector === 'deportes' ||
       sector === 'admin'
       ? 'social'
       : sector
@@ -160,6 +161,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
     if (sector === 'hoy') return '#06B6D4';
     if (sector === 'herramientas') return '#0EA5E9';
     if (sector === 'cultura') return '#9A3412';
+    if (sector === 'deportes') return '#059669';
     if (sector === 'admin') return '#0F172A';
     if (sector === 'inicio') return 'var(--fabro-accent)';
     return SECTOR_PALETTES[sector]?.primary || 'var(--fabro-accent)';
@@ -176,6 +178,44 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
       groupLabel: string;
       description: string;
     }> = [];
+    if (
+      'musica música afinador digital cromatico cromático guitarra bajo cancionero cancioneros acordes metronomo metrónomo transpositor escalas oido pdf'.includes(q) ||
+      q.includes('afin') ||
+      q.includes('cancion') ||
+      q.includes('acord') ||
+      q.includes('metron') ||
+      q.includes('music') ||
+      q.includes('músic')
+    ) {
+      results.push({
+        id: 'music-suite-direct',
+        sector: 'herramientas',
+        submenu: 'centro-herramientas',
+        label: 'MÚSICA · Afinador Digital y FABRO Cancioneros',
+        groupLabel: '5. Herramientas · Música',
+        description: 'Afinador con micrófono real, cancioneros con PDF, metrónomo, acordes y entrenador.',
+      });
+    }
+    if ('deportes futbol fútbol liga partidos fixture tabla noticias seleccion'.includes(q) || q.includes('deport')) {
+      results.push({
+        id: 'deportes-direct',
+        sector: 'deportes',
+        submenu: 'deportes-panel',
+        label: '3. Deportes · FABRO DEPORTES',
+        groupLabel: 'Sector principal',
+        description: 'Fútbol, ligas, fixtures, tablas y noticias deportivas actualizadas.',
+      });
+    }
+    if ('temas colores apariencia midnight purple cyber blue neon green galaxy obsidian arctic minimal white sunset emerald gold brillo'.includes(q) || q.includes('tema')) {
+      results.push({
+        id: 'temas-fabro-direct',
+        sector: 'configuracion',
+        submenu: 'config-general',
+        label: 'TEMAS FABRO · Galería de 10 plantillas y brillo',
+        groupLabel: '6. Configuración',
+        description: 'Personalización completa de colores, tema del sistema e intensidad de brillo.',
+      });
+    }
     if (
       'hoy y cosmos hora reloj clima tiempo temperatura luna lunar horoscopo horóscopo signo zodiaco frases comunidad aportes'
         .includes(q)
@@ -595,7 +635,54 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               {!sidebarCollapsed && <span className="truncate flex-1 text-left">2. Cultura</span>}
             </button>
 
-            {/* 3. Bienestar */}
+            {/* 3. Deportes (Sector principal dedicado) */}
+            {(() => {
+              const isSportsActive = sector === 'deportes';
+              return (
+                <button
+                  type="button"
+                  onClick={() => navigateTo('deportes', 'deportes-panel')}
+                  onMouseEnter={(e) => showCollapsedTip('3. Deportes', e.currentTarget)}
+                  onMouseLeave={hideCollapsedTip}
+                  aria-label="3. Deportes"
+                  className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
+                    sidebarCollapsed ? 'justify-center px-0' : ''
+                  } ${
+                    isSportsActive
+                      ? 'font-semibold text-[var(--fabro-text)]'
+                      : 'border-transparent fabro-muted hover:text-[var(--fabro-text)] hover:bg-[var(--fabro-surface-2)]/70'
+                  }`}
+                  style={
+                    isSportsActive
+                      ? {
+                          backgroundColor: 'rgba(5, 150, 105, 0.14)',
+                          borderColor: 'rgba(5, 150, 105, 0.55)',
+                          boxShadow: '0 4px 14px -6px rgba(5, 150, 105, 0.35)',
+                        }
+                      : undefined
+                  }
+                >
+                  {isSportsActive && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full bg-[#059669]"
+                    />
+                  )}
+                  <Trophy
+                    className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                      isSportsActive
+                        ? 'translate-x-0.5 text-[#059669] dark:text-[#34D399]'
+                        : 'text-[#059669] dark:text-[#34D399]'
+                    }`}
+                  />
+                  {!sidebarCollapsed && (
+                    <span className="truncate flex-1 text-left">3. Deportes</span>
+                  )}
+                </button>
+              );
+            })()}
+
+            {/* 4. Bienestar */}
             {(() => {
               const sec = SECTORS_CATALOG.find((s) => s.id === 'bienestar')!;
               const isSelected = sector === 'bienestar';
@@ -604,9 +691,9 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   <button
                     type="button"
                     onClick={() => navigateTo('bienestar', sec.defaultSubmenu)}
-                    onMouseEnter={(e) => showCollapsedTip('3. Bienestar', e.currentTarget)}
+                    onMouseEnter={(e) => showCollapsedTip('4. Bienestar', e.currentTarget)}
                     onMouseLeave={hideCollapsedTip}
-                    aria-label="3. Bienestar"
+                    aria-label="4. Bienestar"
                     className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
                       sidebarCollapsed ? 'justify-center px-0' : ''
                     } ${
@@ -638,7 +725,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                     />
                     {!sidebarCollapsed && (
                       <>
-                        <span className="truncate flex-1 text-left">3. Bienestar</span>
+                        <span className="truncate flex-1 text-left">4. Bienestar</span>
                         <ChevronRight
                           className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
                             isSelected ? 'rotate-90' : ''
@@ -649,81 +736,76 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   </button>
                   {!sidebarCollapsed && isSelected && (
                     <div className="ml-4 pl-2.5 border-l fabro-border/80 py-0.5 space-y-0.5">
-                      {sec.submenus.map((sub) => {
-                        const subActive = submenu === sub.id;
-                        const pinned = isToolPinned('bienestar', sub.id);
-                        return (
-                          <button
-                            key={sub.id}
-                            type="button"
-                            onClick={() => navigateTo('bienestar', sub.id)}
-                            className={`relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center justify-between gap-2 ${
-                              subActive
-                                ? 'fabro-accent-soft font-semibold'
-                                : 'fabro-muted hover:text-[var(--fabro-text)]'
-                            }`}
-                          >
-                            <span className="truncate">{sub.shortLabel}</span>
-                            {pinned && (
-                              <Pin className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
-                            )}
-                          </button>
-                        );
-                      })}
+                      {sec.submenus
+                        .filter((sub) => sub.id !== 'fabro-deportes')
+                        .map((sub) => {
+                          const subActive = submenu === sub.id;
+                          const pinned = isToolPinned('bienestar', sub.id);
+                          return (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              onClick={() => navigateTo('bienestar', sub.id)}
+                              className={`relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center justify-between gap-2 ${
+                                subActive
+                                  ? 'fabro-accent-soft font-semibold'
+                                  : 'fabro-muted hover:text-[var(--fabro-text)]'
+                              }`}
+                            >
+                              <span className="truncate">{sub.shortLabel}</span>
+                              {pinned && (
+                                <Pin className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                              )}
+                            </button>
+                          );
+                        })}
                     </div>
                   )}
                 </div>
               );
             })()}
 
-            {/* Deportes (Acceso directo siempre visible) */}
-            {(() => {
-              const isSportsActive = sector === 'bienestar' && submenu === 'fabro-deportes';
-              return (
-                <button
-                  type="button"
-                  onClick={() => navigateTo('bienestar', 'fabro-deportes')}
-                  onMouseEnter={(e) => showCollapsedTip('Deportes · FABRO DEPORTES', e.currentTarget)}
-                  onMouseLeave={hideCollapsedTip}
-                  aria-label="Deportes"
-                  className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
-                    sidebarCollapsed ? 'justify-center px-0' : ''
-                  } ${
-                    isSportsActive
-                      ? 'font-semibold text-[var(--fabro-text)]'
-                      : 'border-transparent fabro-muted hover:text-[var(--fabro-text)] hover:bg-[var(--fabro-surface-2)]/70'
-                  }`}
-                  style={
-                    isSportsActive
-                      ? {
-                          backgroundColor: 'rgba(2, 132, 199, 0.14)',
-                          borderColor: 'rgba(2, 132, 199, 0.55)',
-                          boxShadow: '0 4px 14px -6px rgba(2, 132, 199, 0.35)',
-                        }
-                      : undefined
-                  }
-                >
-                  {isSportsActive && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full bg-[#0284C7]"
-                    />
-                  )}
-                  <Trophy
-                    className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
-                      isSportsActive
-                        ? 'translate-x-0.5 text-[#0284C7] dark:text-[#38BDF8]'
-                        : 'text-[#0284C7] dark:text-[#38BDF8]'
-                    }`}
-                  />
-                  {!sidebarCollapsed && (
-                    <span className="truncate flex-1 text-left">Deportes</span>
-                  )}
-                </button>
-              );
-            })()}
+            {/* 5. Herramientas (Música: Afinador + Cancioneros, Calculadora, Calendario Visual) */}
+            <button
+              type="button"
+              onClick={() => navigateTo('herramientas', 'centro-herramientas')}
+              onMouseEnter={(e) => showCollapsedTip('5. Herramientas · Música y Utilidades', e.currentTarget)}
+              onMouseLeave={hideCollapsedTip}
+              aria-label="5. Herramientas"
+              className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
+                sidebarCollapsed ? 'justify-center px-0' : ''
+              } ${
+                sector === 'herramientas'
+                  ? 'font-semibold text-[var(--fabro-text)]'
+                  : 'border-transparent fabro-muted hover:text-[var(--fabro-text)] hover:bg-[var(--fabro-surface-2)]/70'
+              }`}
+              style={
+                sector === 'herramientas'
+                  ? {
+                      backgroundColor: 'rgba(14, 165, 233, 0.14)',
+                      borderColor: 'rgba(14, 165, 233, 0.55)',
+                      boxShadow: '0 4px 14px -6px rgba(14, 165, 233, 0.35)',
+                    }
+                  : undefined
+              }
+            >
+              {sector === 'herramientas' && (
+                <span
+                  aria-hidden="true"
+                  className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full bg-[#0EA5E9]"
+                />
+              )}
+              <Calculator
+                className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                  sector === 'herramientas' ? 'translate-x-0.5 text-[#0EA5E9]' : ''
+                }`}
+              />
+              {!sidebarCollapsed && (
+                <span className="truncate flex-1 text-left">5. Herramientas</span>
+              )}
+            </button>
 
-            {/* 4. Configuración (incluye IA BYOK e Ideas propuestas para nuevos sectores) */}
+            {/* 6. Configuración (TEMAS FABRO, IA BYOK, Seguridad, Notificaciones) */}
             {(() => {
               const sec = SECTORS_CATALOG.find((s) => s.id === 'configuracion')!;
               const isSelected = sector === 'configuracion' || sector === 'ia';
@@ -732,9 +814,9 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   <button
                     type="button"
                     onClick={() => navigateTo('configuracion', sec.defaultSubmenu)}
-                    onMouseEnter={(e) => showCollapsedTip('4. Configuración', e.currentTarget)}
+                    onMouseEnter={(e) => showCollapsedTip('6. Configuración · TEMAS FABRO', e.currentTarget)}
                     onMouseLeave={hideCollapsedTip}
-                    aria-label="4. Configuración"
+                    aria-label="6. Configuración"
                     className={`group relative w-full min-h-[38px] flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 ${
                       sidebarCollapsed ? 'justify-center px-0' : ''
                     } ${
@@ -766,7 +848,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                     />
                     {!sidebarCollapsed && (
                       <>
-                        <span className="truncate flex-1 text-left">4. Configuración</span>
+                        <span className="truncate flex-1 text-left">6. Configuración</span>
                         <ChevronRight
                           className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
                             isSelected ? 'rotate-90' : ''
@@ -776,7 +858,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                     )}
                   </button>
 
-                  {!sidebarCollapsed && (
+                  {!sidebarCollapsed && isSelected && (
                     <div className="ml-4 pl-2.5 border-l fabro-border/80 py-0.5 space-y-0.5">
                       <button
                         type="button"
@@ -800,24 +882,23 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                         <span className="truncate">Ideas nuevos sectores</span>
                       </button>
 
-                      {sector === 'configuracion' &&
-                        sec.submenus.map((sub) => {
-                          const subActive = submenu === sub.id;
-                          return (
-                            <button
-                              key={sub.id}
-                              type="button"
-                              onClick={() => navigateTo('configuracion', sub.id)}
-                              className={`relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center justify-between gap-2 ${
-                                subActive
-                                  ? 'fabro-accent-soft font-semibold'
-                                  : 'fabro-muted hover:text-[var(--fabro-text)]'
-                              }`}
-                            >
-                              <span className="truncate">{sub.shortLabel}</span>
-                            </button>
-                          );
-                        })}
+                      {sec.submenus.map((sub) => {
+                        const subActive = sector === 'configuracion' && submenu === sub.id;
+                        return (
+                          <button
+                            key={sub.id}
+                            type="button"
+                            onClick={() => navigateTo('configuracion', sub.id)}
+                            className={`relative w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 cursor-pointer flex items-center justify-between gap-2 ${
+                              subActive
+                                ? 'fabro-accent-soft font-semibold'
+                                : 'fabro-muted hover:text-[var(--fabro-text)]'
+                            }`}
+                          >
+                            <span className="truncate">{sub.shortLabel}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -825,39 +906,13 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
             })()}
           </div>
 
-          {/* Utilidades rápidas */}
+          {/* Accesos rápidos */}
           <div className="space-y-1 pt-2.5 border-t fabro-border/75">
             {!sidebarCollapsed && (
               <p className="px-2.5 pb-0.5 text-[10px] font-bold tracking-wider uppercase fabro-muted/90">
-                Utilidades
+                Accesos rápidos
               </p>
             )}
-            <button
-              type="button"
-              onClick={() => {
-                setOrganizerActiveTab('inbox');
-                navigateTo('bienestar', 'organizador-integral');
-              }}
-              onMouseEnter={(e) => showCollapsedTip('Organizador', e.currentTarget)}
-              onMouseLeave={hideCollapsedTip}
-              aria-label="Organizador"
-              className={navItemClass(
-                sector === 'bienestar' && submenu === 'organizador-integral'
-              )}
-            >
-              <Inbox className="w-4 h-4 shrink-0" />
-              {!sidebarCollapsed && (
-                <>
-                  <span className="truncate flex-1 text-left">Organizador</span>
-                  {inboxItems.length > 0 && (
-                    <span className="text-[10px] font-mono tabular-nums text-[#0EA5E9] font-bold">
-                      {inboxItems.length}
-                    </span>
-                  )}
-                </>
-              )}
-            </button>
-
             <button
               type="button"
               onClick={() => openRadioModal()}
@@ -882,18 +937,6 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
             >
               <SunMoon className="w-4 h-4 shrink-0" />
               {!sidebarCollapsed && <span className="truncate">Hoy y Cosmos</span>}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigateTo('herramientas', 'centro-herramientas')}
-              onMouseEnter={(e) => showCollapsedTip('Herramientas', e.currentTarget)}
-              onMouseLeave={hideCollapsedTip}
-              aria-label="Herramientas"
-              className={navItemClass(sector === 'herramientas')}
-            >
-              <Calculator className="w-4 h-4 shrink-0" />
-              {!sidebarCollapsed && <span className="truncate">Herramientas</span>}
             </button>
 
             <button
@@ -990,7 +1033,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               </div>
             )}
           </button>
-          {authUser ? (
+          {authUser && (
             <button
               type="button"
               onClick={() => void signOutAccount()}
@@ -1004,16 +1047,6 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               <LogOut className="w-3.5 h-3.5 shrink-0" />
               {!sidebarCollapsed && <span>Cerrar sesión</span>}
             </button>
-          ) : (
-            !sidebarCollapsed && (
-              <button
-                type="button"
-                onClick={() => openAuthModal('sincronizar tus datos en la nube', 'register')}
-                className="w-full min-h-[38px] rounded-xl border border-[#7C3AED]/50 bg-[#7C3AED]/12 text-[#6D28D9] dark:text-[#C4B5FD] px-2.5 py-1.5 text-xs font-semibold cursor-pointer active:scale-95 transition-all duration-200"
-              >
-                Iniciar sesión
-              </button>
-            )
           )}
         </div>
       </aside>
@@ -1203,13 +1236,20 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   aria-label="Selector de temas"
                   className="fixed sm:absolute right-2.5 sm:right-0 top-[104px] sm:top-auto sm:mt-2 w-80 max-w-[calc(100vw-1.25rem)] max-h-[70dvh] overflow-y-auto rounded-xl border fabro-border fabro-surface p-3.5 shadow-lg z-50 space-y-2"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold fabro-accent-text">
-                      Plantillas de color ({FABRO_THEMES.length})
+                  <div className="flex items-center justify-between gap-2 pb-1 border-b fabro-border">
+                    <p className="text-xs font-extrabold fabro-accent-text tracking-tight">
+                      TEMAS FABRO ({FABRO_THEMES.length})
                     </p>
-                    <span className="text-[11px] fabro-muted">
-                      {FABRO_THEMES.find((t) => t.id === theme)?.isDark ? 'Oscuro' : 'Claro'}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setThemeMenuOpen(false);
+                        navigateTo('configuracion', 'config-general');
+                      }}
+                      className="text-[11px] font-bold fabro-accent-text hover:underline cursor-pointer"
+                    >
+                      Brillo y galería →
+                    </button>
                   </div>
                   {FABRO_THEMES.map((item) => {
                     const active = theme === item.id;
@@ -1230,9 +1270,9 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-semibold">{item.name}</span>
                           <span className="flex items-center gap-1">
-                            {item.swatches.map((hex) => (
+                            {item.swatches.map((hex, i) => (
                               <span
-                                key={hex}
+                                key={`${item.id}-${i}`}
                                 className="w-3 h-3 rounded-sm border fabro-border"
                                 style={{ backgroundColor: hex }}
                               />
@@ -1661,7 +1701,32 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   <ChevronRight className="w-4 h-4 shrink-0" />
                 </button>
 
-                {/* 3. Bienestar */}
+                {/* 3. Deportes (Sector principal dedicado) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigateTo('deportes', 'deportes-panel');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer ${
+                    sector === 'deportes'
+                      ? 'border-[#059669] bg-[#059669]/12 text-[#059669] dark:text-[#34D399]'
+                      : 'fabro-border fabro-surface-elevated'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #059669, #0EA5E9)' }}
+                    >
+                      <Trophy className="w-3.5 h-3.5" />
+                    </span>
+                    <span>3. Deportes</span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 shrink-0" />
+                </button>
+
+                {/* 4. Bienestar */}
                 {(() => {
                   const sec = SECTORS_CATALOG.find((s) => s.id === 'bienestar')!;
                   const expanded = mobileExpandedSector === 'bienestar';
@@ -1679,7 +1744,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                           >
                             <HeartPulse className="w-3.5 h-3.5" />
                           </span>
-                          <span className="truncate">3. Bienestar</span>
+                          <span className="truncate">4. Bienestar</span>
                         </span>
                         <ChevronRight
                           className={`w-4 h-4 shrink-0 transition-transform ${
@@ -1689,58 +1754,60 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                       </button>
                       {expanded && (
                         <div className="px-3 pb-2.5 pt-1 border-t fabro-border space-y-1">
-                          {sec.submenus.map((sub) => {
-                            const active = sector === 'bienestar' && submenu === sub.id;
-                            return (
-                              <button
-                                key={sub.id}
-                                type="button"
-                                onClick={() => {
-                                  navigateTo('bienestar', sub.id);
-                                  setMobileMenuOpen(false);
-                                }}
-                                className={`w-full min-h-[40px] rounded-lg px-2.5 py-1.5 text-left text-xs flex items-center justify-between gap-2 cursor-pointer ${
-                                  active
-                                    ? 'fabro-accent-soft font-semibold'
-                                    : 'fabro-muted hover:opacity-100'
-                                }`}
-                              >
-                                <span className="truncate">{sub.shortLabel}</span>
-                              </button>
-                            );
-                          })}
+                          {sec.submenus
+                            .filter((sub) => sub.id !== 'fabro-deportes')
+                            .map((sub) => {
+                              const active = sector === 'bienestar' && submenu === sub.id;
+                              return (
+                                <button
+                                  key={sub.id}
+                                  type="button"
+                                  onClick={() => {
+                                    navigateTo('bienestar', sub.id);
+                                    setMobileMenuOpen(false);
+                                  }}
+                                  className={`w-full min-h-[40px] rounded-lg px-2.5 py-1.5 text-left text-xs flex items-center justify-between gap-2 cursor-pointer ${
+                                    active
+                                      ? 'fabro-accent-soft font-semibold'
+                                      : 'fabro-muted hover:opacity-100'
+                                  }`}
+                                >
+                                  <span className="truncate">{sub.shortLabel}</span>
+                                </button>
+                              );
+                            })}
                         </div>
                       )}
                     </div>
                   );
                 })()}
 
-                {/* Deportes (Visible directamente en el menú móvil) */}
+                {/* 5. Herramientas (Música: Afinador, Cancioneros, Calculadora, Calendario) */}
                 <button
                   type="button"
                   onClick={() => {
-                    navigateTo('bienestar', 'fabro-deportes');
+                    navigateTo('herramientas', 'centro-herramientas');
                     setMobileMenuOpen(false);
                   }}
                   className={`w-full min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer ${
-                    sector === 'bienestar' && submenu === 'fabro-deportes'
-                      ? 'border-[#0284C7] bg-[#0284C7]/12 text-[#0284C7] dark:text-[#38BDF8]'
+                    sector === 'herramientas'
+                      ? 'border-[#0EA5E9] bg-[#0EA5E9]/12 text-[#0284C7] dark:text-[#38BDF8]'
                       : 'fabro-border fabro-surface-elevated'
                   }`}
                 >
                   <span className="flex items-center gap-2.5">
                     <span
                       className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #0284C7, #0EA5E9)' }}
+                      style={{ background: 'linear-gradient(135deg, #0EA5E9, #6366F1)' }}
                     >
-                      <Trophy className="w-3.5 h-3.5" />
+                      <Calculator className="w-3.5 h-3.5" />
                     </span>
-                    <span>Deportes (Partidos y Noticias)</span>
+                    <span>5. Herramientas y Música</span>
                   </span>
                   <ChevronRight className="w-4 h-4 shrink-0" />
                 </button>
 
-                {/* 4. Configuración (IA BYOK + Ideas y propuestas para nuevos sectores) */}
+                {/* 6. Configuración (TEMAS FABRO + IA BYOK + Seguridad) */}
                 {(() => {
                   const sec = SECTORS_CATALOG.find((s) => s.id === 'configuracion')!;
                   const expanded = mobileExpandedSector === 'configuracion' || sector === 'configuracion' || sector === 'ia';
@@ -1758,7 +1825,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                           >
                             <Settings className="w-3.5 h-3.5" />
                           </span>
-                          <span className="truncate">4. Configuración</span>
+                          <span className="truncate">6. Configuración</span>
                         </span>
                         <ChevronRight
                           className={`w-4 h-4 shrink-0 transition-transform ${
@@ -1793,7 +1860,7 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                             className="w-full min-h-[40px] rounded-lg px-2.5 py-1.5 text-left text-xs flex items-center gap-2 fabro-muted hover:opacity-100 cursor-pointer"
                           >
                             <Lightbulb className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                            <span className="truncate">Ideas y propuestas para nuevos sectores</span>
+                            <span className="truncate">Ideas nuevos sectores</span>
                           </button>
 
                           {sec.submenus.map((sub) => {
@@ -1823,10 +1890,10 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                 })()}
               </div>
 
-              {/* Utilidades rápidas */}
+              {/* Accesos rápidos */}
               <div className="space-y-1.5">
                 <p className="text-[11px] font-bold tracking-wider uppercase fabro-muted">
-                  Utilidades
+                  Accesos rápidos
                 </p>
                 <button
                   type="button"
@@ -1855,18 +1922,6 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   <button
                     type="button"
                     onClick={() => {
-                      setOrganizerActiveTab('inbox');
-                      navigateTo('bienestar', 'organizador-integral');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="min-h-[42px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer"
-                  >
-                    <Inbox className="w-4 h-4 shrink-0" />
-                    <span className="truncate">Organizador</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
                       navigateTo('hoy', 'hoy-cosmos');
                       setMobileMenuOpen(false);
                     }}
@@ -1874,17 +1929,6 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                   >
                     <SunMoon className="w-4 h-4 shrink-0" />
                     <span className="truncate">Hoy y Cosmos</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigateTo('herramientas', 'centro-herramientas');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="min-h-[42px] rounded-xl border fabro-border fabro-surface-elevated px-3 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer"
-                  >
-                    <Calculator className="w-4 h-4 shrink-0" />
-                    <span className="truncate">Herramientas</span>
                   </button>
                   <button
                     type="button"
@@ -2029,20 +2073,22 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
               onClick: () => navigateTo('cultura', 'cultura-inicio'),
             },
             {
-              id: 'bienestar',
-              label: 'Bienestar',
-              icon: HeartPulse,
-              active: sector === 'bienestar',
-              color: SECTOR_PALETTES.bienestar.primary,
-              soft: SECTOR_PALETTES.bienestar.softBgCss,
-              onClick: () => navigateTo('bienestar', 'mi-vida'),
+              id: 'deportes',
+              label: 'Deportes',
+              icon: Trophy,
+              active: sector === 'deportes',
+              color: '#059669',
+              soft: 'rgba(5, 150, 105, 0.14)',
+              onClick: () => navigateTo('deportes', 'deportes-panel'),
             },
             {
               id: 'menu',
-              label: 'Menú',
+              label: 'Más',
               icon: Menu,
               active:
                 mobileMenuOpen ||
+                sector === 'bienestar' ||
+                sector === 'herramientas' ||
                 sector === 'configuracion' ||
                 sector === 'ia' ||
                 sector === 'admin',

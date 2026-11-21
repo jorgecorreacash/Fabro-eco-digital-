@@ -1,11 +1,10 @@
-import { initializeApp } from 'firebase/app';
+import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import {
   browserLocalPersistence,
-  browserSessionPersistence,
   getAuth,
   GoogleAuthProvider,
-  onAuthStateChanged,
   setPersistence,
+  type Auth,
 } from 'firebase/auth';
 import {
   doc,
@@ -16,10 +15,15 @@ import {
   persistentMultipleTabManager,
   type Firestore,
 } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import firebaseConfig, { firestoreDatabaseId } from '../firebaseConfig.js';
 
-const app = initializeApp(firebaseConfig);
+/**
+ * Single-instance Firebase App initialization.
+ * Prevents duplicate Firebase apps across HMR, module reloads, or dynamic imports.
+ */
+export const app: FirebaseApp =
+  getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 let dbInstance: Firestore;
 try {
@@ -39,16 +43,30 @@ try {
         }),
       });
 } catch {
-  dbInstance = firestoreDatabaseId ? getFirestore(app, firestoreDatabaseId) : getFirestore(app);
+  dbInstance = firestoreDatabaseId
+    ? getFirestore(app, firestoreDatabaseId)
+    : getFirestore(app);
 }
 
-export const db = dbInstance;
-export const auth = getAuth(app);
+export const db: Firestore = dbInstance;
+export const auth: Auth = getAuth(app);
+export const storage: FirebaseStorage = getStorage(app);
 
-export const AUTH_WEB_SESSION_KEY = 'fabro_active_web_session_v1';
-const GOOGLE_REDIRECT_PENDING_KEY = 'fabro_google_redirect_pending_v1';
-const GOOGLE_REDIRECT_TTL_MS = 2 * 60 * 1000;
-let inMemoryWebSessionActive = false;
+// Official GoogleAuthProvider configured with account picker (no invented redirect URIs)
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+// Dedicated Google Drive scope provider for optional user backup
+export const driveGoogleProvider = new GoogleAuthProvider();
+driveGoogleProvider.addScope('https://www.googleapis.com/auth/drive.file');
+driveGoogleProvider.setCustomParameters({ prompt: 'consent' });
+
+export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
+export const FIREBASE_AUTH_DOMAIN = firebaseConfig.authDomain;
+
+// Lightweight UX-only redirect hint (never stores credentials, tokens, or logout triggers)
+const GOOGLE_REDIRECT_PENDING_KEY = 'fabro_google_redirect_hint_v2';
+const GOOGLE_REDIRECT_TTL_MS = 3 * 60 * 1000;
 
 export function isEmbeddedIframe(): boolean {
   if (typeof window === 'undefined') return false;
@@ -57,6 +75,24 @@ export function isEmbeddedIframe(): boolean {
   } catch {
     return true;
   }
+}
+
+export function isInstalledDeviceApp(): boolean {
+  if (typeof window === 'undefined') return false;
+  const standaloneDisplay =
+    typeof window.matchMedia === 'function' &&
+    (window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches ||
+      window.matchMedia('(display-mode: minimal-ui)').matches);
+  const iosStandalone = Boolean(
+    (window.navigator as Navigator & { standalone?: boolean }).standalone
+  );
+  const androidTwa =
+    typeof document !== 'undefined' && document.referrer.startsWith('android-app://');
+  const desktopWrapper =
+    '__TAURI__' in window ||
+    (typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent));
+  return standaloneDisplay || iosStandalone || androidTwa || desktopWrapper;
 }
 
 export function markPendingGoogleRedirect(): void {
@@ -93,103 +129,23 @@ export function hasPendingGoogleRedirect(): boolean {
   }
 }
 
-export function markWebSessionActive(): void {
-  inMemoryWebSessionActive = true;
-  if (typeof window === 'undefined') return;
-  try {
-    window.sessionStorage.setItem(AUTH_WEB_SESSION_KEY, '1');
-  } catch {
-    // ignore partitioned/restricted storage in iframes
-  }
-}
-
-export function clearWebSessionActive(): void {
-  inMemoryWebSessionActive = false;
-  if (typeof window === 'undefined') return;
-  try {
-    window.sessionStorage.removeItem(AUTH_WEB_SESSION_KEY);
-  } catch {
-    // ignore storage restriction
-  }
-}
-
-export function hasWebSessionActive(): boolean {
-  if (inMemoryWebSessionActive) return true;
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.sessionStorage.getItem(AUTH_WEB_SESSION_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
 /**
- * Returns true ONLY when FABRO is running as an installed app on the user's device
- * (installed PWA standalone/fullscreen/minimal-ui, iOS Home Screen, Android TWA, or desktop wrapper).
- * Regular browser tabs return false so sessions never stay open after closing the browser.
+ * Official Firebase session persistence (browserLocalPersistence).
+ * Awaited once before auth actions so sessions survive page reloads,
+ * browser restarts, and cross-origin Google OAuth redirects reliably.
  */
-export function isInstalledDeviceApp(): boolean {
-  if (typeof window === 'undefined') return false;
-  const standaloneDisplay =
-    typeof window.matchMedia === 'function' &&
-    (window.matchMedia('(display-mode: standalone)').matches ||
-      window.matchMedia('(display-mode: fullscreen)').matches ||
-      window.matchMedia('(display-mode: minimal-ui)').matches);
-  const iosStandalone = Boolean(
-    (window.navigator as Navigator & { standalone?: boolean }).standalone
-  );
-  const androidTwa =
-    typeof document !== 'undefined' && document.referrer.startsWith('android-app://');
-  const desktopWrapper =
-    '__TAURI__' in window ||
-    (typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent));
-  return standaloneDisplay || iosStandalone || androidTwa || desktopWrapper;
+let persistenceInitPromise: Promise<boolean> | null = null;
+
+export function ensureAuthPersistence(): Promise<boolean> {
+  if (persistenceInitPromise) return persistenceInitPromise;
+  persistenceInitPromise = setPersistence(auth, browserLocalPersistence)
+    .then(() => true)
+    .catch((err) => {
+      console.warn('[FABRO Auth] No se pudo configurar browserLocalPersistence:', err);
+      return false;
+    });
+  return persistenceInitPromise;
 }
-
-/**
- * Returns true on mobile browsers (Android / iOS), installed PWAs, or APK / WebView wrappers
- * where signInWithRedirect avoids OS-level popup closure errors.
- */
-export function shouldUseGoogleRedirect(): boolean {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
-  if (isInstalledDeviceApp()) return true;
-  const ua = navigator.userAgent || '';
-  const isMobileUa =
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|wv\)/i.test(ua);
-  const isIpadDesktopMode =
-    navigator.platform === 'MacIntel' &&
-    typeof navigator.maxTouchPoints === 'number' &&
-    navigator.maxTouchPoints > 1;
-  const isApkOrHybridWrapper =
-    'Capacitor' in window ||
-    'cordova' in window ||
-    'ReactNativeWebView' in window ||
-    (typeof document !== 'undefined' && document.referrer.startsWith('android-app://'));
-  return isMobileUa || isIpadDesktopMode || isApkOrHybridWrapper;
-}
-
-let persistencePromise: Promise<'local' | 'session'> | null = null;
-
-export function enforceDeviceSessionPersistence(): Promise<'local' | 'session'> {
-  if (persistencePromise) return persistencePromise;
-  const installed = isInstalledDeviceApp();
-  persistencePromise = setPersistence(
-    auth,
-    installed ? browserLocalPersistence : browserSessionPersistence
-  )
-    .then(() => (installed ? ('local' as const) : ('session' as const)))
-    .catch(() => (installed ? ('local' as const) : ('session' as const)));
-  return persistencePromise;
-}
-
-void enforceDeviceSessionPersistence();
-
-export const storage = getStorage(app);
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
-export const driveGoogleProvider = new GoogleAuthProvider();
-driveGoogleProvider.addScope('https://www.googleapis.com/auth/drive.file');
-driveGoogleProvider.setCustomParameters({ prompt: 'consent' });
 
 export enum OperationType {
   CREATE = 'create',
@@ -245,7 +201,7 @@ export function handleFirestoreError(
 
 let connectionTested = false;
 
-async function testConnection() {
+export async function testFirestoreConnectionOnce(): Promise<void> {
   if (connectionTested) return;
   connectionTested = true;
   try {
@@ -256,9 +212,3 @@ async function testConnection() {
     }
   }
 }
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    void testConnection();
-  }
-});

@@ -1,345 +1,259 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  BarChart3,
+  BookOpen,
   Calendar,
-  CalendarDays,
-  CheckSquare,
+  ClipboardCheck,
   FileText,
-  Film,
+  FolderOpen,
   GraduationCap,
-  MessageSquareText,
-  Microscope,
-  Radio,
-  Square,
-  Trash2,
+  Home,
+  Menu,
+  Sparkles,
+  Wrench,
+  X,
 } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
-import { useRadio } from '../../context/RadioContext';
-import type { StudySubmenuId } from '../../types/ecosystem';
-import { SectorLayout } from './SectorLayout';
-import { AdvancedNotebooksStudio } from './study/AdvancedNotebooksStudio';
-import { ConceptMapTool } from './study/ConceptMapTool';
-import { FlashcardsSrsTool } from './study/FlashcardsSrsTool';
-import { GradeCalculatorTool } from './study/GradeCalculatorTool';
-import { PaintableCalendarPanel } from './study/PaintableCalendarPanel';
-import { PomodoroTool } from './study/PomodoroTool';
-import { QuizSimulatorTool } from './study/QuizSimulatorTool';
-import { StudyVideoLibraryPanel } from './study/StudyVideoLibraryPanel';
-import { StudyWallCommunitiesPanel } from './study/StudyWallCommunitiesPanel';
-import { VoiceNotesTool } from './study/VoiceNotesTool';
-import { WordStudyWorkspace } from './study/WordStudyWorkspace';
+import { useStudy2 } from '../../context/Study2Context';
+import type { Study2NavId } from '../../types/study2';
+import { Study2AiStudio } from './study2/Study2AiStudio';
+import { Study2EvaluationsView } from './study2/Study2EvaluationsView';
+import { Study2HomeView } from './study2/Study2HomeView';
+import { Study2LibraryView } from './study2/Study2LibraryView';
+import { Study2NotesView } from './study2/Study2NotesView';
+import { Study2ProgressView } from './study2/Study2ProgressView';
+import { Study2SubjectsView } from './study2/Study2SubjectsView';
+import { Study2ToolsView } from './study2/Study2ToolsView';
+import { UnifiedShiftCalendar } from './study2/UnifiedShiftCalendar';
+
+interface StudySidebarEntry {
+  id: Study2NavId;
+  number: number;
+  label: string;
+  Icon: React.FC<{ className?: string }>;
+}
+
+const STUDY2_SIDEBAR_ITEMS: StudySidebarEntry[] = [
+  { id: 'inicio', number: 1, label: 'Inicio', Icon: Home },
+  { id: 'mis-estudios', number: 2, label: 'Mis estudios', Icon: BookOpen },
+  { id: 'fabro-ia', number: 3, label: 'FABRO IA', Icon: Sparkles },
+  { id: 'mis-apuntes', number: 4, label: 'Mis apuntes', Icon: FileText },
+  { id: 'biblioteca', number: 5, label: 'Biblioteca', Icon: FolderOpen },
+  { id: 'calendario', number: 6, label: 'Calendario', Icon: Calendar },
+  { id: 'evaluaciones', number: 7, label: 'Evaluaciones', Icon: ClipboardCheck },
+  { id: 'mi-progreso', number: 8, label: 'Mi progreso', Icon: BarChart3 },
+  { id: 'herramientas', number: 9, label: 'Herramientas educativas', Icon: Wrench },
+];
+
+function mapLegacySubmenuToStudy2Nav(submenu: string): Study2NavId | null {
+  switch (submenu) {
+    case 'calendario-pintable':
+      return 'calendario';
+    case 'materias-apuntes':
+      return 'mis-apuntes';
+    case 'biblioteca-glosario':
+      return 'biblioteca';
+    case 'examenes-calendario':
+      return 'evaluaciones';
+    case 'mapas-flashcards':
+      return 'herramientas';
+    case 'investigacion-fuentes':
+      return 'fabro-ia';
+    default:
+      return null;
+  }
+}
 
 export const Sector1Study: React.FC = () => {
-  const {
-    submenu,
-    navigateTo,
-    glossaryTerms,
-    agendaTasks,
-    toggleAgendaTask,
-    pomodoroLogs,
-    studyVideos,
-    paintedCalendarEvents,
-    wallPosts,
-    studyCommunities,
-    examplesCleared,
-    clearSeedExamples,
-  } = useEcosystem();
+  const { submenu } = useEcosystem();
+  const { activeNav, setActiveNav, setSelectedSubjectId, snapshot, cloudSyncNote } =
+    useStudy2();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const activeSub: StudySubmenuId =
-    submenu === 'academico-panel' ||
-    submenu === 'videoteca-estudio' ||
-    submenu === 'calendario-pintable' ||
-    submenu === 'muro-estudio' ||
-    submenu === 'materias-apuntes' ||
-    submenu === 'biblioteca-glosario' ||
-    submenu === 'mapas-flashcards' ||
-    submenu === 'examenes-calendario' ||
-    submenu === 'investigacion-fuentes'
-      ? submenu
-      : 'academico-panel';
+  // Sync deep links from other parts of FABRO into Study 2.0 sections
+  useEffect(() => {
+    const mapped = mapLegacySubmenuToStudy2Nav(submenu);
+    if (mapped) {
+      setActiveNav(mapped);
+    }
+  }, [setActiveNav, submenu]);
 
-  const [showPomodoroPanel, setShowPomodoroPanel] = useState(false);
-  const { openRadioModal } = useRadio();
+  const activeItem =
+    STUDY2_SIDEBAR_ITEMS.find((i) => i.id === activeNav) || STUDY2_SIDEBAR_ITEMS[0];
 
-  const studyWallCount = wallPosts.filter(
-    (p) => p.origin === 'estudio' || p.origin === 'comunidad'
-  ).length;
+  const selectNav = (id: Study2NavId) => {
+    if (id !== 'mis-estudios') {
+      setSelectedSubjectId(null);
+    }
+    setActiveNav(id);
+    setMobileSidebarOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-  const primaryStudyTabs: Array<{
-    id: StudySubmenuId;
-    label: string;
-    shortLabel: string;
-    count?: number;
-    icon: React.ComponentType<{ className?: string }>;
-  }> = [
-    {
-      id: 'academico-panel',
-      label: 'Hoja de Estudio (Word)',
-      shortLabel: 'Hoja Word',
-      icon: FileText,
-    },
-    {
-      id: 'videoteca-estudio',
-      label: 'Videoteca Educativa',
-      shortLabel: 'Videoteca',
-      count: studyVideos.length,
-      icon: Film,
-    },
-    {
-      id: 'calendario-pintable',
-      label: 'Calendario y Agenda',
-      shortLabel: 'Calendario',
-      count: paintedCalendarEvents.length,
-      icon: CalendarDays,
-    },
-    {
-      id: 'muro-estudio',
-      label: 'Muro de Estudio',
-      shortLabel: 'Muro Estudio',
-      count: studyWallCount + studyCommunities.length,
-      icon: MessageSquareText,
-    },
-  ];
+  const getBadgeCount = (id: Study2NavId): number | null => {
+    if (id === 'mis-estudios') {
+      const n = snapshot.subjects.filter((s) => !s.archived).length;
+      return n > 0 ? n : null;
+    }
+    if (id === 'biblioteca') {
+      return snapshot.libraryFiles.length > 0 ? snapshot.libraryFiles.length : null;
+    }
+    if (id === 'evaluaciones') {
+      return snapshot.evaluations.length > 0 ? snapshot.evaluations.length : null;
+    }
+    return null;
+  };
 
-  return (
-    <SectorLayout
-      sectorId="estudio"
-      activeSubmenu={activeSub}
-      badgeText="Hoja Word · Videoteca · Calendario Pintable · Muro Académico"
-    >
-      {/* Compact Primary Study Tabs */}
+  const renderSidebarContent = () => (
+    <div className="flex flex-col h-full">
+      <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-2 text-xs font-bold tracking-wide uppercase text-blue-700 dark:text-blue-400">
+            <GraduationCap className="w-4 h-4 shrink-0" />
+            FABRO Estudio
+          </span>
+          <span className="text-[11px] font-mono tabular-nums text-slate-400">
+            9 secciones
+          </span>
+        </div>
+        {cloudSyncNote && (
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+            {cloudSyncNote}
+          </p>
+        )}
+      </div>
+
       <nav
-        aria-label="Pestañas principales de Estudio"
-        className="grid grid-cols-2 lg:grid-cols-4 gap-2"
+        aria-label="Menú lateral de FABRO Estudio"
+        className="flex-1 overflow-y-auto p-2.5 space-y-1"
       >
-        {primaryStudyTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeSub === tab.id;
+        {STUDY2_SIDEBAR_ITEMS.map((item) => {
+          const Icon = item.Icon;
+          const active = activeNav === item.id;
+          const count = getBadgeCount(item.id);
+
           return (
             <button
-              key={tab.id}
+              key={item.id}
               type="button"
-              onClick={() => navigateTo('estudio', tab.id)}
-              className={`min-h-[44px] rounded-xl border-2 px-3 py-2 text-xs font-bold flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] ${
-                isActive
-                  ? 'border-[#2563EB] bg-[#2563EB] text-white shadow-[0_8px_18px_-10px_rgba(37,99,235,0.8)]'
-                  : 'fabro-border fabro-surface hover:border-[#2563EB]'
+              onClick={() => selectNav(item.id)}
+              aria-current={active ? 'page' : undefined}
+              className={`w-full min-h-[42px] rounded-xl px-3 py-2 text-left text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                active
+                  ? 'bg-blue-600 text-white font-bold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <span className="inline-flex items-center gap-2 min-w-0">
-                <Icon
-                  className={`w-4 h-4 shrink-0 ${
-                    isActive ? 'text-white' : 'text-[#2563EB] dark:text-[#60A5FA]'
-                  }`}
-                />
-                <span className="truncate hidden sm:inline">{tab.label}</span>
-                <span className="truncate sm:hidden">{tab.shortLabel}</span>
+              <span className="flex items-center gap-2.5 min-w-0">
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="truncate">{item.label}</span>
               </span>
-              {typeof tab.count === 'number' && (
+              {count !== null && (
                 <span
-                  className={`rounded-md border px-1.5 py-0.5 text-[10px] font-mono tabular-nums shrink-0 ${
-                    isActive
-                      ? 'border-white/30 bg-white/15 text-white'
-                      : 'fabro-border fabro-surface-elevated fabro-muted'
+                  className={`font-mono text-[10px] tabular-nums shrink-0 ${
+                    active ? 'text-white/85' : 'text-slate-400'
                   }`}
                 >
-                  {tab.count}
+                  {count}
                 </span>
               )}
             </button>
           );
         })}
       </nav>
+    </div>
+  );
 
-      {activeSub === 'videoteca-estudio' && <StudyVideoLibraryPanel />}
+  const renderActiveSection = () => {
+    switch (activeNav) {
+      case 'inicio':
+        return <Study2HomeView />;
+      case 'mis-estudios':
+        return <Study2SubjectsView />;
+      case 'fabro-ia':
+        return <Study2AiStudio />;
+      case 'mis-apuntes':
+        return <Study2NotesView />;
+      case 'biblioteca':
+        return <Study2LibraryView />;
+      case 'calendario':
+        return (
+          <UnifiedShiftCalendar
+            contextLabel="FABRO Estudio · Calendario Visual"
+            initialDomain="todos"
+          />
+        );
+      case 'evaluaciones':
+        return <Study2EvaluationsView />;
+      case 'mi-progreso':
+        return <Study2ProgressView />;
+      case 'herramientas':
+        return <Study2ToolsView />;
+    }
+  };
 
-      {activeSub === 'calendario-pintable' && <PaintableCalendarPanel />}
+  return (
+    <div className="space-y-4">
+      {/* Mobile Header Bar (clean, single drawer trigger + current section) */}
+      <div className="xl:hidden flex items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2.5">
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(true)}
+          className="min-h-[42px] inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-3.5 text-xs font-bold cursor-pointer whitespace-nowrap"
+        >
+          <Menu className="w-4 h-4" />
+          <span>Menú Estudio</span>
+        </button>
 
-      {activeSub === 'muro-estudio' && <StudyWallCommunitiesPanel />}
-
-      {activeSub === 'academico-panel' && (
-        <div className="space-y-4">
-          <WordStudyWorkspace />
-
-          {/* Discreet expandable Pomodoro focus strip without cluttering the document flow */}
-          <div className="max-w-4xl mx-auto w-full">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs fabro-muted px-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPomodoroPanel((v) => !v)}
-                  className="min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface px-3.5 py-1.5 text-xs font-semibold cursor-pointer hover:border-[#2563EB]"
-                >
-                  <GraduationCap className="w-4 h-4 text-[#2563EB] dark:text-[#60A5FA]" />
-                  {showPomodoroPanel
-                    ? 'Ocultar temporizador Pomodoro'
-                    : `Temporizador Pomodoro (${pomodoroLogs.length} sesiones)`}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openRadioModal('FM', 'fm-lofi')}
-                  className="min-h-[38px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface px-3.5 py-1.5 text-xs font-semibold cursor-pointer hover:border-[#0284C7]"
-                >
-                  <Radio className="w-4 h-4 text-[#0284C7] dark:text-[#38BDF8]" />
-                  Radio Digital FABRO (Lo-Fi)
-                </button>
-              </div>
-
-              {!examplesCleared && (
-                <button
-                  type="button"
-                  onClick={() => void clearSeedExamples()}
-                  className="inline-flex items-center gap-1 hover:text-rose-600 cursor-pointer underline"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Borrar plantillas de ejemplo
-                </button>
-              )}
-            </div>
-
-            {showPomodoroPanel && (
-              <div className="mt-3">
-                <PomodoroTool />
-              </div>
-            )}
-          </div>
+        <div className="min-w-0 text-right">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Sección activa
+          </p>
+          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+            {activeItem.label}
+          </p>
         </div>
-      )}
+      </div>
 
-      {activeSub === 'materias-apuntes' && (
-        <div className="space-y-6">
-          <AdvancedNotebooksStudio />
-          <VoiceNotesTool />
-        </div>
-      )}
+      {/* Desktop 2-Column Layout modeled directly on FABRO CULTURA */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+        <aside className="hidden xl:block xl:col-span-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-[72px] max-h-[calc(100dvh-96px)] overflow-hidden">
+          {renderSidebarContent()}
+        </aside>
 
-      {activeSub === 'biblioteca-glosario' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="rounded-2xl border-2 fabro-surface p-6 space-y-3">
-            <h2 className="font-display text-base font-bold">Biblioteca documental offline</h2>
-            <p className="text-xs fabro-muted">
-              Manuales, artículos y bibliografía indexados localmente para lectura sin internet.
-            </p>
-            <div className="divide-y fabro-border text-xs">
-              {[
-                { doc: 'Compendio de Metodología.pdf', meta: 'PDF · 42 páginas · Caché local' },
-                { doc: 'Guía de Citas Académicas.docx', meta: 'Documento · 18 páginas · Listo' },
-                { doc: 'Lecturas de Filosofía Práctica.epub', meta: 'Libro · Disponible offline' },
-              ].map((d) => (
-                <div key={d.doc} className="py-3 flex items-center justify-between gap-2">
-                  <span className="font-bold truncate">{d.doc}</span>
-                  <span className="fabro-muted shrink-0">{d.meta}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="xl:col-span-9 min-w-0">{renderActiveSection()}</div>
+      </div>
 
-          <div className="rounded-2xl border-2 fabro-surface p-6 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-display text-base font-bold">Glosario y diccionario académico</h2>
+      {/* Mobile Slide-Over Sidebar */}
+      {mobileSidebarOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menú lateral de FABRO Estudio"
+          className="xl:hidden fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-xs flex justify-start"
+          onClick={() => setMobileSidebarOpen(false)}
+        >
+          <div
+            className="w-[85vw] max-w-xs h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="h-14 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-sm font-bold text-slate-900 dark:text-white">
+                FABRO Estudio
+              </span>
               <button
                 type="button"
-                onClick={() => navigateTo('estudio', 'materias-apuntes')}
-                className="text-xs font-bold text-[#2563EB] dark:text-[#60A5FA] cursor-pointer"
+                onClick={() => setMobileSidebarOpen(false)}
+                aria-label="Cerrar menú de Estudio"
+                className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center cursor-pointer"
               >
-                Editar en Apuntes →
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="space-y-2.5 text-xs">
-              {glossaryTerms.map((term) => (
-                <div key={term.id} className="rounded-xl border-2 fabro-border fabro-surface-elevated p-3.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-bold">{term.term}</p>
-                    <span className="text-[11px] fabro-muted">{term.subject}</span>
-                  </div>
-                  <p className="fabro-muted mt-1">{term.definition}</p>
-                </div>
-              ))}
-            </div>
+            <div className="flex-1 overflow-hidden">{renderSidebarContent()}</div>
           </div>
         </div>
       )}
-
-      {activeSub === 'mapas-flashcards' && (
-        <div className="space-y-6">
-          <FlashcardsSrsTool />
-          <ConceptMapTool />
-        </div>
-      )}
-
-      {activeSub === 'examenes-calendario' && (
-        <div className="space-y-6">
-          <QuizSimulatorTool />
-
-          <GradeCalculatorTool />
-
-          <div className="rounded-2xl border-2 fabro-surface p-6 space-y-3">
-            <h2 className="font-display text-base font-bold flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-[#06B6D4]" />
-              Calendario académico y bloques Pomodoro
-            </h2>
-            <div className="space-y-2 text-xs">
-              {agendaTasks.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => toggleAgendaTask(t.id)}
-                  className="w-full min-h-[44px] rounded-xl border-2 fabro-border fabro-surface-elevated p-3 flex items-center justify-between gap-2 text-left cursor-pointer active:scale-[0.99]"
-                >
-                  <span className={`flex items-center gap-2 font-semibold ${t.done ? 'line-through opacity-60' : ''}`}>
-                    {t.done ? (
-                      <CheckSquare className="w-4 h-4 text-emerald-600 shrink-0" />
-                    ) : (
-                      <Square className="w-4 h-4 text-[#2563EB] shrink-0" />
-                    )}
-                    {t.task}
-                  </span>
-                  <span className="font-mono text-[11px] fabro-muted tabular-nums shrink-0">
-                    {t.date}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeSub === 'investigacion-fuentes' && (
-        <div className="space-y-4">
-          <div className="rounded-2xl border-2 fabro-surface p-6 space-y-3">
-            <h2 className="font-display text-lg font-bold flex items-center gap-2">
-              <Microscope className="w-5 h-5 text-[#2563EB] dark:text-[#38BDF8]" />
-              B. Investigación, Comparación de Fuentes y Citaciones
-            </h2>
-            <p className="text-xs fabro-muted leading-relaxed">
-              Transparencia académica obligatoria: todo análisis asistido cuando conectes tu propia
-              clave BYOK en el Sector 4 diferencia explícitamente qué es un hecho verificado, qué es
-              interpretación y qué fragmento es texto generado.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div className="rounded-xl border-2 border-emerald-500/40 fabro-surface-elevated p-4 space-y-1">
-                <p className="font-bold text-emerald-700 dark:text-emerald-400">
-                  Hecho verificado
-                </p>
-                <p className="fabro-muted">
-                  Cita textual o dato verificable directamente en el documento o fuente primaria.
-                </p>
-              </div>
-              <div className="rounded-xl border-2 border-amber-500/40 fabro-surface-elevated p-4 space-y-1">
-                <p className="font-bold fabro-gold-text">Interpretación</p>
-                <p className="fabro-muted">
-                  Relación conceptual o contraste metodológico inferido entre dos fuentes.
-                </p>
-              </div>
-              <div className="rounded-xl border-2 border-[#2563EB]/40 fabro-surface-elevated p-4 space-y-1">
-                <p className="font-bold text-[#2563EB] dark:text-[#60A5FA]">Texto generado (BYOK)</p>
-                <p className="fabro-muted">
-                  Síntesis redactada con tu clave API personal, sujeta a revisión humana.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </SectorLayout>
+    </div>
   );
 };

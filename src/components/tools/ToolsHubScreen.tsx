@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   BookOpen,
   Calculator,
+  Calendar,
   Check,
   Clock,
   Copy,
@@ -17,6 +18,7 @@ import {
   KeyRound,
   LayoutGrid,
   MessageSquare,
+  Music,
   Pause,
   Percent,
   Pin,
@@ -46,11 +48,18 @@ import {
 } from '../../services/toolsEngine';
 import { playSoftBell } from '../../services/webAudioPtt';
 import type { CalculatorHistoryEntry, FiveSectorId, SectorId, SubmenuId } from '../../types/ecosystem';
+import {
+  MUSIC_TOOLS_CARDS,
+  MusicHubModule,
+  type MusicToolId,
+} from '../music/MusicHubModule';
+import { UnifiedShiftCalendar } from '../sectors/study2/UnifiedShiftCalendar';
 
 type CalcTab = 'scientifica' | 'porcentajes' | 'historial';
 type DockTab = 'conversor' | 'cronometro' | 'gastos' | 'texto-claves';
 type DirectoryFilter =
   | 'todas'
+  | 'musica'
   | 'instrumentos'
   | 'estudio'
   | 'bienestar'
@@ -105,9 +114,16 @@ export const ToolsHubScreen: React.FC = () => {
 
   const workbenchRef = useRef<HTMLElement | null>(null);
 
-  // Global unified directory filter
+  // Global unified directory filter & top-level view (Herramientas | Música | Calendario Unificado)
+  const [hubView, setHubView] = useState<'herramientas' | 'musica' | 'calendario'>('herramientas');
+  const [selectedMusicTool, setSelectedMusicTool] = useState<MusicToolId | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [directoryFilter, setDirectoryFilter] = useState<DirectoryFilter>('todas');
+
+  const openMusicTool = (toolId: MusicToolId | null) => {
+    setSelectedMusicTool(toolId);
+    setHubView('musica');
+  };
 
   // Calculator state
   const [calcTab, setCalcTab] = useState<CalcTab>('scientifica');
@@ -334,6 +350,19 @@ export const ToolsHubScreen: React.FC = () => {
   const allUnifiedTools: UnifiedToolCard[] = useMemo(() => {
     const builtinInstruments: UnifiedToolCard[] = [
       {
+        id: 'inst-calendario-unificado',
+        title: 'Calendario Visual Unificado (Turnos y Colores)',
+        subtitle:
+          'Almanaque completo sincronizado con FABRO Estudio: celdas pintadas, categorías y prioridades configurables, recurrencias y recordatorios.',
+        groupText: 'Organización · Calendario Inteligente',
+        category: 'instrumentos',
+        keywords:
+          'calendario almanaque turnos colores eventos examenes trabajo personal recordatorios agenda',
+        gradientCss: 'linear-gradient(135deg, #2563EB, #7C3AED)',
+        icon: Calendar,
+        onOpen: () => setHubView('calendario'),
+      },
+      {
         id: 'inst-calc',
         title: 'Calculadora Científica y Porcentajes',
         subtitle: 'Operaciones, funciones trigonométricas, raíz, potencias, regla de 3 e historial offline.',
@@ -449,7 +478,19 @@ export const ToolsHubScreen: React.FC = () => {
       };
     });
 
-    return [...builtinInstruments, ...sectorTools];
+    const musicCards: UnifiedToolCard[] = MUSIC_TOOLS_CARDS.map((card) => ({
+      id: `musica-${card.id}`,
+      title: card.title,
+      subtitle: card.subtitle,
+      groupText: 'Música · Estudio Instrumental FABRO',
+      category: 'musica',
+      keywords: `musica ${card.title} ${card.subtitle} afinador guitarra bajo cancionero acordes metronomo escalas oido pdf`,
+      gradientCss: card.gradientCss,
+      icon: card.icon,
+      onOpen: () => openMusicTool(card.id),
+    }));
+
+    return [...musicCards, ...builtinInstruments, ...sectorTools];
   }, [navigateTo, setFloatingChatOpen]);
 
   const filteredTools = useMemo(() => {
@@ -530,24 +571,49 @@ export const ToolsHubScreen: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => navigateTo('inicio', 'dashboard')}
-                className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface px-3.5 py-2 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap"
+                onClick={() => {
+                  if (hubView === 'musica') {
+                    setHubView('herramientas');
+                  } else {
+                    openMusicTool(null);
+                  }
+                }}
+                className={`min-h-[42px] inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap ${
+                  hubView === 'musica'
+                    ? 'fabro-accent-border fabro-accent-bg'
+                    : 'fabro-border fabro-surface'
+                }`}
               >
-                <SlidersHorizontal className="w-4 h-4 fabro-accent-text" />
-                Mi Espacio ({pinnedTools.length})
+                <Music className="w-4 h-4" />
+                {hubView === 'musica' ? 'Volver a Herramientas' : 'Música · Afinador y Cancioneros'}
               </button>
               <button
                 type="button"
-                onClick={() => setFloatingChatOpen(true)}
-                className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border fabro-accent-border fabro-accent-bg px-4 py-2 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap"
+                onClick={() =>
+                  setHubView((prev) => (prev === 'calendario' ? 'herramientas' : 'calendario'))
+                }
+                className={`min-h-[42px] inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap ${
+                  hubView === 'calendario'
+                    ? 'fabro-accent-border fabro-accent-bg'
+                    : 'fabro-border fabro-surface'
+                }`}
               >
-                <MessageSquare className="w-4 h-4" />
-                Chat Flotante
+                <Calendar className="w-4 h-4" />
+                {hubView === 'calendario' ? 'Volver a Herramientas' : 'Calendario Unificado'}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigateTo('inicio', 'dashboard')}
+                className="min-h-[42px] inline-flex items-center gap-2 rounded-xl border fabro-border fabro-surface px-3.5 py-2 text-xs font-bold cursor-pointer active:scale-95 whitespace-nowrap"
+              >
+                <SlidersHorizontal className="w-4 h-4 fabro-accent-text" />
+                Mi Espacio ({pinnedTools.length})
               </button>
             </div>
           </div>
 
           {/* Unified Search + Category Switcher */}
+          {hubView === 'herramientas' && (
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-4 border-t fabro-border">
             <div className="relative w-full lg:w-80 shrink-0">
               <Search className="w-4 h-4 fabro-muted absolute left-3 top-1/2 -translate-y-1/2" />
@@ -579,6 +645,7 @@ export const ToolsHubScreen: React.FC = () => {
               {(
                 [
                   { id: 'todas', label: `Todas (${allUnifiedTools.length})` },
+                  { id: 'musica', label: 'Música (6)' },
                   { id: 'instrumentos', label: 'Instrumentos' },
                   { id: 'estudio', label: 'Estudio' },
                   { id: 'bienestar', label: 'Bienestar' },
@@ -606,6 +673,83 @@ export const ToolsHubScreen: React.FC = () => {
               })}
             </div>
           </div>
+          )}
+        </div>
+      </section>
+
+      {hubView === 'musica' ? (
+        <MusicHubModule
+          initialTool={selectedMusicTool}
+          onBackToTools={() => {
+            setSelectedMusicTool(null);
+            setHubView('herramientas');
+          }}
+        />
+      ) : hubView === 'calendario' ? (
+        <section aria-label="Calendario Visual Unificado">
+          <UnifiedShiftCalendar
+            contextLabel="Herramientas Generales · Calendario Visual Unificado"
+            initialDomain="todos"
+          />
+        </section>
+      ) : (
+        <>
+      {/* 1B. Featured MÚSICA Category — 6 Visual Cards (Afinador, Cancioneros, Metrónomo, Acordes, Transpositor, Entrenador) */}
+      <section
+        aria-label="Categoría Música FABRO"
+        className="rounded-2xl border fabro-futuristic-panel p-5 space-y-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0"
+              style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}
+            >
+              <Music className="w-4 h-4" />
+            </span>
+            <div>
+              <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight">
+                MÚSICA · Afinador Digital y FABRO Cancioneros
+              </h2>
+              <p className="text-xs fabro-muted">
+                6 herramientas musicales completas con micrófono real, acordes SVG, audio y PDF.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => openMusicTool(null)}
+            className="text-xs font-bold fabro-accent-text hover:underline cursor-pointer"
+          >
+            Abrir estudio musical →
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {MUSIC_TOOLS_CARDS.map((card) => {
+            const Icon = card.icon;
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => openMusicTool(card.id)}
+                className="group rounded-xl border fabro-border fabro-surface p-3.5 text-left flex items-center gap-3 hover:border-[var(--fabro-accent)] transition-all cursor-pointer active:scale-[0.98]"
+              >
+                <span
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm"
+                  style={{ background: card.gradientCss }}
+                >
+                  <Icon className="w-5 h-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-display text-sm font-extrabold truncate">{card.title}</p>
+                  <p className="text-[11px] fabro-muted line-clamp-2 leading-snug">
+                    {card.subtitle}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -1558,6 +1702,8 @@ export const ToolsHubScreen: React.FC = () => {
           </div>
         )}
       </section>
+        </>
+      )}
     </div>
   );
 };

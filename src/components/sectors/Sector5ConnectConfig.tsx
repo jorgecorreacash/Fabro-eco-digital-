@@ -38,6 +38,7 @@ import { vaultExportSnapshot } from '../../services/localVault';
 import { isMediaSessionSupported } from '../../services/mediaSessionBridge';
 import type { ConfigSubmenuId, ConnectProviderItem, SubmenuId } from '../../types/ecosystem';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
+import { FabroThemesGallery } from '../common/FabroThemesGallery';
 import { IdeasVaultTool } from './IdeasVaultTool';
 import { SectorLayout } from './SectorLayout';
 
@@ -1156,35 +1157,8 @@ export const Sector5ConnectConfig: React.FC = () => {
               />
             </label>
 
-            <div className="space-y-2">
-              <span className="fabro-muted block">
-                Plantilla de color activa ({FABRO_THEMES.length} disponibles)
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {FABRO_THEMES.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setTheme(item.id)}
-                    className={`min-h-[44px] rounded-xl border px-3 py-2 text-left cursor-pointer transition-all active:scale-95 flex items-center justify-between gap-2 ${
-                      theme === item.id
-                        ? 'border-[#0284C7] bg-[#0284C7]/15 font-bold text-[#0284C7] dark:text-[#38BDF8]'
-                        : 'fabro-border fabro-surface-elevated hover:border-[#0284C7]'
-                    }`}
-                  >
-                    <span className="truncate">{item.name}</span>
-                    <span className="flex items-center gap-1 shrink-0">
-                      {item.swatches.slice(0, 3).map((hex) => (
-                        <span
-                          key={hex}
-                          className="w-2.5 h-2.5 rounded-sm border fabro-border"
-                          style={{ backgroundColor: hex }}
-                        />
-                      ))}
-                    </span>
-                  </button>
-                ))}
-              </div>
+            <div className="pt-1">
+              <FabroThemesGallery compact />
             </div>
           </div>
 
