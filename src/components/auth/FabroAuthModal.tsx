@@ -386,6 +386,13 @@ export const FabroAuthModal: React.FC = () => {
             <p className="text-xs fabro-muted max-w-xs">
               Firebase Authentication está recuperando tu estado de sesión de forma segura.
             </p>
+            <button
+              type="button"
+              onClick={cancelAuthLoading}
+              className="mt-1 text-xs font-bold text-[#7C3AED] dark:text-[#C4B5FD] hover:underline cursor-pointer"
+            >
+              Mostrar opciones de ingreso ahora
+            </button>
           </div>
         ) : authState === 'EMAIL_VERIFICATION_REQUIRED' ? (
           /* STATE 5: EMAIL_VERIFICATION_REQUIRED */
@@ -524,7 +531,7 @@ export const FabroAuthModal: React.FC = () => {
                   )}
                   <span>
                     {isBusy
-                      ? 'Redirigiendo a Google...'
+                      ? 'Conectando con Google...'
                       : 'Continuar con Google'}
                   </span>
                 </button>
@@ -546,7 +553,7 @@ export const FabroAuthModal: React.FC = () => {
                 )}
 
                 <p className="text-[11px] text-center fabro-muted">
-                  Acceso oficial con redirección segura de Google vía Firebase Authentication.
+                  Acceso oficial con Google vía Firebase Authentication (ventana directa y respaldo automático).
                 </p>
 
                 <div className="flex items-center gap-2 text-[11px] fabro-muted">
@@ -601,6 +608,35 @@ export const FabroAuthModal: React.FC = () => {
                     </button>
                   )}
                 </div>
+
+                {activeErrorCode === 'auth/unauthorized-domain' && (
+                  <div className="rounded-lg border border-rose-500/35 bg-rose-500/5 p-2.5 text-[11px] space-y-1.5">
+                    <p className="font-bold">Cómo autorizar este dominio en 10 segundos:</p>
+                    <p className="leading-relaxed">
+                      En Firebase Console → <strong>Authentication</strong> → <strong>Settings</strong> →{' '}
+                      <strong>Authorized domains</strong> → <strong>Add domain</strong>, agregá exactamente:
+                    </p>
+                    <div className="flex items-center justify-between gap-2 rounded-md bg-black/10 dark:bg-white/10 px-2.5 py-1.5 font-mono text-[11px]">
+                      <span className="truncate">
+                        {typeof window !== 'undefined' ? window.location.hostname : 'fabroeco.netlify.app'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const h =
+                            typeof window !== 'undefined'
+                              ? window.location.hostname
+                              : 'fabroeco.netlify.app';
+                          void navigator.clipboard?.writeText(h);
+                          setInfoMsg(`Dominio «${h}» copiado al portapapeles.`);
+                        }}
+                        className="font-sans font-bold underline shrink-0 cursor-pointer"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {activeErrorCode === 'auth/operation-not-allowed' && (
                   <p className="text-[11px] leading-relaxed">

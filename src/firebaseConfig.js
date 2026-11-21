@@ -1,25 +1,25 @@
 import appletConfig from '../firebase-applet-config.json';
 
+const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
+
 /**
  * Configuración central de Firebase (Plan Spark Gratuito) para FABRO.
- *
- * Para usar tu propio proyecto de Firebase, podés reemplazar cualquiera de las
- * 6 claves abajo con las que aparecen en:
- * Firebase Console > Configuración del proyecto > Tus apps > App web (SDK)
- * o editar `firebase-applet-config.json` en la raíz.
+ * Soporta variables de entorno opcionales `VITE_FIREBASE_*` (ej. en Netlify)
+ * con respaldo automático en `firebase-applet-config.json`.
  */
 export const firebaseConfig = {
-  apiKey: appletConfig.apiKey || 'TU_API_KEY_AQUI',
-  authDomain: appletConfig.authDomain || 'TU_PROYECTO.firebaseapp.com',
-  projectId: appletConfig.projectId || 'TU_PROYECTO_ID',
-  storageBucket: appletConfig.storageBucket || 'TU_PROYECTO.firebasestorage.app',
-  messagingSenderId: appletConfig.messagingSenderId || 'TU_MESSAGING_SENDER_ID',
-  appId: appletConfig.appId || 'TU_APP_ID',
+  apiKey: env.VITE_FIREBASE_API_KEY || appletConfig.apiKey || '',
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain || '',
+  projectId: env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId || '',
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket || '',
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig.messagingSenderId || '',
+  appId: env.VITE_FIREBASE_APP_ID || appletConfig.appId || '',
 };
 
 export const firestoreDatabaseId =
-  'firestoreDatabaseId' in appletConfig && typeof appletConfig.firestoreDatabaseId === 'string'
+  env.VITE_FIREBASE_DATABASE_ID ||
+  ('firestoreDatabaseId' in appletConfig && typeof appletConfig.firestoreDatabaseId === 'string'
     ? appletConfig.firestoreDatabaseId
-    : undefined;
+    : undefined);
 
 export default firebaseConfig;

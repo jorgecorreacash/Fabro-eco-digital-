@@ -1,0 +1,28 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Allow Firebase Auth popups (signInWithPopup) to communicate back to fabroeco.netlify.app
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+
+# Reverse-proxy Firebase Auth helper routes on the same origin for redirect compatibility
+[[redirects]]
+  from = "/__/auth/*"
+  to = "https://gen-lang-client-0243900704.firebaseapp.com/__/auth/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/__/firebase/init.json"
+  to = "https://gen-lang-client-0243900704.firebaseapp.com/__/firebase/init.json"
+  status = 200
+  force = true
+
+# SPA fallback for React routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -20,6 +20,7 @@ import {
   ensureAuthPersistence,
   googleProvider,
   handleFirestoreError,
+  hasPendingGoogleRedirect,
   isEmbeddedIframe,
   markPendingGoogleRedirect,
   OperationType,
@@ -207,12 +208,16 @@ export function mapFirebaseAuthError(err: unknown): { code: string; message: str
         code,
         message: 'El inicio de sesión con Google fue cancelado o quedó pendiente. Podés reintentar ahora.',
       };
-    case 'auth/unauthorized-domain':
+    case 'auth/unauthorized-domain': {
+      const host =
+        typeof window !== 'undefined' && window.location?.hostname
+          ? window.location.hostname
+          : 'este dominio';
       return {
         code,
-        message:
-          'Este dominio todavía no está autorizado en Firebase Authentication (Authentication > Settings > Authorized domains).',
+        message: `El dominio «${host}» todavía no está autorizado en Firebase Console (Authentication > Settings > Authorized domains). Agregalo allí para habilitar el inicio de sesión.`,
       };
+    }
     case 'auth/operation-not-allowed':
       return {
         code,
@@ -375,13 +380,38 @@ export interface RedirectResolutionResult {
 
 let redirectResultPromise: Promise<RedirectResolutionResult> | null = null;
 
+function withTimeout<T>(promise: Promise<T>, ms: number, onTimeoutValue: T): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => resolve(onTimeoutValue), ms);
+    promise.then(
+      (val) => {
+        clearTimeout(timer);
+        resolve(val);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 export function resolveGoogleRedirectOnce(): Promise<RedirectResolutionResult> {
   if (redirectResultPromise) return redirectResultPromise;
+
+  const expectingRedirect = hasPendingGoogleRedirect();
+  // Cross-origin authDomain (e.g. fabroeco.netlify.app <-> *.firebaseapp.com) can stall
+  // getRedirectResult() under browser third-party storage partitioning. Never let it hang forever.
+  const timeoutMs = expectingRedirect ? 5000 : 2500;
 
   redirectResultPromise = (async () => {
     try {
       await ensureAuthPersistence();
-      const credential = await getRedirectResult(auth, browserPopupRedirectResolver);
+      const credential = await withTimeout<UserCredential | null>(
+        getRedirectResult(auth, browserPopupRedirectResolver),
+        timeoutMs,
+        null
+      );
       clearPendingGoogleRedirect();
       return { credential };
     } catch (err) {
@@ -402,13 +432,11 @@ export function __resetRedirectGuardForTests(): void {
 }
 
 /**
- * Initiates Google Authentication prioritizing official `signInWithRedirect()`.
- * - Awaits `browserLocalPersistence` before starting redirect.
- * - Uses the project's real Firebase Auth configuration (never fabricates return URLs).
- * - When running inside an embedded cross-origin iframe (such as AI Studio Preview),
- *   Google blocks top-level redirects inside iframes; in that specific environment we
- *   attempt popup only if requested or return a clear Spanish guidance code so the user
- *   can open FABRO in a direct tab where `signInWithRedirect()` works seamlessly.
+ * Initiates Google Authentication via Firebase.
+ * Prioritizes `signInWithPopup()` because external domains (like fabroeco.netlify.app)
+ * suffer third-party storage partitioning with cross-origin `signInWithRedirect()` in
+ * Chrome 115+, Safari 16.1+, Edge, and Firefox. Automatically falls back to
+ * `signInWithRedirect()` ONLY if popups are blocked on a top-level window.
  */
 export async function startGoogleSignIn(options?: {
   forcePopupInIframe?: boolean;
@@ -423,33 +451,43 @@ export async function startGoogleSignIn(options?: {
 
   try {
     await ensureAuthPersistence();
-
     const inIframe = isEmbeddedIframe();
-    if (inIframe && !options?.forcePopupInIframe) {
-      // Inside cross-origin iframes (like preview panels), Google's X-Frame-Options blocks
-      // full-page redirects inside the iframe. Try popup inside the iframe ONLY if user is in
-      // an embedded preview; otherwise guide them to open the direct tab for official redirect.
-      try {
-        const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
-        return { ok: true, user: cred.user };
-      } catch (popupErr) {
-        const mapped = mapFirebaseAuthError(popupErr);
+
+    try {
+      const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+      clearPendingGoogleRedirect();
+      return { ok: true, user: cred.user };
+    } catch (popupErr) {
+      const mapped = mapFirebaseAuthError(popupErr);
+
+      // Automatically fall back to redirect ONLY on top-level windows when popups are blocked
+      // or unsupported (e.g. strict mobile webviews).
+      const shouldFallbackToRedirect =
+        !inIframe &&
+        !options?.forcePopupInIframe &&
+        (mapped.code === 'auth/popup-blocked' ||
+          mapped.code === 'auth/operation-not-supported-in-this-environment');
+
+      if (shouldFallbackToRedirect) {
+        markPendingGoogleRedirect();
+        await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
+        return { ok: true, redirectStarted: true };
+      }
+
+      if (
+        inIframe &&
+        (mapped.code === 'auth/popup-closed-by-user' || mapped.code === 'auth/popup-blocked')
+      ) {
         return {
           ok: false,
           code: mapped.code,
           error:
-            mapped.code === 'auth/popup-closed-by-user' || mapped.code === 'auth/popup-blocked'
-              ? 'Estás dentro de una vista embebida donde Google bloquea ventanas emergentes y redirecciones internas. Tocá «Abrir FABRO en pestaña directa» para ingresar con redirección oficial de Google.'
-              : mapped.message,
+            'Estás dentro de una vista embebida donde Google bloquea ventanas emergentes. Tocá «Abrir FABRO en pestaña directa» para ingresar con Google sin restricciones.',
         };
       }
-    }
 
-    // Standard top-level browser, mobile browser, installed PWA, or custom domain:
-    // ALWAYS prioritize official signInWithRedirect().
-    markPendingGoogleRedirect();
-    await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
-    return { ok: true, redirectStarted: true };
+      return { ok: false, code: mapped.code, error: mapped.message };
+    }
   } catch (err) {
     clearPendingGoogleRedirect();
     const mapped = mapFirebaseAuthError(err);

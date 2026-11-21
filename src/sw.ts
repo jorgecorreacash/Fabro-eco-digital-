@@ -126,6 +126,7 @@ registerRoute(
   ({ request, url }) =>
     url.origin === self.location.origin &&
     !url.pathname.startsWith('/api/') &&
+    !url.pathname.startsWith('/__/') &&
     (request.destination === 'script' ||
       request.destination === 'style' ||
       request.destination === 'font' ||

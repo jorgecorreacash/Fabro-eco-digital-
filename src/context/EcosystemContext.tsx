@@ -3504,50 +3504,73 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setAuthError(null);
       setAuthState('AUTHENTICATED');
       setAuthLoading(false);
+      setAuthModalOpen(false);
       setSyncStatus(network.isOnline ? 'syncing' : 'local-offline');
+
+      // Immediately hydrate authUser from Firebase Auth so the UI NEVER hangs waiting on Firestore
+      const immediateSummary = buildAuthSummaryFromUser(fbUser, null);
+      setAuthUser(immediateSummary);
 
       void testFirestoreConnectionOnce();
 
       const pendingMeta = pendingRegistrationMetaRef.current;
 
+      const withSoftTimeout = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
+        Promise.race([
+          p,
+          new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+        ]);
+
       // Create or safely merge canonical users/{uid} without overwriting existing personal data
-      await ensureCanonicalUserProfile(
-        fbUser,
-        pendingMeta
-          ? {
-              displayName: pendingMeta.displayName,
-              username: pendingMeta.username,
-              customFabroId: pendingMeta.fabroId,
-              birthDate: pendingMeta.birthDate,
-              isMinor: pendingMeta.isMinor,
-            }
-          : undefined
-      ).catch((err) => {
-        console.warn('[FABRO Auth] No se pudo sincronizar users/{uid}:', err);
-      });
+      await withSoftTimeout(
+        ensureCanonicalUserProfile(
+          fbUser,
+          pendingMeta
+            ? {
+                displayName: pendingMeta.displayName,
+                username: pendingMeta.username,
+                customFabroId: pendingMeta.fabroId,
+                birthDate: pendingMeta.birthDate,
+                isMinor: pendingMeta.isMinor,
+              }
+            : undefined
+        ).catch((err) => {
+          console.warn('[FABRO Auth] No se pudo sincronizar users/{uid}:', err);
+        }),
+        7000,
+        undefined
+      );
 
       // If this user just finished email registration + verification, persist their chosen @handle once
       if (pendingMeta) {
         pendingRegistrationMetaRef.current = null;
-        await reserveUsernameAndSaveProfile(fbUser.uid, {
-          displayName: pendingMeta.displayName,
-          username: pendingMeta.username,
-          fabroId: pendingMeta.fabroId,
-          photoURL: fbUser.photoURL || '',
-          birthDate: pendingMeta.birthDate,
-          isMinor: pendingMeta.isMinor,
-          presenceStatus: 'online',
-          dailyPhrase: latestStateRef.current.profile.dailyPhrase,
-          icebreaker: latestStateRef.current.profile.icebreaker || '',
-          privacyMode: pendingMeta.isMinor ? 'grupo' : latestStateRef.current.profile.privacyMode,
-          shareTastesPublicly: !pendingMeta.isMinor && latestStateRef.current.profile.shareTastesPublicly,
-          tastes: latestStateRef.current.profile.tastes,
-        }).catch((err) => {
-          console.warn('[FABRO Auth] No se pudo guardar el perfil extendido inicial:', err);
-        });
+        await withSoftTimeout(
+          reserveUsernameAndSaveProfile(fbUser.uid, {
+            displayName: pendingMeta.displayName,
+            username: pendingMeta.username,
+            fabroId: pendingMeta.fabroId,
+            photoURL: fbUser.photoURL || '',
+            birthDate: pendingMeta.birthDate,
+            isMinor: pendingMeta.isMinor,
+            presenceStatus: 'online',
+            dailyPhrase: latestStateRef.current.profile.dailyPhrase,
+            icebreaker: latestStateRef.current.profile.icebreaker || '',
+            privacyMode: pendingMeta.isMinor ? 'grupo' : latestStateRef.current.profile.privacyMode,
+            shareTastesPublicly: !pendingMeta.isMinor && latestStateRef.current.profile.shareTastesPublicly,
+            tastes: latestStateRef.current.profile.tastes,
+          }).catch((err) => {
+            console.warn('[FABRO Auth] No se pudo guardar el perfil extendido inicial:', err);
+          }),
+          7000,
+          undefined
+        );
       }
 
-      const cloudProfile = await loadUserProfileDoc(fbUser.uid).catch(() => null);
+      const cloudProfile = await withSoftTimeout(
+        loadUserProfileDoc(fbUser.uid).catch(() => null),
+        6000,
+        null
+      );
       const summary = buildAuthSummaryFromUser(fbUser, cloudProfile);
       setAuthUser(summary);
 
@@ -3750,90 +3773,110 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [buildAuthSummaryFromUser, clearAuthTimeout, network.isOnline, updateProfile]
   );
 
-  // Single orchestrated Firebase Auth bootstrap:
-  // 1) Enforces browserLocalPersistence
-  // 2) Resolves getRedirectResult() ONCE (no duplicate calls / no redirect loops)
-  // 3) Subscribes to onAuthStateChanged() as the single source of truth
+  // Non-blocking Firebase Auth bootstrap:
+  // 1) Subscribes to onAuthStateChanged() IMMEDIATELY as the single source of truth
+  // 2) Runs persistence + getRedirectResult() in parallel with hard timeouts (NEVER blocks UI on Netlify)
+  // 3) Hard 5s failsafe ensures INITIALIZING can never hang infinitely
   useEffect(() => {
     let active = true;
     let workspaceUnsub: (() => void) | null = null;
-    let unsubAuth: (() => void) | null = null;
+    let redirectErrorRef: { code: string; message: string } | null = null;
 
-    const bootstrapAuth = async () => {
-      setAuthState('INITIALIZING');
-      setAuthLoading(true);
-      await ensureAuthPersistence();
-      const redirectOutcome = await resolveGoogleRedirectOnce();
+    setAuthState('INITIALIZING');
+    setAuthLoading(true);
+
+    const initFailsafeTimer =
+      typeof window !== 'undefined'
+        ? window.setTimeout(() => {
+            if (!active) return;
+            clearPendingGoogleRedirect();
+            setGoogleRedirectPending(false);
+            setAuthLoading(false);
+            setAuthState((prev) =>
+              prev === 'INITIALIZING'
+                ? auth.currentUser
+                  ? resolveAuthStateFromUser(auth.currentUser, false)
+                  : 'UNAUTHENTICATED'
+                : prev
+            );
+          }, 5000)
+        : null;
+
+    void ensureAuthPersistence();
+
+    void resolveGoogleRedirectOnce().then((redirectOutcome) => {
       if (!active) return;
-
+      setGoogleRedirectPending(false);
       if (redirectOutcome.credential?.user) {
         setAuthModalOpen(false);
         setAuthError(null);
       } else if (redirectOutcome.error) {
+        redirectErrorRef = redirectOutcome.error;
         setAuthError(redirectOutcome.error);
+        setAuthState((prev) => (prev === 'AUTHENTICATED' ? prev : 'ERROR'));
+      }
+    });
+
+    const unsubAuth = onAuthStateChanged(auth, (fbUser) => {
+      if (!active) return;
+      if (initFailsafeTimer !== null && typeof window !== 'undefined') {
+        window.clearTimeout(initFailsafeTimer);
       }
 
-      setGoogleRedirectPending(false);
+      if (workspaceUnsub) {
+        workspaceUnsub();
+        workspaceUnsub = null;
+      }
 
-      unsubAuth = onAuthStateChanged(auth, (fbUser) => {
-        if (!active) return;
+      if (!fbUser) {
+        clearAuthTimeout();
+        setAuthUser(null);
+        setPendingVerificationEmail(null);
+        setAuthLoading(false);
+        setSyncStatus('guest-local');
+        setNeedsProfileSetup(false);
+        resetProfileToGuest();
+        setAuthState((prev) =>
+          prev === 'ERROR' || Boolean(redirectErrorRef) ? 'ERROR' : 'UNAUTHENTICATED'
+        );
+        return;
+      }
 
-        if (workspaceUnsub) {
-          workspaceUnsub();
-          workspaceUnsub = null;
-        }
+      if (requiresEmailVerification(fbUser)) {
+        clearAuthTimeout();
+        clearPendingGoogleRedirect();
+        setGoogleRedirectPending(false);
+        setAuthUser(null);
+        setPendingVerificationEmail(fbUser.email || null);
+        setAuthLoading(false);
+        setSyncStatus('guest-local');
+        setAuthState('EMAIL_VERIFICATION_REQUIRED');
+        setAuthModalOpen(true);
+        return;
+      }
 
-        if (!fbUser) {
-          clearAuthTimeout();
-          setAuthUser(null);
-          setPendingVerificationEmail(null);
-          setAuthLoading(false);
-          setSyncStatus('guest-local');
-          setNeedsProfileSetup(false);
-          resetProfileToGuest();
-          setAuthState((prev) =>
-            prev === 'ERROR' || Boolean(redirectOutcome.error)
-              ? 'ERROR'
-              : 'UNAUTHENTICATED'
-          );
-          return;
-        }
-
-        if (requiresEmailVerification(fbUser)) {
-          clearAuthTimeout();
-          clearPendingGoogleRedirect();
-          setGoogleRedirectPending(false);
-          setAuthUser(null);
-          setPendingVerificationEmail(fbUser.email || null);
-          setAuthLoading(false);
-          setSyncStatus('guest-local');
-          setAuthState('EMAIL_VERIFICATION_REQUIRED');
-          setAuthModalOpen(true);
-          return;
-        }
-
-        void hydrateVerifiedUserSession(fbUser)
-          .then((unsub) => {
-            if (!active) {
-              unsub?.();
-              return;
-            }
-            workspaceUnsub = unsub;
-          })
-          .catch(() => {
-            if (active) {
-              setSyncStatus(navigator.onLine ? 'sync-error' : 'local-offline');
-            }
-          });
-      });
-    };
-
-    void bootstrapAuth();
+      void hydrateVerifiedUserSession(fbUser)
+        .then((unsub) => {
+          if (!active) {
+            unsub?.();
+            return;
+          }
+          workspaceUnsub = unsub;
+        })
+        .catch(() => {
+          if (active) {
+            setSyncStatus(navigator.onLine ? 'sync-error' : 'local-offline');
+          }
+        });
+    });
 
     return () => {
       active = false;
+      if (initFailsafeTimer !== null && typeof window !== 'undefined') {
+        window.clearTimeout(initFailsafeTimer);
+      }
       clearAuthTimeout();
-      unsubAuth?.();
+      unsubAuth();
       workspaceUnsub?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3983,7 +4026,6 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     googleSignInInFlightRef.current = true;
     setAuthError(null);
     setAuthState('AUTHENTICATING');
-    setGoogleRedirectPending(true);
     armAuthTimeout();
 
     try {
@@ -3999,7 +4041,9 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setAuthState('ERROR');
         return res;
       }
-      if (!res.redirectStarted) {
+      if (res.redirectStarted) {
+        setGoogleRedirectPending(true);
+      } else {
         clearAuthTimeout();
         setGoogleRedirectPending(false);
         closeAuthModal();

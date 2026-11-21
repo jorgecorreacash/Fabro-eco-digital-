@@ -31,6 +31,7 @@ try {
     ? initializeFirestore(
         app,
         {
+          experimentalAutoDetectLongPolling: true,
           localCache: persistentLocalCache({
             tabManager: persistentMultipleTabManager(),
           }),
@@ -38,6 +39,7 @@ try {
         firestoreDatabaseId
       )
     : initializeFirestore(app, {
+        experimentalAutoDetectLongPolling: true,
         localCache: persistentLocalCache({
           tabManager: persistentMultipleTabManager(),
         }),
@@ -138,12 +140,18 @@ let persistenceInitPromise: Promise<boolean> | null = null;
 
 export function ensureAuthPersistence(): Promise<boolean> {
   if (persistenceInitPromise) return persistenceInitPromise;
-  persistenceInitPromise = setPersistence(auth, browserLocalPersistence)
+  const persistenceOp = setPersistence(auth, browserLocalPersistence)
     .then(() => true)
     .catch((err) => {
       console.warn('[FABRO Auth] No se pudo configurar browserLocalPersistence:', err);
       return false;
     });
+
+  const timeoutOp = new Promise<boolean>((resolve) => {
+    setTimeout(() => resolve(false), 3000);
+  });
+
+  persistenceInitPromise = Promise.race([persistenceOp, timeoutOp]);
   return persistenceInitPromise;
 }
 
