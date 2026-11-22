@@ -2,11 +2,11 @@
   command = "npm run build"
   publish = "dist"
 
-# Allow Firebase Auth popups (signInWithPopup) to communicate back to fabroeco.netlify.app
+# Allow cross-origin Firebase/Google OAuth popups without COOP severing window.closed/window.opener
 [[headers]]
   for = "/*"
   [headers.values]
-    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+    Cross-Origin-Opener-Policy = "unsafe-none"
 
 # Never serve stale HTML, Service Worker, or PWA Manifest from CDN/browser cache
 [[headers]]

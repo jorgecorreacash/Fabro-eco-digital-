@@ -618,10 +618,17 @@ export const FabroAuthModal: React.FC = () => {
                       onClick={() => void handleGoogleRedirectExplicit()}
                       className="min-h-[34px] inline-flex items-center gap-1.5 rounded-lg bg-[#0284C7] text-white px-3 py-1 text-[11px] font-bold hover:bg-[#0369A1] cursor-pointer disabled:opacity-60"
                     >
-                      <span>Ingresar por redirección oficial</span>
+                      <span>Ingresar con Google (modo redirección)</span>
                     </button>
                   )}
                 </div>
+
+                {activeErrorCode === 'auth/popup-closed-by-user' && !inIframe && (
+                  <p className="text-[11px] leading-relaxed">
+                    Si no cerraste la ventana manualmente, tu navegador bloqueó la comunicación de la ventana emergente. Tocá{' '}
+                    <strong>«Ingresar con Google (modo redirección)»</strong> arriba, o iniciá sesión con tu correo y contraseña abajo.
+                  </p>
+                )}
 
                 {activeErrorCode === 'auth/unauthorized-domain' && (
                   <div className="rounded-lg border border-rose-500/35 bg-rose-500/5 p-2.5 text-[11px] space-y-2">

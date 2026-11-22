@@ -22,6 +22,7 @@ import {
   handleFirestoreError,
   hasPendingGoogleRedirect,
   isEmbeddedIframe,
+  isInstalledDeviceApp,
   markPendingGoogleRedirect,
   OperationType,
 } from '../lib/firebase';
@@ -70,7 +71,7 @@ export interface CanonicalUserProfileRecord {
 }
 
 export const DEFAULT_FREE_STORAGE_QUOTA_BYTES = 104_857_600; // 100 MB (Spark free tier safe default)
-export const AUTH_OPERATION_TIMEOUT_MS = 18_000;
+export const AUTH_OPERATION_TIMEOUT_MS = 90_000;
 
 export function detectPrimaryProvider(
   user: Pick<User, 'providerData'>
@@ -400,13 +401,11 @@ export function resolveGoogleRedirectOnce(): Promise<RedirectResolutionResult> {
   if (redirectResultPromise) return redirectResultPromise;
 
   const expectingRedirect = hasPendingGoogleRedirect();
-  // Cross-origin authDomain (e.g. fabroeco.netlify.app <-> *.firebaseapp.com) can stall
-  // getRedirectResult() under browser third-party storage partitioning. Never let it hang forever.
-  const timeoutMs = expectingRedirect ? 5000 : 2500;
+  // Give a genuine redirect return up to 10s on mobile networks, while normal loads finish in <=2.5s.
+  const timeoutMs = expectingRedirect ? 10_000 : 2500;
 
   redirectResultPromise = (async () => {
     try {
-      await ensureAuthPersistence();
       const credential = await withTimeout<UserCredential | null>(
         getRedirectResult(auth, browserPopupRedirectResolver),
         timeoutMs,
@@ -433,10 +432,11 @@ export function __resetRedirectGuardForTests(): void {
 
 /**
  * Initiates Google Authentication via Firebase.
- * Prioritizes `signInWithPopup()` because external domains (like fabroeco.netlify.app)
- * suffer third-party storage partitioning with cross-origin `signInWithRedirect()` in
- * Chrome 115+, Safari 16.1+, Edge, and Firefox. Automatically falls back to
- * `signInWithRedirect()` ONLY if popups are blocked on a top-level window.
+ * CRITICAL: Calls `signInWithPopup()` SYNCHRONOUSLY (zero `await` before it!) so Chrome,
+ * Safari, Edge, and mobile browsers preserve transient user activation for `window.open()`.
+ * Persistence is already configured at startup in `initializeAuth()`.
+ * Automatically falls back to `signInWithRedirect()` in standalone PWAs or when the browser
+ * blocks/instantly closes the popup (< 1.8s).
  */
 export async function startGoogleSignIn(options?: {
   forcePopupInIframe?: boolean;
@@ -449,54 +449,75 @@ export async function startGoogleSignIn(options?: {
     };
   }
 
-  try {
-    await ensureAuthPersistence();
-    const inIframe = isEmbeddedIframe();
+  const inIframe = isEmbeddedIframe();
+  const inStandalonePwa = isInstalledDeviceApp();
 
+  // Installed standalone PWAs on Android/iOS isolate popups into external Custom Tabs / Safari sheets
+  // which immediately trigger `auth/popup-closed-by-user`. Use official redirect directly in standalone PWA.
+  if (inStandalonePwa && !inIframe && !options?.forcePopupInIframe) {
     try {
-      const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+      markPendingGoogleRedirect();
+      await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
+      return { ok: true, redirectStarted: true };
+    } catch (err) {
       clearPendingGoogleRedirect();
-      return { ok: true, user: cred.user };
-    } catch (popupErr) {
-      const mapped = mapFirebaseAuthError(popupErr);
+      const mapped = mapFirebaseAuthError(err);
+      return { ok: false, code: mapped.code, error: mapped.message };
+    }
+  }
 
-      // Automatically fall back to redirect ONLY on top-level windows when popups are blocked
-      // or unsupported (e.g. strict mobile webviews).
-      const shouldFallbackToRedirect =
-        !inIframe &&
-        !options?.forcePopupInIframe &&
-        (mapped.code === 'auth/popup-blocked' ||
-          mapped.code === 'auth/operation-not-supported-in-this-environment');
+  const popupStartedAt = Date.now();
+  try {
+    // MUST be the first async call (no preceding `await`) to preserve browser user-gesture activation!
+    const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+    clearPendingGoogleRedirect();
+    return { ok: true, user: cred.user };
+  } catch (popupErr) {
+    const elapsedMs = Date.now() - popupStartedAt;
+    const mapped = mapFirebaseAuthError(popupErr);
 
-      if (shouldFallbackToRedirect) {
+    // If the browser/OS/COOP blocked or instantaneously killed the popup (< 1.8s),
+    // fall back seamlessly to redirect on top-level windows.
+    const instantAutoClosed = mapped.code === 'auth/popup-closed-by-user' && elapsedMs < 1800;
+    const shouldFallbackToRedirect =
+      !inIframe &&
+      !options?.forcePopupInIframe &&
+      (mapped.code === 'auth/popup-blocked' ||
+        mapped.code === 'auth/operation-not-supported-in-this-environment' ||
+        mapped.code === 'auth/web-storage-unsupported' ||
+        instantAutoClosed);
+
+    if (shouldFallbackToRedirect) {
+      try {
         markPendingGoogleRedirect();
         await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
         return { ok: true, redirectStarted: true };
+      } catch (redirErr) {
+        clearPendingGoogleRedirect();
+        const redirMapped = mapFirebaseAuthError(redirErr);
+        return { ok: false, code: redirMapped.code, error: redirMapped.message };
       }
-
-      if (
-        inIframe &&
-        (mapped.code === 'auth/popup-closed-by-user' || mapped.code === 'auth/popup-blocked')
-      ) {
-        return {
-          ok: false,
-          code: mapped.code,
-          error:
-            'Estás dentro de una vista embebida donde Google bloquea ventanas emergentes. Tocá «Abrir FABRO en pestaña directa» para ingresar con Google sin restricciones.',
-        };
-      }
-
-      return { ok: false, code: mapped.code, error: mapped.message };
     }
-  } catch (err) {
+
+    if (
+      inIframe &&
+      (mapped.code === 'auth/popup-closed-by-user' || mapped.code === 'auth/popup-blocked')
+    ) {
+      return {
+        ok: false,
+        code: mapped.code,
+        error:
+          'Estás dentro de una vista embebida donde Google bloquea ventanas emergentes. Tocá «Abrir FABRO en pestaña directa» para ingresar con Google sin restricciones.',
+      };
+    }
+
     clearPendingGoogleRedirect();
-    const mapped = mapFirebaseAuthError(err);
     return { ok: false, code: mapped.code, error: mapped.message };
   }
 }
 
 /**
- * Explicit official redirect trigger (always calls signInWithRedirect directly).
+ * Explicit official redirect trigger (always calls signInWithRedirect directly without preceding await).
  */
 export async function startGoogleRedirectSignIn(): Promise<AuthActionResult> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -507,7 +528,6 @@ export async function startGoogleRedirectSignIn(): Promise<AuthActionResult> {
     };
   }
   try {
-    await ensureAuthPersistence();
     markPendingGoogleRedirect();
     await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
     return { ok: true, redirectStarted: true };
