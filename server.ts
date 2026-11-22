@@ -3,9 +3,9 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createCultureRouter } from './server/cultureRouter';
-import { createSportsRouter } from './server/sportsRouter';
-import { createStudyResearchRouter } from './server/studyResearchRouter';
+import { createCultureRouter } from './server/cultureRouter.ts';
+import { createSportsRouter } from './server/sportsRouter.ts';
+import { createStudyResearchRouter } from './server/studyResearchRouter.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
