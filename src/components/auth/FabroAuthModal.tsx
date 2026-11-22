@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEcosystem } from '../../context/EcosystemContext';
-import { isEmbeddedIframe } from '../../lib/firebase';
+import { FIREBASE_PROJECT_ID, isEmbeddedIframe, isInstalledDeviceApp } from '../../lib/firebase';
 import {
   checkUsernameAvailability,
   computeIsMinorFromBirthDate,
@@ -556,6 +556,20 @@ export const FabroAuthModal: React.FC = () => {
                   Acceso oficial con Google vía Firebase Authentication (ventana directa y respaldo automático).
                 </p>
 
+                {!inIframe && !isBusy && (
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => void handleGoogleRedirectExplicit()}
+                      className="text-[11px] font-semibold text-[#0284C7] dark:text-[#38BDF8] hover:underline cursor-pointer"
+                    >
+                      {isInstalledDeviceApp()
+                        ? 'En app PWA instalada: probar ingreso por redirección'
+                        : '¿No se abre la ventana de Google? Ingresar por redirección'}
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2 text-[11px] fabro-muted">
                   <div className="h-px flex-1 bg-[var(--fabro-border)]" />
                   <span>o con tu correo</span>
@@ -610,10 +624,11 @@ export const FabroAuthModal: React.FC = () => {
                 </div>
 
                 {activeErrorCode === 'auth/unauthorized-domain' && (
-                  <div className="rounded-lg border border-rose-500/35 bg-rose-500/5 p-2.5 text-[11px] space-y-1.5">
+                  <div className="rounded-lg border border-rose-500/35 bg-rose-500/5 p-2.5 text-[11px] space-y-2">
                     <p className="font-bold">Cómo autorizar este dominio en 10 segundos:</p>
                     <p className="leading-relaxed">
-                      En Firebase Console → <strong>Authentication</strong> → <strong>Settings</strong> →{' '}
+                      En Firebase Console (proyecto <strong className="font-mono">{FIREBASE_PROJECT_ID}</strong>) →{' '}
+                      <strong>Authentication</strong> → <strong>Settings</strong> →{' '}
                       <strong>Authorized domains</strong> → <strong>Add domain</strong>, agregá exactamente:
                     </p>
                     <div className="flex items-center justify-between gap-2 rounded-md bg-black/10 dark:bg-white/10 px-2.5 py-1.5 font-mono text-[11px]">
@@ -635,7 +650,23 @@ export const FabroAuthModal: React.FC = () => {
                         Copiar
                       </button>
                     </div>
+                    <a
+                      href={`https://console.firebase.google.com/project/${FIREBASE_PROJECT_ID}/authentication/settings`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 font-bold underline text-rose-800 dark:text-rose-200"
+                    >
+                      <span>Abrir Firebase Console → Authorized domains</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
                   </div>
+                )}
+
+                {activeErrorCode && (
+                  <p className="text-[10px] font-mono opacity-80">
+                    Código: {activeErrorCode} · Dominio:{' '}
+                    {typeof window !== 'undefined' ? window.location.hostname : '-'}
+                  </p>
                 )}
 
                 {activeErrorCode === 'auth/operation-not-allowed' && (

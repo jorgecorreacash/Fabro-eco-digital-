@@ -1,8 +1,12 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import {
   browserLocalPersistence,
+  browserPopupRedirectResolver,
+  browserSessionPersistence,
   getAuth,
   GoogleAuthProvider,
+  indexedDBLocalPersistence,
+  initializeAuth,
   setPersistence,
   type Auth,
 } from 'firebase/auth';
@@ -51,7 +55,22 @@ try {
 }
 
 export const db: Firestore = dbInstance;
-export const auth: Auth = getAuth(app);
+
+let authInstance: Auth;
+if (typeof window !== 'undefined') {
+  try {
+    authInstance = initializeAuth(app, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
+  } catch {
+    authInstance = getAuth(app);
+  }
+} else {
+  authInstance = getAuth(app);
+}
+
+export const auth: Auth = authInstance;
 export const storage: FirebaseStorage = getStorage(app);
 
 // Official GoogleAuthProvider configured with account picker (no invented redirect URIs)

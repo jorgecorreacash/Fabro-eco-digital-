@@ -309,10 +309,20 @@ export const DeploymentStatusBar: React.FC<{ hasMobileBottomNav?: boolean }> = (
             </div>
           </div>
 
-          {showIOSHint && isIOS && !isInstalled && (
-            <p className="rounded-lg border fabro-border p-2.5 text-xs fabro-muted">
-              En Safari (iPhone/iPad): tocá <strong>Compartir</strong> y elegí{' '}
-              <strong>Agregar a inicio</strong>.
+          {showIOSHint && !isInstalled && (
+            <p className="rounded-lg border fabro-border p-2.5 text-xs fabro-muted leading-relaxed">
+              {isIOS ? (
+                <>
+                  En Safari (iPhone/iPad): tocá <strong>Compartir</strong> y elegí{' '}
+                  <strong>Agregar a pantalla de inicio</strong>.
+                </>
+              ) : (
+                <>
+                  Abrí <strong>https://fabroeco.netlify.app/</strong> en Chrome o Edge, tocá el menú{' '}
+                  <strong>⋮</strong> (o el ícono de instalar en la barra de direcciones) y elegí{' '}
+                  <strong>Instalar aplicación</strong>.
+                </>
+              )}
             </p>
           )}
 
@@ -350,14 +360,14 @@ export const DeploymentStatusBar: React.FC<{ hasMobileBottomNav?: boolean }> = (
               </button>
             )}
 
-            {!isInstalled && !isInstallable && isIOS && (
+            {!isInstalled && !isInstallable && (
               <button
                 type="button"
                 onClick={() => setShowIOSHint((v) => !v)}
                 className="inline-flex items-center justify-center gap-1.5 rounded-lg fabro-accent-soft px-3 py-2 text-xs font-semibold cursor-pointer whitespace-nowrap"
               >
                 <Download className="w-3.5 h-3.5" />
-                Instalar iOS
+                {isIOS ? 'Instalar iOS' : 'Cómo instalar PWA'}
               </button>
             )}
 

@@ -42,6 +42,7 @@ import { isInstalledDeviceApp } from '../../lib/firebase';
 import type { FiveSectorId, SectorId, SubmenuId } from '../../types/ecosystem';
 import { FabroBrandMark } from '../brand/FabroBrandMark';
 import { ScreenIndicatorBar } from '../navigation/ScreenNavigationEffects';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { ConnectionSpeedBadge } from './ConnectionSpeedBadge';
 import { QuickActionsBar } from './QuickActionsBar';
 import { RightContextPanel } from './RightContextPanel';
@@ -957,6 +958,12 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                 </>
               )}
             </button>
+
+            {!sidebarCollapsed && (
+              <div className="pt-1.5">
+                <PWAInstallButton compact fullWidth />
+              </div>
+            )}
 
             {/* FABRO ADMIN: estrictamente oculto para usuarios comunes */}
             {isStaff && (
@@ -1942,6 +1949,8 @@ export const HybridShell: React.FC<{ children: React.ReactNode }> = ({ children 
                     <span className="truncate">Widgets</span>
                   </button>
                 </div>
+
+                <PWAInstallButton compact fullWidth />
 
                 {isStaff && (
                   <button

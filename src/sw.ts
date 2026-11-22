@@ -66,7 +66,10 @@ const STUDY_ASSETS_CACHE = 'fabro-study-assets-v1';
 const APP_PAGES_CACHE = 'fabro-pages-cache-v1';
 const STATIC_CHUNKS_CACHE = 'fabro-static-runtime-v1';
 
-// Claim clients once activated; updates wait until user confirms SKIP_WAITING (or activate immediately on first install)
+// Activate new Service Worker immediately so Netlify & PWA updates never stay stuck on old cached bundles
+self.addEventListener('install', () => {
+  void self.skipWaiting();
+});
 clientsClaim();
 
 // Precache static build assets injected by VitePWA (literal self.__WB_MANIFEST required by workbox-build)

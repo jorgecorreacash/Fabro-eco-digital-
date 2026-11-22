@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es" data-theme="minimalista-claro">
+<html lang="es" data-theme="midnight-purple">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -19,7 +19,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FABRO" />
-    <link rel="manifest" href="/manifest.json" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
@@ -31,8 +30,21 @@
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <script>
+      // Capture Chrome/Edge/Android beforeinstallprompt early before React mounts
+      window.__FABRO_DEFERRED_PROMPT__ = null;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__FABRO_DEFERRED_PROMPT__ = e;
+        window.dispatchEvent(new Event('fabro-install-prompt-ready'));
+      });
+      window.addEventListener('appinstalled', function () {
+        window.__FABRO_DEFERRED_PROMPT__ = null;
+        window.dispatchEvent(new Event('fabro-app-installed'));
+      });
+    </script>
   </head>
-  <body class="bg-[#F8FAFC] text-[#0F172A] antialiased selection:bg-[#2563EB]/20 selection:text-[#1D4ED8]">
+  <body class="bg-[#0B0F1A] text-[#F1F5F9] antialiased selection:bg-[#7C3AED]/25 selection:text-[#C4B5FD]">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

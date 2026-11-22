@@ -13,9 +13,9 @@ export default defineConfig(() => {
         strategies: 'injectManifest',
         srcDir: 'src',
         filename: 'sw.ts',
-        registerType: 'prompt',
+        registerType: 'autoUpdate',
         includeAssets: [
-          'manifest.json',
+          'favicon.ico',
           'icon.svg',
           'apple-touch-icon.png',
           'pwa-192x192.png',
@@ -24,10 +24,10 @@ export default defineConfig(() => {
         ],
         manifest: {
           id: '/',
-          name: '🍀 FABRO 🍀 — Ecosistema Digital',
+          name: 'FABRO — Ecosistema Digital',
           short_name: 'FABRO',
           description:
-            'Ecosistema digital integral Offline-First con estudio, bienestar, chat PTT en segundo plano y Centro IA BYOK.',
+            'Ecosistema digital integral Offline-First con estudio, cultura, deportes, bienestar, música y Centro IA BYOK.',
           theme_color: '#0B1120',
           background_color: '#0B1120',
           display: 'standalone',
@@ -35,6 +35,7 @@ export default defineConfig(() => {
           start_url: '/',
           scope: '/',
           lang: 'es',
+          prefer_related_applications: false,
           icons: [
             {
               src: '/pwa-192x192.png',
