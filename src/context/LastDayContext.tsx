@@ -11,8 +11,15 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
-import { db, handleFirestoreError, OperationType, storage } from '../lib/firebase';
+import {
+  db,
+  handleFirestoreError,
+  localGetDownloadURL as getDownloadURL,
+  localStorageRef as storageRef,
+  localUploadBytes as uploadBytes,
+  OperationType,
+  storage,
+} from '../lib/firebase';
 import { cacheSnapshotCollection, getCachedCollection } from '../lib/offlineStore';
 import { useFabro } from './FabroContext';
 import type {

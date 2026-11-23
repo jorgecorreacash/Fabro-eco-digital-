@@ -14,10 +14,19 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { authFetch } from '../lib/apiClient';
 import { normalizeCustomFabroId } from '../lib/fabroId';
-import { auth, db, handleFirestoreError, OperationType, storage } from '../lib/firebase';
+import {
+  auth,
+  db,
+  handleFirestoreError,
+  localDeleteObject as deleteObject,
+  localGetDownloadURL as getDownloadURL,
+  localStorageRef as storageRef,
+  localUploadBytes as uploadBytes,
+  OperationType,
+  storage,
+} from '../lib/firebase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import {
   cacheOfflineNotes,

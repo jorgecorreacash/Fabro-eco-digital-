@@ -19,7 +19,6 @@ import {
   persistentMultipleTabManager,
   type Firestore,
 } from 'firebase/firestore';
-import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import firebaseConfig, { firestoreDatabaseId } from '../firebaseConfig.js';
 
 /**
@@ -71,7 +70,53 @@ if (typeof window !== 'undefined') {
 }
 
 export const auth: Auth = authInstance;
-export const storage: FirebaseStorage = getStorage(app);
+
+/**
+ * Zero-billing ($0 Spark Plan) local attachment helpers replacing Firebase Cloud Storage
+ * (which requires the paid Blaze billing plan). Keeps legacy modules compiling with 0 cloud storage cost.
+ */
+export interface LocalSparkStorageRef {
+  fullPath: string;
+  objectUrl?: string;
+}
+
+const localSparkBlobRegistry = new Map<string, string>();
+export const storage = { mode: 'local-spark-zero-cost' as const };
+
+export function localStorageRef(_storage: unknown, path: string): LocalSparkStorageRef {
+  return { fullPath: path, objectUrl: localSparkBlobRegistry.get(path) };
+}
+
+export async function localUploadBytes(
+  ref: LocalSparkStorageRef,
+  data: Blob | Uint8Array | ArrayBuffer,
+  metadata?: { contentType?: string }
+): Promise<{ ref: LocalSparkStorageRef }> {
+  const blob =
+    data instanceof Blob
+      ? data
+      : new Blob([data as BlobPart], { type: metadata?.contentType || 'application/octet-stream' });
+  const objectUrl = typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(blob) : '';
+  ref.objectUrl = objectUrl;
+  localSparkBlobRegistry.set(ref.fullPath, objectUrl);
+  return { ref };
+}
+
+export async function localGetDownloadURL(ref: LocalSparkStorageRef): Promise<string> {
+  return ref.objectUrl || localSparkBlobRegistry.get(ref.fullPath) || '';
+}
+
+export async function localDeleteObject(ref: LocalSparkStorageRef): Promise<void> {
+  const existing = localSparkBlobRegistry.get(ref.fullPath);
+  if (existing && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+    try {
+      URL.revokeObjectURL(existing);
+    } catch {
+      // ignore
+    }
+  }
+  localSparkBlobRegistry.delete(ref.fullPath);
+}
 
 // Official GoogleAuthProvider configured with account picker (no invented redirect URIs)
 export const googleProvider = new GoogleAuthProvider();

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import {
   Ban,
   Check,
@@ -30,7 +29,12 @@ import { useFabro } from '../../context/FabroContext';
 import { useLastDay } from '../../context/LastDayContext';
 import { usePlatform } from '../../context/PlatformContext';
 import { computeFabroId } from '../../lib/fabroId';
-import { storage } from '../../lib/firebase';
+import {
+  localGetDownloadURL as getDownloadURL,
+  localStorageRef as storageRef,
+  localUploadBytes as uploadBytes,
+  storage,
+} from '../../lib/firebase';
 import {
   playPttCancelBeep,
   playPttEndChirp,

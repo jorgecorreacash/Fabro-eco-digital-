@@ -13,8 +13,13 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
-import { db, storage } from '../lib/firebase';
+import {
+  db,
+  localGetDownloadURL as getDownloadURL,
+  localStorageRef as storageRef,
+  localUploadBytes as uploadBytes,
+  storage,
+} from '../lib/firebase';
 import { useFabro } from './FabroContext';
 import { useRealtimeHub, type ClassroomSyncPayload, type OnlinePeerInfo } from '../hooks/useRealtimeHub';
 import {
